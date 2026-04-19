@@ -1,0 +1,301 @@
+import type { GraphBundle } from '$lib/graph/types';
+
+export const exampleGraphBundle: GraphBundle = {
+  schema_version: '1.0.0',
+  bundle_id: 'gb_demo_japanese_001',
+  map: {
+    title: '일본어 여행 회화 6개월 Life Map',
+    goal_id: 'goal_demo_001',
+    summary: '주 5시간, 월 10만원 조건에서 여행 회화 목표를 위한 선택 지도'
+  },
+  ontology: {
+    node_types: [
+      {
+        id: 'central_goal',
+        label: '중심 목표',
+        description: '사용자의 최종 목표',
+        default_style: {
+          tone: 'lavender',
+          shape: 'rounded_card',
+          accent: 'sketch_border'
+        },
+        fields: [
+          {
+            key: 'success_criteria',
+            label: '성공 기준',
+            value_type: 'markdown',
+            required: true
+          }
+        ]
+      },
+      {
+        id: 'route_choice',
+        label: '루트 선택',
+        description: '전략적 선택지',
+        default_style: {
+          tone: 'peach',
+          shape: 'rounded_card',
+          accent: 'sketch_border'
+        },
+        fields: [
+          {
+            key: 'time_cost',
+            label: '시간 비용',
+            value_type: 'duration_range',
+            required: false
+          },
+          {
+            key: 'money_cost',
+            label: '돈 비용',
+            value_type: 'money_range',
+            required: false
+          },
+          {
+            key: 'fit_reason',
+            label: '나에게 맞는 이유',
+            value_type: 'markdown',
+            required: false
+          }
+        ]
+      },
+      {
+        id: 'risk_checkpoint',
+        label: '리스크 점검',
+        description: '실패 가능성이 높아지는 시점',
+        default_style: {
+          tone: 'rose',
+          shape: 'pill',
+          accent: 'pin'
+        },
+        fields: [
+          {
+            key: 'risk',
+            label: '리스크',
+            value_type: 'markdown',
+            required: true
+          },
+          {
+            key: 'mitigation',
+            label: '완화책',
+            value_type: 'markdown',
+            required: false
+          }
+        ]
+      },
+      {
+        id: 'switch_option',
+        label: '전환 선택지',
+        description: '중간에 경로를 바꾸는 선택지',
+        default_style: {
+          tone: 'mint',
+          shape: 'rounded_card',
+          accent: 'sketch_border'
+        },
+        fields: [
+          {
+            key: 'trigger',
+            label: '전환 조건',
+            value_type: 'markdown',
+            required: true
+          }
+        ]
+      }
+    ],
+    edge_types: [
+      {
+        id: 'progresses_to',
+        label: '진행',
+        role: 'progression',
+        default_style: {
+          line: 'curved',
+          accent: 'sketch_arrow'
+        }
+      },
+      {
+        id: 'branches_to',
+        label: '분기',
+        role: 'progression',
+        default_style: {
+          line: 'curved',
+          accent: 'sketch_arrow'
+        }
+      },
+      {
+        id: 'references',
+        label: '근거',
+        role: 'reference',
+        default_style: {
+          line: 'dotted',
+          accent: 'none'
+        }
+      }
+    ]
+  },
+  nodes: [
+    {
+      id: 'n_goal',
+      type: 'central_goal',
+      label: '일본어 여행 회화',
+      summary: '6개월 뒤 일본 여행에서 주문, 길 묻기, 간단한 대화를 목표로 한다.',
+      data: {
+        success_criteria: '여행 상황에서 기본적인 말하기와 듣기가 가능하다.'
+      },
+      scores: {
+        uncertainty: 0.4
+      },
+      evidence_refs: [],
+      assumption_refs: ['as_time'],
+      position: {
+        x: 0,
+        y: 0
+      },
+      style_overrides: {}
+    },
+    {
+      id: 'n_route_self',
+      type: 'route_choice',
+      label: '저비용 독학 루트',
+      summary: '앱과 교재로 시작하고 6주차부터 말하기를 보완한다.',
+      data: {
+        time_cost: {
+          min_hours_per_week: 4,
+          max_hours_per_week: 6
+        },
+        money_cost: {
+          min: 10000,
+          max: 80000,
+          currency: 'KRW',
+          period: 'month'
+        },
+        fit_reason: '예산을 낮게 유지하면서도 중간 전환점을 둔다.'
+      },
+      scores: {
+        time_load: 0.55,
+        money_load: 0.25,
+        energy_load: 0.45,
+        uncertainty: 0.45
+      },
+      evidence_refs: ['ev_demo_001'],
+      assumption_refs: ['as_time'],
+      position: {
+        x: -300,
+        y: 180
+      },
+      style_overrides: {}
+    },
+    {
+      id: 'n_risk_boredom',
+      type: 'risk_checkpoint',
+      label: '6~8주차 지루함',
+      summary: '문법 중심 학습만 지속하면 흥미가 떨어질 수 있다.',
+      data: {
+        risk: '흥미 하락과 말하기 부족',
+        mitigation: '짧은 회화 세션이나 콘텐츠 기반 루틴을 추가한다.'
+      },
+      scores: {
+        risk: 0.7,
+        uncertainty: 0.5
+      },
+      evidence_refs: ['ev_demo_001'],
+      assumption_refs: [],
+      position: {
+        x: -300,
+        y: 360
+      },
+      style_overrides: {}
+    },
+    {
+      id: 'n_switch_tutor',
+      type: 'switch_option',
+      label: '회화 튜터 추가',
+      summary: '혼자 공부가 지루해지거나 말하기가 부족하면 주 1회 튜터를 추가한다.',
+      data: {
+        trigger: '4주 이상 지속했지만 말하기 자신감이 낮거나 흥미가 하락할 때'
+      },
+      scores: {
+        money_load: 0.65,
+        energy_load: 0.4,
+        uncertainty: 0.35
+      },
+      evidence_refs: [],
+      assumption_refs: ['as_budget'],
+      position: {
+        x: -300,
+        y: 540
+      },
+      style_overrides: {}
+    },
+    {
+      id: 'n_unknown_fallback',
+      type: 'habit_loop',
+      label: '주말 회화 루틴',
+      summary: '아직 ontology에 정의되지 않은 실험용 노드도 graceful fallback으로 보여야 한다.',
+      data: {
+        cadence: '토요일 오전 30분 말하기 연습'
+      },
+      scores: {
+        uncertainty: 0.62
+      },
+      evidence_refs: [],
+      assumption_refs: ['as_time'],
+      position: {
+        x: 50,
+        y: 420
+      },
+      style_overrides: {}
+    }
+  ],
+  edges: [
+    {
+      id: 'e_goal_self',
+      type: 'branches_to',
+      source: 'n_goal',
+      target: 'n_route_self',
+      label: '예산 우선'
+    },
+    {
+      id: 'e_self_risk',
+      type: 'progresses_to',
+      source: 'n_route_self',
+      target: 'n_risk_boredom',
+      label: '6주 후 점검'
+    },
+    {
+      id: 'e_risk_switch',
+      type: 'progresses_to',
+      source: 'n_risk_boredom',
+      target: 'n_switch_tutor',
+      label: '흥미 하락 시'
+    },
+    {
+      id: 'e_goal_unknown',
+      type: 'progresses_to',
+      source: 'n_goal',
+      target: 'n_unknown_fallback',
+      label: '실험 루틴'
+    }
+  ],
+  evidence: [
+    {
+      id: 'ev_demo_001',
+      source_id: 'src_demo_note_001',
+      title: '사용자 저장 학습 후기 요약',
+      quote_or_summary: '언어 학습 경험담에서 초반 문법 반복만으로는 흥미가 떨어질 수 있다는 메모.',
+      url: null,
+      reliability: 'user_saved_note'
+    }
+  ],
+  assumptions: [
+    {
+      id: 'as_time',
+      text: '사용자는 평균 주 4~6시간을 유지할 수 있다.',
+      risk_if_false: '전체 일정을 늦추거나 목표 범위를 줄여야 한다.'
+    },
+    {
+      id: 'as_budget',
+      text: '월 10만원 범위 안에서 일부 회화 보완 수단을 선택할 수 있다.',
+      risk_if_false: '무료 언어교환 또는 스터디로 대체한다.'
+    }
+  ],
+  warnings: ['이 지도는 예측이 아니라 시나리오 비교 도구입니다.']
+};

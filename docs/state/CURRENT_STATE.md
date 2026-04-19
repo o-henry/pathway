@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 1 backend domain and persistence is complete.
+Phase 2 static Life Map UI is complete.
 
 ## Last completed phase
 
-Phase 1 — Backend Domain and Persistence.
+Phase 2 — Static Life Map UI.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 1 — Backend Domain and Persistence.
 
 ## Next task
 
-Execute `docs/phases/phase-02-static-life-map-ui.md`.
+Execute `docs/phases/phase-03-dynamic-graph-schema-validation.md`.
 
 ## Commands run
 
@@ -37,14 +37,17 @@ Execute `docs/phases/phase-02-static-life-map-ui.md`.
 - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api`
 - `UV_CACHE_DIR=.uv-cache pnpm test`
 - `pnpm typecheck`
+- `pnpm --filter web add @xyflow/svelte elkjs roughjs`
+- `pnpm --filter web build`
 
 ## Known gaps
 
-- No dynamic graph rendering yet.
-- No dynamic GraphBundle validation yet.
+- No GraphBundle schema validation yet.
+- No LLM graph generation yet.
 - No RAG or ingestion pipeline yet.
 - Playwright browsers were not downloaded or executed.
 - The backend stores graph snapshots as raw JSON; graph-schema enforcement is deferred to Phase 3.
+- The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
 
 ## Changed files
 
@@ -57,7 +60,13 @@ Execute `docs/phases/phase-02-static-life-map-ui.md`.
   - `apps/api/lifemap_api/main.py`
   - `apps/api/tests/*`
 - Frontend bootstrap alignment: `apps/web/package.json`, `apps/web/playwright.config.ts`, `apps/web/src/routes/+page.svelte`, `apps/web/src/lib/components/LandingHero.svelte`, `apps/web/src/lib/components/LandingHero.svelte.test.ts`
+- Frontend static Life Map UI:
+  - `apps/web/src/lib/components/lifemap/*`
+  - `apps/web/src/lib/graph/*`
+  - `apps/web/src/lib/fixtures/exampleGraphBundle.ts`
+  - `apps/web/src/routes/+page.svelte`
 - Planning state:
   - `docs/state/EXECPLAN_PHASE_00.md`
   - `docs/state/EXECPLAN_PHASE_01.md`
+  - `docs/state/EXECPLAN_PHASE_02.md`
   - `docs/state/CURRENT_STATE.md`

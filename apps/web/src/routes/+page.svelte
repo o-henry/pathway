@@ -1,5 +1,6 @@
 <script lang="ts">
   import LandingHero from '$lib/components/LandingHero.svelte';
+  import StaticLifeMap from '$lib/components/lifemap/StaticLifeMap.svelte';
 
   const roadmap = [
     {
@@ -27,6 +28,7 @@
 
 <div class="page">
   <LandingHero />
+  <StaticLifeMap />
 
   <section class="roadmap">
     <div class="section-header">
