@@ -11,11 +11,11 @@
   const roadmap = [
     {
       title: 'Dynamic graph ontology',
-      body: '목표마다 다른 노드 타입을 갖는 GraphBundle을 이후 phase에서 연결합니다.'
+      body: '목표마다 다른 노드 타입을 갖는 GraphBundle 기반 구조가 이미 적용되어 있습니다.'
     },
     {
       title: 'Evidence-aware generation',
-      body: '사용자 노트와 허용된 소스에서 가져온 근거를 RAG로 붙여서 지도에 반영합니다.'
+      body: '사용자 노트와 허용된 소스에서 가져온 근거를 RAG로 붙여서 지도 생성에 실제로 반영합니다.'
     },
     {
       title: 'Check-in driven revisions',

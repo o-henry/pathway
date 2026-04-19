@@ -97,10 +97,10 @@
 <section class="generate-panel">
   <div class="header">
     <div>
-      <p class="eyebrow">Phase 4</p>
-      <h2>LLM graph generation</h2>
+      <p class="eyebrow">Phase 6</p>
+      <h2>Grounded graph generation</h2>
       <p class="copy">
-        기본 프로필과 목표를 만든 뒤, 동적 ontology를 가진 새 Life Map을 생성합니다.
+        기본 프로필과 목표를 만든 뒤, 저장된 source library를 근거로 삼아 동적 ontology를 가진 새 Life Map을 생성합니다.
       </p>
     </div>
     <button type="button" class="generate-button" onclick={handleGenerate} disabled={isSubmitting}>
@@ -154,6 +154,8 @@
         <span>{generatedMap.graph_bundle.nodes.length} nodes</span>
         <span>{generatedMap.graph_bundle.edges.length} edges</span>
         <span>{generatedMap.graph_bundle.ontology.node_types.length} node types</span>
+        <span>{generatedMap.graph_bundle.evidence.length} evidence refs</span>
+        <span>{generatedMap.graph_bundle.assumptions.length} assumptions</span>
       </div>
     </div>
   {/if}

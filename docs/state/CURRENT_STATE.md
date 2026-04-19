@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 5 source library and local retrieval is complete.
+Phase 6 RAG-grounded map generation is complete.
 
 ## Last completed phase
 
-Phase 5 — Source Library and Local RAG.
+Phase 6 — RAG-Grounded Map Generation.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 5 — Source Library and Local RAG.
 
 ## Next task
 
-Execute `docs/phases/phase-06-rag-grounded-generation.md`.
+Execute `docs/phases/phase-07-checkins-revisions.md`.
 
 ## Commands run
 
@@ -43,15 +43,19 @@ Execute `docs/phases/phase-06-rag-grounded-generation.md`.
 - `UV_CACHE_DIR=.uv-cache uv sync`
 - `pnpm --filter web build`
 - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_library.py`
+- `uv run pytest`
+- `uv run ruff check apps/api`
+- `UV_CACHE_DIR=.uv-cache pnpm lint`
+- `pnpm typecheck`
+- `pnpm --filter web build`
 
 ## Known gaps
 
-- No RAG-grounded graph generation yet.
 - No remote URL content fetcher yet.
 - Playwright browsers were not downloaded or executed.
 - The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
-- Semantic provenance checks for “claim must have evidence or assumption” are not yet modeled beyond structural refs.
+- Semantic provenance checks for every individual claim are still lighter than full claim extraction; grounding currently validates evidence refs and canonical evidence packets.
 - The generation panel is currently a landing-page bootstrap flow, not a full workspace.
 - Production deployment/runtime adapter for SvelteKit is still undecided.
 
@@ -85,6 +89,11 @@ Execute `docs/phases/phase-06-rag-grounded-generation.md`.
   - `apps/api/lifemap_api/infrastructure/embeddings.py`
   - `apps/api/lifemap_api/infrastructure/vector_store.py`
   - `apps/api/tests/test_source_library.py`
+- Backend grounded generation:
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/api/routes_goals.py`
+  - `apps/api/tests/test_map_generation.py`
 - Frontend generation bootstrap:
   - `apps/web/src/lib/components/GenerateMapPanel.svelte`
   - `apps/web/src/lib/components/SourceLibraryPanel.svelte`
@@ -97,4 +106,5 @@ Execute `docs/phases/phase-06-rag-grounded-generation.md`.
   - `docs/state/EXECPLAN_PHASE_03.md`
   - `docs/state/EXECPLAN_PHASE_04.md`
   - `docs/state/EXECPLAN_PHASE_05.md`
+  - `docs/state/EXECPLAN_PHASE_06.md`
   - `docs/state/CURRENT_STATE.md`

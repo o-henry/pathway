@@ -14,6 +14,13 @@ class Settings(BaseSettings):
         default=60.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
     )
     llm_max_repair_attempts: int = Field(default=2, alias="LIFEMAP_LLM_MAX_REPAIR_ATTEMPTS")
+    generation_query_limit: int = Field(default=4, alias="LIFEMAP_GENERATION_QUERY_LIMIT")
+    generation_hits_per_query: int = Field(
+        default=4, alias="LIFEMAP_GENERATION_HITS_PER_QUERY"
+    )
+    generation_evidence_limit: int = Field(
+        default=6, alias="LIFEMAP_GENERATION_EVIDENCE_LIMIT"
+    )
     lancedb_uri: str = Field(default="./data/lancedb", alias="LIFEMAP_LANCEDB_URI")
     source_chunk_target_tokens: int = Field(default=700, alias="SOURCE_CHUNK_TARGET_TOKENS")
     source_chunk_overlap_tokens: int = Field(default=120, alias="SOURCE_CHUNK_OVERLAP_TOKENS")

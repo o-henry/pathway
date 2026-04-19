@@ -6,13 +6,21 @@ from textwrap import dedent
 from pydantic import ValidationError
 
 from lifemap_api.application.errors import EntityNotFoundError, GenerationFailedError
+from lifemap_api.application.generation_grounding import (
+    GroundingPacket,
+    build_grounding_packet,
+    serialize_grounding_packet,
+    validate_bundle_grounding,
+)
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
 from lifemap_api.domain.models import Goal, LifeMap, LifeMapCreate, Profile
 from lifemap_api.domain.ports import (
+    EmbeddingProvider,
     GoalRepository,
     LifeMapRepository,
     LLMProvider,
     ProfileRepository,
+    SourceSearchIndex,
 )
 
 SCHEMA_NAME = "life_map_graph_bundle"
@@ -43,6 +51,9 @@ def _build_system_prompt() -> str:
         - Use a dynamic ontology. Do not assume a fixed node taxonomy.
         - Invent node types and edge types only when they are useful for this goal.
         - Keep the graph grounded in the goal, profile constraints, and explicit assumptions.
+        - Use retrieved evidence only through the evidence IDs provided in the grounding packet.
+        - Never invent evidence IDs, source titles, or quotes.
+        - If a claim is not supported by the grounding packet, express it as an assumption instead.
         - Do not use generic filler nodes or empty placeholder text.
         - Prefer 4 to 9 nodes and 3 to 12 edges for this phase.
         - At least one assumption is required whenever profile information is missing or uncertain.
@@ -50,11 +61,17 @@ def _build_system_prompt() -> str:
         - Make the copy human, crisp, and slightly witty when appropriate,
           but never jokey enough to reduce clarity.
         - Keep field values compact and readable for a mind-map UI.
+        - Include only the evidence items actually referenced by at least one node.
         """
     ).strip()
 
 
-def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str:
+def _build_user_prompt(
+    goal: Goal,
+    profile: Profile | None,
+    schema: dict,
+    grounding_packet: GroundingPacket,
+) -> str:
     return dedent(
         f"""
         Generate one graph bundle for this goal.
@@ -65,6 +82,9 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         Default profile:
         {_serialize_profile(profile)}
 
+        Retrieved evidence packet:
+        {serialize_grounding_packet(grounding_packet)}
+
         JSON Schema:
         {json.dumps(schema, ensure_ascii=False, indent=2)}
 
@@ -73,13 +93,20 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         - The ontology must be useful for this specific goal instead of generic.
         - Include warnings that remind the user this is a scenario map and may need revision.
         - Use assumptions when information is missing.
+        - If evidence exists, connect it to specific nodes with `evidence_refs`.
+        - If evidence does not exist for a claim, do not disguise it as evidence.
         - Use node summaries that explain tradeoffs, not just labels.
         - Keep scores within 0 and 1.
         """
     ).strip()
 
 
-def _build_repair_prompt(raw_output: str, error_message: str, goal_id: str) -> str:
+def _build_repair_prompt(
+    raw_output: str,
+    error_message: str,
+    goal_id: str,
+    grounding_packet: GroundingPacket,
+) -> str:
     return dedent(
         f"""
         Repair the previous JSON so it validates.
@@ -92,6 +119,9 @@ def _build_repair_prompt(raw_output: str, error_message: str, goal_id: str) -> s
         - Preserve as much useful structure as possible.
         - `map.goal_id` must equal `{goal_id}`.
         - Fix the schema and graph validation issues completely.
+        - You may only use evidence ids from this packet:
+          {", ".join(item.id for item in grounding_packet.evidence_items) or "(none)"}
+        - Unsupported claims must move into assumptions, not invented evidence.
 
         Previous JSON:
         {raw_output}
@@ -107,23 +137,45 @@ def _normalize_bundle(bundle: GraphBundle, goal: Goal) -> GraphBundle:
     )
 
 
-def _validate_candidate(raw_output: str, goal: Goal) -> GraphBundle:
+def _validate_candidate(
+    raw_output: str,
+    goal: Goal,
+    grounding_packet: GroundingPacket,
+) -> GraphBundle:
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = _normalize_bundle(candidate, goal)
-    return validate_graph_bundle(normalized)
+    validated = validate_graph_bundle(normalized)
+    return validate_bundle_grounding(validated, grounding_packet)
 
 
 def _attempt_generation(
     *,
     provider: LLMProvider,
+    embedding_provider: EmbeddingProvider,
+    search_index: SourceSearchIndex,
     goal: Goal,
     profile: Profile | None,
+    query_limit: int,
+    hits_per_query: int,
+    evidence_limit: int,
     max_repair_attempts: int,
 ) -> GraphBundle:
     schema = GraphBundle.model_json_schema()
+    grounding_packet = build_grounding_packet(
+        goal=goal,
+        profile=profile,
+        embedding_provider=embedding_provider,
+        search_index=search_index,
+        query_limit=query_limit,
+        hits_per_query=hits_per_query,
+        evidence_limit=evidence_limit,
+    )
     messages: list[dict[str, str]] = [
         {"role": "system", "content": _build_system_prompt()},
-        {"role": "user", "content": _build_user_prompt(goal, profile, schema)},
+        {
+            "role": "user",
+            "content": _build_user_prompt(goal, profile, schema, grounding_packet),
+        },
     ]
     last_error = "Unknown generation failure"
 
@@ -135,18 +187,26 @@ def _attempt_generation(
         )
 
         try:
-            return _validate_candidate(raw_output, goal)
+            return _validate_candidate(raw_output, goal, grounding_packet)
         except (ValidationError, ValueError) as exc:
             last_error = str(exc)
             if attempt_index >= max_repair_attempts:
                 break
             messages = [
                 {"role": "system", "content": _build_system_prompt()},
-                {"role": "user", "content": _build_user_prompt(goal, profile, schema)},
+                {
+                    "role": "user",
+                    "content": _build_user_prompt(goal, profile, schema, grounding_packet),
+                },
                 {"role": "assistant", "content": raw_output},
                 {
                     "role": "user",
-                    "content": _build_repair_prompt(raw_output, last_error, goal.id),
+                    "content": _build_repair_prompt(
+                        raw_output,
+                        last_error,
+                        goal.id,
+                        grounding_packet,
+                    ),
                 },
             ]
 
@@ -170,6 +230,11 @@ def generate_map_for_goal(
     profile_repo: ProfileRepository,
     map_repo: LifeMapRepository,
     llm_provider: LLMProvider,
+    embedding_provider: EmbeddingProvider,
+    search_index: SourceSearchIndex,
+    query_limit: int,
+    hits_per_query: int,
+    evidence_limit: int,
     max_repair_attempts: int,
 ) -> LifeMap:
     goal = goal_repo.get(goal_id)
@@ -179,8 +244,13 @@ def generate_map_for_goal(
     profile = profile_repo.get_default()
     graph_bundle = _attempt_generation(
         provider=llm_provider,
+        embedding_provider=embedding_provider,
+        search_index=search_index,
         goal=goal,
         profile=profile,
+        query_limit=query_limit,
+        hits_per_query=hits_per_query,
+        evidence_limit=evidence_limit,
         max_repair_attempts=max_repair_attempts,
     )
 
