@@ -51,6 +51,9 @@ export interface GraphNodeRecord {
   assumption_refs: string[];
   position?: { x: number; y: number };
   style_overrides?: Record<string, unknown>;
+  status?: string;
+  created_from?: string;
+  revision_meta?: Record<string, unknown>;
 }
 
 export interface GraphEdgeRecord {
@@ -60,6 +63,8 @@ export interface GraphEdgeRecord {
   target: string;
   label?: string;
   condition?: string;
+  weight?: number;
+  style_overrides?: Record<string, unknown>;
 }
 
 export interface EvidenceItem {

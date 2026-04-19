@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lifemap_api.domain.graph_bundle import GraphBundle
+
 GoalStatus = Literal["draft", "active", "paused", "completed", "archived"]
 SourcePolicyState = Literal[
     "manual_note",
@@ -77,14 +79,14 @@ class Goal(GoalBase):
 class LifeMapCreate(DomainModel):
     goal_id: str
     title: str = Field(min_length=1, max_length=200)
-    graph_bundle: dict[str, Any] = Field(default_factory=dict)
+    graph_bundle: GraphBundle
 
 
 class LifeMap(DomainModel):
     id: str
     goal_id: str
     title: str
-    graph_bundle: dict[str, Any]
+    graph_bundle: GraphBundle
     created_at: datetime
     updated_at: datetime
 

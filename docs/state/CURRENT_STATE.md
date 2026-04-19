@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 2 static Life Map UI is complete.
+Phase 3 dynamic graph schema validation is complete.
 
 ## Last completed phase
 
-Phase 2 — Static Life Map UI.
+Phase 3 — Dynamic Graph Schema and Validation.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 2 — Static Life Map UI.
 
 ## Next task
 
-Execute `docs/phases/phase-03-dynamic-graph-schema-validation.md`.
+Execute `docs/phases/phase-04-llm-generation-no-rag.md`.
 
 ## Commands run
 
@@ -39,15 +39,16 @@ Execute `docs/phases/phase-03-dynamic-graph-schema-validation.md`.
 - `pnpm typecheck`
 - `pnpm --filter web add @xyflow/svelte elkjs roughjs`
 - `pnpm --filter web build`
+- `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_bundle_validation.py apps/api/tests/test_api_crud.py apps/api/tests/test_repositories.py`
 
 ## Known gaps
 
-- No GraphBundle schema validation yet.
 - No LLM graph generation yet.
 - No RAG or ingestion pipeline yet.
 - Playwright browsers were not downloaded or executed.
-- The backend stores graph snapshots as raw JSON; graph-schema enforcement is deferred to Phase 3.
 - The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
+- Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
+- Semantic provenance checks for “claim must have evidence or assumption” are not yet modeled beyond structural refs.
 
 ## Changed files
 
@@ -65,8 +66,13 @@ Execute `docs/phases/phase-03-dynamic-graph-schema-validation.md`.
   - `apps/web/src/lib/graph/*`
   - `apps/web/src/lib/fixtures/exampleGraphBundle.ts`
   - `apps/web/src/routes/+page.svelte`
+- Backend graph validation:
+  - `apps/api/lifemap_api/domain/graph_bundle.py`
+  - `apps/api/tests/graph_bundle_fixture.py`
+  - `apps/api/tests/test_graph_bundle_validation.py`
 - Planning state:
   - `docs/state/EXECPLAN_PHASE_00.md`
   - `docs/state/EXECPLAN_PHASE_01.md`
   - `docs/state/EXECPLAN_PHASE_02.md`
+  - `docs/state/EXECPLAN_PHASE_03.md`
   - `docs/state/CURRENT_STATE.md`

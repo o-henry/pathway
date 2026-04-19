@@ -200,7 +200,7 @@ class SqliteLifeMapRepository:
             id=f"map_{uuid4().hex}",
             goal_id=payload.goal_id,
             title=payload.title,
-            graph_bundle_json=payload.graph_bundle,
+            graph_bundle_json=payload.graph_bundle.model_dump(mode="json"),
             created_at=now,
             updated_at=now,
         )

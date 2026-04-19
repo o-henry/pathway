@@ -7,6 +7,8 @@ from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
 from lifemap_api.main import create_app
 
+from .graph_bundle_fixture import clone_bundle
+
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
@@ -54,7 +56,7 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
         json={
             "goal_id": goal_id,
             "title": "Initial graph snapshot",
-            "graph_bundle": {"nodes": [{"id": "goal"}], "edges": []},
+            "graph_bundle": clone_bundle(),
         },
     )
     assert map_response.status_code == 201
@@ -96,3 +98,33 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
 
     delete_response = client.delete(f"/goals/{goal_id}")
     assert delete_response.status_code == 204
+
+
+def test_invalid_graph_bundle_is_rejected_at_api_boundary(client: TestClient) -> None:
+    goal_response = client.post(
+        "/goals",
+        json={
+            "profile_id": "default",
+            "title": "Learn Japanese",
+            "description": "Conversation route",
+            "category": "language",
+            "success_criteria": "Navigate a trip confidently",
+            "status": "active",
+        },
+    )
+    goal_id = goal_response.json()["id"]
+
+    invalid_bundle = clone_bundle()
+    invalid_bundle["edges"][0]["target"] = "missing_node"
+
+    response = client.post(
+        "/maps",
+        json={
+            "goal_id": goal_id,
+            "title": "Broken graph snapshot",
+            "graph_bundle": invalid_bundle,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "missing target node" in str(response.json())
