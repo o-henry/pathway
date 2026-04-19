@@ -33,6 +33,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+apps/web/.playwright-browsers/
 
 # OS/editor
 .DS_Store

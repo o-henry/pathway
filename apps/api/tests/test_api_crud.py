@@ -135,3 +135,67 @@ def test_invalid_graph_bundle_is_rejected_at_api_boundary(client: TestClient) ->
 
     assert response.status_code == 422
     assert "missing target node" in str(response.json())
+
+
+def test_map_can_be_exported_as_json_and_markdown_and_reimported(client: TestClient) -> None:
+    client.put(
+        "/profiles/default",
+        json={
+            "display_name": "Henry",
+            "weekly_free_hours": 5,
+            "monthly_budget_amount": 100000,
+            "monthly_budget_currency": "KRW",
+            "preference_tags": ["solo", "reflective"],
+        },
+    )
+
+    goal_response = client.post(
+        "/goals",
+        json={
+            "profile_id": "default",
+            "title": "Learn Japanese",
+            "description": "Conversation route",
+            "category": "language",
+            "success_criteria": "Navigate a trip confidently",
+            "status": "active",
+        },
+    )
+    goal_id = goal_response.json()["id"]
+
+    bundle = clone_bundle()
+    bundle["map"]["goal_id"] = goal_id
+    bundle["map"]["summary"] = "Original export fixture."
+
+    map_response = client.post(
+        "/maps",
+        json={
+            "goal_id": goal_id,
+            "title": "Exportable graph snapshot",
+            "graph_bundle": bundle,
+        },
+    )
+    assert map_response.status_code == 201
+    map_id = map_response.json()["id"]
+
+    json_export_response = client.get(f"/maps/{map_id}/export/json")
+    assert json_export_response.status_code == 200
+    exported_payload = json_export_response.json()
+    assert exported_payload["goal"]["id"] == goal_id
+    assert exported_payload["map"]["id"] == map_id
+    assert exported_payload["profile"]["id"] == "default"
+
+    markdown_export_response = client.get(f"/maps/{map_id}/export/markdown")
+    assert markdown_export_response.status_code == 200
+    assert markdown_export_response.headers["content-type"].startswith("text/markdown")
+    markdown = markdown_export_response.text
+    assert "# Exportable graph snapshot" in markdown
+    assert "## Nodes" in markdown
+    assert "## Evidence" in markdown
+
+    imported_response = client.post("/maps/import", json=exported_payload)
+    assert imported_response.status_code == 201
+    imported_map = imported_response.json()
+    assert imported_map["id"] != map_id
+    assert imported_map["goal_id"] == goal_id
+    assert imported_map["graph_bundle"]["map"]["goal_id"] == goal_id
+    assert imported_map["graph_bundle"]["nodes"][0]["label"] == bundle["nodes"][0]["label"]

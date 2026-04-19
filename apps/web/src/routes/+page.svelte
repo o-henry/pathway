@@ -1,15 +1,51 @@
 <script lang="ts">
-  import type { GeneratedMapResponse } from '$lib/api/types';
-  import CheckInRevisionPanel from '$lib/components/CheckInRevisionPanel.svelte';
+  import { onMount } from 'svelte';
+  import type { Component } from 'svelte';
+
+  import type { GeneratedMapResponse } from '$lib/api/client';
   import GenerateMapPanel from '$lib/components/GenerateMapPanel.svelte';
   import LandingHero from '$lib/components/LandingHero.svelte';
-  import SourceLibraryPanel from '$lib/components/SourceLibraryPanel.svelte';
-  import StaticLifeMap from '$lib/components/lifemap/StaticLifeMap.svelte';
+  import WorkspaceDataPanel from '$lib/components/WorkspaceDataPanel.svelte';
   import { exampleGraphBundle } from '$lib/fixtures/exampleGraphBundle';
   import type { GraphBundle } from '$lib/graph/types';
 
   let activeBundle = $state<GraphBundle>(exampleGraphBundle);
   let currentMap = $state<GeneratedMapResponse | null>(null);
+  let StaticLifeMapComponent = $state<Component<{ bundle: GraphBundle }> | null>(null);
+  let SourceLibraryPanelComponent = $state<Component | null>(null);
+  let CheckInRevisionPanelComponent = $state<
+    Component<{
+      currentMap: GeneratedMapResponse | null;
+      onAccepted?: (map: GeneratedMapResponse) => void;
+    }> | null
+  >(null);
+
+  function handleGeneratedMap(map: GeneratedMapResponse) {
+    currentMap = map;
+    activeBundle = map.graph_bundle;
+  }
+
+  function handleImportedMap(map: GeneratedMapResponse) {
+    currentMap = map;
+    activeBundle = map.graph_bundle;
+  }
+
+  function handleAcceptedMap(map: GeneratedMapResponse) {
+    currentMap = map;
+    activeBundle = map.graph_bundle;
+  }
+
+  onMount(async () => {
+    const [lifeMapModule, sourceModule, revisionModule] = await Promise.all([
+      import('$lib/components/lifemap/StaticLifeMap.svelte'),
+      import('$lib/components/SourceLibraryPanel.svelte'),
+      import('$lib/components/CheckInRevisionPanel.svelte')
+    ]);
+
+    StaticLifeMapComponent = lifeMapModule.default;
+    SourceLibraryPanelComponent = sourceModule.default;
+    CheckInRevisionPanelComponent = revisionModule.default;
+  });
 
   const roadmap = [
     {
@@ -26,7 +62,7 @@
     },
     {
       title: 'Quality + export packaging',
-      body: '다음 단계에서는 export/import, workspace polish, packaging, chunk split 정리를 진행합니다.'
+      body: 'export/import, workspace polish, packaging, chunk split 정리를 적용해 개인용 로컬 툴로 오래 쓸 수 있게 마무리합니다.'
     }
   ];
 </script>
@@ -41,21 +77,26 @@
 
 <div class="page">
   <LandingHero />
-  <GenerateMapPanel
-    onGenerated={(map) => {
-      currentMap = map;
-      activeBundle = map.graph_bundle;
-    }}
-  />
-  <SourceLibraryPanel />
-  <CheckInRevisionPanel
-    {currentMap}
-    onAccepted={(map) => {
-      currentMap = map;
-      activeBundle = map.graph_bundle;
-    }}
-  />
-  <StaticLifeMap bundle={activeBundle} />
+  <GenerateMapPanel onGenerated={handleGeneratedMap} />
+  <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
+
+  {#if SourceLibraryPanelComponent}
+    <SourceLibraryPanelComponent />
+  {/if}
+
+  {#if CheckInRevisionPanelComponent}
+    <CheckInRevisionPanelComponent {currentMap} onAccepted={handleAcceptedMap} />
+  {/if}
+
+  {#if StaticLifeMapComponent}
+    <StaticLifeMapComponent bundle={activeBundle} />
+  {:else}
+    <section class="loading-card">
+      <p class="eyebrow">Workspace</p>
+      <h2>Interactive graph workspace를 불러오는 중입니다</h2>
+      <p>그래프 엔진과 revision panel을 분리 로딩해서 초반 번들을 가볍게 유지합니다.</p>
+    </section>
+  {/if}
 
   <section class="roadmap">
     <div class="section-header">
@@ -98,7 +139,8 @@
     gap: 1.5rem;
   }
 
-  .section-header {
+  .section-header,
+  .loading-card {
     display: grid;
     gap: 0.65rem;
   }
@@ -127,7 +169,8 @@
     gap: 1rem;
   }
 
-  article {
+  article,
+  .loading-card {
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.68);
     box-shadow: 0 10px 28px rgba(106, 72, 86, 0.07);
@@ -139,7 +182,8 @@
     font-size: 1.05rem;
   }
 
-  article p {
+  article p,
+  .loading-card p {
     color: #554651;
     line-height: 1.6;
   }

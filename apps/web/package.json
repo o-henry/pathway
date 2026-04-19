@@ -13,7 +13,8 @@
 		"lint": "eslint .",
 		"test:unit": "vitest",
 		"test": "pnpm test:unit -- --run && pnpm test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"playwright:install": "PLAYWRIGHT_BROWSERS_PATH=apps/web/.playwright-browsers playwright install chromium"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",

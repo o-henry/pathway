@@ -92,6 +92,22 @@ class LifeMap(DomainModel):
     updated_at: datetime
 
 
+class MapExportEnvelope(DomainModel):
+    format_version: str = Field(default="1.0.0", min_length=1, max_length=20)
+    exported_at: datetime
+    profile: Profile | None = None
+    goal: Goal
+    map: LifeMap
+
+
+class MapImportEnvelope(DomainModel):
+    format_version: str = Field(default="1.0.0", min_length=1, max_length=20)
+    exported_at: datetime | None = None
+    profile: Profile | None = None
+    goal: Goal
+    map: LifeMap
+
+
 class SourceDocumentCreate(DomainModel):
     title: str = Field(min_length=1, max_length=200)
     content_text: str = Field(min_length=1)

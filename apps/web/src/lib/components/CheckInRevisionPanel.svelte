@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { getApiBaseUrl, readJson } from '$lib/api/client';
   import type {
     CheckInResponse,
     GeneratedMapResponse,
     RevisionProposalResponse
-  } from '$lib/api/types';
+  } from '$lib/api/client';
 
   let {
     currentMap,
@@ -13,8 +14,7 @@
     onAccepted?: (map: GeneratedMapResponse) => void;
   } = $props();
 
-  const apiBaseUrl =
-    (import.meta.env.PUBLIC_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
+  const apiBaseUrl = getApiBaseUrl();
 
   let progressSummary = $state('히라가나는 안정적이지만 문법 진입에서 흥미가 떨어지기 시작했다.');
   let blockers = $state('평일 저녁엔 피곤해서 길게 공부하기 어렵다.');
@@ -29,19 +29,6 @@
   let isRejecting = $state(false);
   let checkins = $state<CheckInResponse[]>([]);
   let proposal = $state<RevisionProposalResponse | null>(null);
-
-  async function readJson<T>(response: Response): Promise<T> {
-    const text = await response.text();
-    const payload = text ? JSON.parse(text) : null;
-
-    if (!response.ok) {
-      const detail =
-        typeof payload?.detail === 'string' ? payload.detail : `Request failed (${response.status})`;
-      throw new Error(detail);
-    }
-
-    return payload as T;
-  }
 
   async function refreshCheckins(goalId: string) {
     checkins = await readJson<CheckInResponse[]>(await fetch(`${apiBaseUrl}/goals/${goalId}/checkins`));

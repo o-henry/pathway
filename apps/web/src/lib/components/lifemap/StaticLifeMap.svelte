@@ -87,6 +87,17 @@
   function handleEdgeHover(edgeId: string | null) {
     syncEdgeState(edgeId);
   }
+
+  function selectNodeById(nodeId: string) {
+    const node = bundle.nodes.find((item) => item.id === nodeId);
+    if (!node) {
+      return;
+    }
+
+    selectedNodeId = nodeId;
+    selectedNode = node;
+    syncEdgeState();
+  }
 </script>
 
 <div class="workspace">
@@ -138,6 +149,26 @@
         </Panel>
       </SvelteFlow>
     </div>
+
+    <section class="node-browser" aria-labelledby="node-browser-title">
+      <div class="node-browser-header">
+        <h3 id="node-browser-title">Keyboard node browser</h3>
+        <p>그래프를 마우스로 탐색하지 않아도, 탭 이동으로 노드를 선택하고 상세 패널을 열 수 있습니다.</p>
+      </div>
+
+      <div class="node-button-grid">
+        {#each bundle.nodes as node (node.id)}
+          <button
+            type="button"
+            class:selected={selectedNodeId === node.id}
+            onclick={() => selectNodeById(node.id)}
+          >
+            <strong>{node.label}</strong>
+            <span>{node.type}</span>
+          </button>
+        {/each}
+      </div>
+    </section>
 
     <section class="warning-strip">
       {#each bundle.warnings as warning (warning)}
@@ -226,6 +257,63 @@
   .warning-strip {
     display: grid;
     gap: 0.8rem;
+  }
+
+  .node-browser {
+    display: grid;
+    gap: 0.8rem;
+    border-radius: 24px;
+    background: rgba(255, 251, 245, 0.88);
+    padding: 1rem;
+  }
+
+  .node-browser-header {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .node-browser-header h3 {
+    font-size: 1rem;
+  }
+
+  .node-browser-header p {
+    color: #5a4a55;
+    line-height: 1.5;
+  }
+
+  .node-button-grid {
+    display: grid;
+    gap: 0.7rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .node-button-grid button {
+    display: grid;
+    gap: 0.25rem;
+    align-content: start;
+    border: 1px solid rgba(94, 78, 92, 0.14);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.86);
+    color: #2f2330;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.9rem;
+    text-align: left;
+  }
+
+  .node-button-grid button.selected {
+    border-color: rgba(110, 77, 91, 0.5);
+    box-shadow: 0 0 0 3px rgba(110, 77, 91, 0.1);
+  }
+
+  .node-button-grid button strong {
+    font-size: 0.95rem;
+  }
+
+  .node-button-grid button span {
+    color: #6f5b67;
+    font-size: 0.78rem;
+    text-transform: uppercase;
   }
 
   .warning-strip article {

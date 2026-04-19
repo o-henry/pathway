@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { GeneratedMapResponse } from '$lib/api/types';
+  import { getApiBaseUrl, readJson, type GeneratedMapResponse } from '$lib/api/client';
 
   let { onGenerated }: { onGenerated?: (map: GeneratedMapResponse) => void } = $props();
 
-  const apiBaseUrl =
-    (import.meta.env.PUBLIC_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
+  const apiBaseUrl = getApiBaseUrl();
 
   let displayName = $state('Henry');
   let weeklyFreeHours = $state('5');
@@ -15,19 +14,6 @@
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let generatedMap = $state<GeneratedMapResponse | null>(null);
-
-  async function readJson<T>(response: Response): Promise<T> {
-    const text = await response.text();
-    const payload = text ? JSON.parse(text) : null;
-
-    if (!response.ok) {
-      const detail =
-        typeof payload?.detail === 'string' ? payload.detail : `Request failed (${response.status})`;
-      throw new Error(detail);
-    }
-
-    return payload as T;
-  }
 
   async function handleGenerate() {
     isSubmitting = true;

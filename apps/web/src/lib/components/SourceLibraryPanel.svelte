@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { getApiBaseUrl, readJson } from '$lib/api/client';
+
   interface SourceDocumentResponse {
     id: string;
     title: string;
@@ -27,8 +29,7 @@
     domain: string | null;
   }
 
-  const apiBaseUrl =
-    (import.meta.env.PUBLIC_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
+  const apiBaseUrl = getApiBaseUrl();
 
   let sourceTitle = $state('일본어 루틴 메모');
   let sourceBody = $state(
@@ -44,17 +45,6 @@
   let isSaving = $state(false);
   let isSearching = $state(false);
   let isPreviewing = $state(false);
-
-  async function readJson<T>(response: Response): Promise<T> {
-    const text = await response.text();
-    const payload = text ? JSON.parse(text) : null;
-    if (!response.ok) {
-      throw new Error(
-        typeof payload?.detail === 'string' ? payload.detail : `Request failed (${response.status})`
-      );
-    }
-    return payload as T;
-  }
 
   async function handleSaveSource() {
     isSaving = true;

@@ -16,9 +16,10 @@
     "test": "pnpm test:web && pnpm test:api",
     "test:web": "pnpm --filter web test:unit -- --run",
     "test:web:e2e": "pnpm --filter web test:e2e",
+    "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=apps/web/.playwright-browsers pnpm --filter web exec playwright install chromium",
     "test:api": "uv run pytest",
     "typecheck": "pnpm --filter web check",
-    "secret-scan": "uv run pre-commit run gitleaks --all-files"
+    "secret-scan": "PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
