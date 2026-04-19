@@ -13,8 +13,11 @@ from lifemap_api.domain.models import (
     LifeMapCreate,
     Profile,
     ProfileUpsert,
+    SourceChunk,
+    SourceChunkCreate,
     SourceDocument,
     SourceDocumentCreate,
+    SourceSearchHit,
 )
 
 
@@ -26,6 +29,10 @@ class LLMProvider(Protocol):
         json_schema: dict,
         schema_name: str,
     ) -> str: ...
+
+
+class EmbeddingProvider(Protocol):
+    def embed_texts(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
 class ProfileRepository(Protocol):
@@ -57,7 +64,29 @@ class SourceRepository(Protocol):
 
     def get(self, source_id: str) -> SourceDocument | None: ...
 
+    def find_by_content_hash(self, content_hash: str) -> SourceDocument | None: ...
+
     def create_manual(self, payload: SourceDocumentCreate) -> SourceDocument: ...
+
+
+class SourceChunkRepository(Protocol):
+    def list_for_source(self, source_id: str) -> list[SourceChunk]: ...
+
+    def replace_for_source(
+        self, source_id: str, payloads: Sequence[SourceChunkCreate]
+    ) -> list[SourceChunk]: ...
+
+
+class SourceSearchIndex(Protocol):
+    def upsert_source_chunks(
+        self,
+        *,
+        source: SourceDocument,
+        chunks: Sequence[SourceChunk],
+        embeddings: Sequence[list[float]],
+    ) -> None: ...
+
+    def search(self, *, query_embedding: list[float], limit: int) -> list[SourceSearchHit]: ...
 
 
 class CheckInRepository(Protocol):

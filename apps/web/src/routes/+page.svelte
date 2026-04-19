@@ -1,6 +1,7 @@
 <script lang="ts">
   import GenerateMapPanel from '$lib/components/GenerateMapPanel.svelte';
   import LandingHero from '$lib/components/LandingHero.svelte';
+  import SourceLibraryPanel from '$lib/components/SourceLibraryPanel.svelte';
   import StaticLifeMap from '$lib/components/lifemap/StaticLifeMap.svelte';
   import { exampleGraphBundle } from '$lib/fixtures/exampleGraphBundle';
   import type { GraphBundle } from '$lib/graph/types';
@@ -38,6 +39,7 @@
       activeBundle = bundle;
     }}
   />
+  <SourceLibraryPanel />
   <StaticLifeMap bundle={activeBundle} />
 
   <section class="roadmap">

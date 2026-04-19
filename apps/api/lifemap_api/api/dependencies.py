@@ -2,16 +2,19 @@ from fastapi import Depends
 from sqlmodel import Session
 
 from lifemap_api.config import get_settings
-from lifemap_api.domain.ports import LLMProvider
+from lifemap_api.domain.ports import EmbeddingProvider, LLMProvider, SourceSearchIndex
 from lifemap_api.infrastructure.db import get_session
+from lifemap_api.infrastructure.embeddings import OllamaEmbeddingProvider
 from lifemap_api.infrastructure.llm_providers import build_llm_provider
 from lifemap_api.infrastructure.repositories import (
     SqliteCheckInRepository,
     SqliteGoalRepository,
     SqliteLifeMapRepository,
     SqliteProfileRepository,
+    SqliteSourceChunkRepository,
     SqliteSourceRepository,
 )
+from lifemap_api.infrastructure.vector_store import LanceDBSourceSearchIndex
 
 
 def get_profile_repository(session: Session = Depends(get_session)) -> SqliteProfileRepository:
@@ -30,9 +33,23 @@ def get_source_repository(session: Session = Depends(get_session)) -> SqliteSour
     return SqliteSourceRepository(session)
 
 
+def get_source_chunk_repository(
+    session: Session = Depends(get_session),
+) -> SqliteSourceChunkRepository:
+    return SqliteSourceChunkRepository(session)
+
+
 def get_checkin_repository(session: Session = Depends(get_session)) -> SqliteCheckInRepository:
     return SqliteCheckInRepository(session)
 
 
 def get_llm_provider() -> LLMProvider:
     return build_llm_provider(get_settings())
+
+
+def get_embedding_provider() -> EmbeddingProvider:
+    return OllamaEmbeddingProvider(get_settings())
+
+
+def get_source_search_index() -> SourceSearchIndex:
+    return LanceDBSourceSearchIndex(get_settings().lancedb_uri)

@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 4 LLM graph generation without RAG is complete.
+Phase 5 source library and local retrieval is complete.
 
 ## Last completed phase
 
-Phase 4 — LLM Generation Without RAG.
+Phase 5 — Source Library and Local RAG.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 4 — LLM Generation Without RAG.
 
 ## Next task
 
-Execute `docs/phases/phase-05-source-library-rag.md`.
+Execute `docs/phases/phase-06-rag-grounded-generation.md`.
 
 ## Commands run
 
@@ -42,11 +42,12 @@ Execute `docs/phases/phase-05-source-library-rag.md`.
 - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_bundle_validation.py apps/api/tests/test_api_crud.py apps/api/tests/test_repositories.py`
 - `UV_CACHE_DIR=.uv-cache uv sync`
 - `pnpm --filter web build`
+- `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_library.py`
 
 ## Known gaps
 
-- No source-library ingestion UI yet.
-- No RAG grounding pipeline yet.
+- No RAG-grounded graph generation yet.
+- No remote URL content fetcher yet.
 - Playwright browsers were not downloaded or executed.
 - The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
@@ -78,8 +79,15 @@ Execute `docs/phases/phase-05-source-library-rag.md`.
   - `apps/api/lifemap_api/infrastructure/llm_providers.py`
   - `apps/api/lifemap_api/application/generation.py`
   - `apps/api/tests/test_map_generation.py`
+- Backend source library and retrieval:
+  - `apps/api/lifemap_api/application/source_pipeline.py`
+  - `apps/api/lifemap_api/application/sources.py`
+  - `apps/api/lifemap_api/infrastructure/embeddings.py`
+  - `apps/api/lifemap_api/infrastructure/vector_store.py`
+  - `apps/api/tests/test_source_library.py`
 - Frontend generation bootstrap:
   - `apps/web/src/lib/components/GenerateMapPanel.svelte`
+  - `apps/web/src/lib/components/SourceLibraryPanel.svelte`
   - `apps/web/src/lib/components/lifemap/StaticLifeMap.svelte`
   - `apps/web/src/routes/+page.svelte`
 - Planning state:
@@ -88,4 +96,5 @@ Execute `docs/phases/phase-05-source-library-rag.md`.
   - `docs/state/EXECPLAN_PHASE_02.md`
   - `docs/state/EXECPLAN_PHASE_03.md`
   - `docs/state/EXECPLAN_PHASE_04.md`
+  - `docs/state/EXECPLAN_PHASE_05.md`
   - `docs/state/CURRENT_STATE.md`

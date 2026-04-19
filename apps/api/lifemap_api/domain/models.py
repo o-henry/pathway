@@ -122,6 +122,40 @@ class SourceChunk(DomainModel):
     created_at: datetime
 
 
+class SourceChunkCreate(DomainModel):
+    source_id: str
+    chunk_index: int = Field(ge=0)
+    text: str = Field(min_length=1)
+    token_estimate: int = Field(default=0, ge=0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    embedding_status: str = "pending"
+
+
+class SourceSearchHit(DomainModel):
+    chunk_id: str
+    source_id: str
+    title: str
+    url: str | None = None
+    snippet: str
+    similarity_score: float = Field(ge=0)
+    reliability: str = Field(min_length=1, max_length=80)
+    source_type: SourcePolicyState
+
+
+class SourceUrlPreviewRequest(DomainModel):
+    url: str = Field(min_length=1, max_length=2000)
+
+
+class SourceUrlPreview(DomainModel):
+    url: str
+    normalized_url: str | None = None
+    policy_state: SourcePolicyState
+    reason: str = Field(min_length=1)
+    fetch_allowed: bool = False
+    metadata_only: bool = False
+    domain: str | None = None
+
+
 class CheckInCreate(DomainModel):
     map_id: str | None = None
     checkin_date: date = Field(default_factory=date.today)

@@ -14,6 +14,9 @@ class Settings(BaseSettings):
         default=60.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
     )
     llm_max_repair_attempts: int = Field(default=2, alias="LIFEMAP_LLM_MAX_REPAIR_ATTEMPTS")
+    lancedb_uri: str = Field(default="./data/lancedb", alias="LIFEMAP_LANCEDB_URI")
+    source_chunk_target_tokens: int = Field(default=700, alias="SOURCE_CHUNK_TARGET_TOKENS")
+    source_chunk_overlap_tokens: int = Field(default=120, alias="SOURCE_CHUNK_OVERLAP_TOKENS")
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
     ollama_llm_model: str = Field(default="llama3.1", alias="OLLAMA_LLM_MODEL")
     ollama_embedding_model: str = Field(
@@ -38,4 +41,9 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     settings = Settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    if settings.lancedb_uri.startswith("./"):
+        lancedb_path = Path(settings.lancedb_uri)
+        lancedb_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        Path(settings.lancedb_uri).mkdir(parents=True, exist_ok=True)
     return settings

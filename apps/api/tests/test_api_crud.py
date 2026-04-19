@@ -3,10 +3,12 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from lifemap_api.api.dependencies import get_embedding_provider
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
 from lifemap_api.main import create_app
 
+from .fake_embeddings import FakeEmbeddingProvider
 from .graph_bundle_fixture import clone_bundle
 
 
@@ -14,12 +16,17 @@ from .graph_bundle_fixture import clone_bundle
 def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setenv("LIFEMAP_SQLITE_URL", f"sqlite:///{tmp_path / 'api-test.db'}")
     monkeypatch.setenv("LIFEMAP_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("LIFEMAP_LANCEDB_URI", str(tmp_path / "lancedb"))
     get_settings.cache_clear()
     build_engine.cache_clear()
 
-    with TestClient(create_app()) as test_client:
+    app = create_app()
+    app.dependency_overrides[get_embedding_provider] = lambda: FakeEmbeddingProvider()
+
+    with TestClient(app) as test_client:
         yield test_client
 
+    app.dependency_overrides.clear()
     build_engine.cache_clear()
     get_settings.cache_clear()
 

@@ -16,6 +16,8 @@ from lifemap_api.domain.models import (
     LifeMapCreate,
     Profile,
     ProfileUpsert,
+    SourceChunk,
+    SourceChunkCreate,
     SourceDocument,
     SourceDocumentCreate,
 )
@@ -24,6 +26,7 @@ from lifemap_api.infrastructure.db_models import (
     GoalRecord,
     LifeMapRecord,
     ProfileRecord,
+    SourceChunkRecord,
     SourceDocumentRecord,
 )
 
@@ -224,6 +227,13 @@ class SqliteSourceRepository:
         record = self.session.get(SourceDocumentRecord, source_id)
         return _source_from_record(record) if record else None
 
+    def find_by_content_hash(self, content_hash: str) -> SourceDocument | None:
+        statement = select(SourceDocumentRecord).where(
+            SourceDocumentRecord.content_hash == content_hash
+        )
+        record = self.session.exec(statement).first()
+        return _source_from_record(record) if record else None
+
     def create_manual(self, payload: SourceDocumentCreate) -> SourceDocument:
         now = utc_now()
         content_hash = hashlib.sha256(payload.content_text.encode("utf-8")).hexdigest()
@@ -242,6 +252,73 @@ class SqliteSourceRepository:
         self.session.commit()
         self.session.refresh(record)
         return _source_from_record(record)
+
+
+class SqliteSourceChunkRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list_for_source(self, source_id: str) -> list[SourceChunk]:
+        statement = (
+            select(SourceChunkRecord)
+            .where(SourceChunkRecord.source_id == source_id)
+            .order_by(SourceChunkRecord.chunk_index.asc())
+        )
+        records = self.session.exec(statement).all()
+        return [
+            SourceChunk(
+                id=record.id,
+                source_id=record.source_id,
+                chunk_index=record.chunk_index,
+                text=record.text,
+                token_estimate=record.token_estimate,
+                metadata=record.metadata_json,
+                embedding_status=record.embedding_status,
+                created_at=record.created_at,
+            )
+            for record in records
+        ]
+
+    def replace_for_source(
+        self, source_id: str, payloads: list[SourceChunkCreate]
+    ) -> list[SourceChunk]:
+        existing_records = self.session.exec(
+            select(SourceChunkRecord).where(SourceChunkRecord.source_id == source_id)
+        ).all()
+        for record in existing_records:
+            self.session.delete(record)
+        self.session.flush()
+
+        created_records: list[SourceChunkRecord] = []
+        for payload in payloads:
+            record = SourceChunkRecord(
+                id=f"chunk_{uuid4().hex}",
+                source_id=source_id,
+                chunk_index=payload.chunk_index,
+                text=payload.text,
+                token_estimate=payload.token_estimate,
+                metadata_json=payload.metadata,
+                embedding_status=payload.embedding_status,
+                created_at=utc_now(),
+            )
+            self.session.add(record)
+            created_records.append(record)
+
+        self.session.commit()
+
+        return [
+            SourceChunk(
+                id=record.id,
+                source_id=record.source_id,
+                chunk_index=record.chunk_index,
+                text=record.text,
+                token_estimate=record.token_estimate,
+                metadata=record.metadata_json,
+                embedding_status=record.embedding_status,
+                created_at=record.created_at,
+            )
+            for record in created_records
+        ]
 
 
 class SqliteCheckInRepository:
