@@ -22,6 +22,7 @@ from lifemap_api.application.goals import (
     list_goals,
     update_goal,
 )
+from lifemap_api.application.maps import list_maps_for_goal
 from lifemap_api.config import get_settings
 from lifemap_api.domain.models import Goal, GoalCreate, GoalUpdate, LifeMap
 from lifemap_api.domain.ports import EmbeddingProvider, LLMProvider, SourceSearchIndex
@@ -51,6 +52,18 @@ def post_goal(
 def read_goal(goal_id: str, repo: SqliteGoalRepository = Depends(get_goal_repository)) -> Goal:
     try:
         return get_goal(repo, goal_id)
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{goal_id}/maps", response_model=list[LifeMap])
+def read_goal_maps(
+    goal_id: str,
+    goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
+    map_repo: SqliteLifeMapRepository = Depends(get_lifemap_repository),
+) -> list[LifeMap]:
+    try:
+        return list_maps_for_goal(map_repo, goal_repo, goal_id)
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

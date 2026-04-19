@@ -2,11 +2,12 @@
 
 ## Status
 
-Phase 8 quality, export, and packaging preparation is complete.
+Phase 8 quality, export, and packaging preparation is complete, and a first workspace history browser is now landed on top.
 
 ## Last completed phase
 
 Phase 8 — Quality, Export, and Packaging.
+Post-phase addition — Workspace History Browser.
 
 ## Known decisions
 
@@ -23,10 +24,10 @@ Phase 8 — Quality, Export, and Packaging.
 
 Choose the next product direction rather than the next infrastructure phase. The highest-value options are:
 
-1. Add a historical workspace browser for goals/maps/check-ins.
-2. Complete real URL ingestion beyond preview-only policy checks.
-3. Improve graph engine bundle splitting and runtime performance.
-4. Decide desktop packaging flow (`Tauri` sidecar route).
+1. Complete real URL ingestion beyond preview-only policy checks.
+2. Improve graph engine bundle splitting and runtime performance.
+3. Decide desktop packaging flow (`Tauri` sidecar route).
+4. Expand the history browser into a full multi-goal workspace with filtering/search.
 
 ## Commands run
 
@@ -52,7 +53,7 @@ Choose the next product direction rather than the next infrastructure phase. The
 - No remote URL content fetcher yet; only policy preview exists.
 - The graph engine client chunk is still large.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
-- The workspace is still anchored around the active map on the landing page, not a full historical browser.
+- The workspace history browser exists, but it is still anchored to the landing page rather than a dedicated multi-pane workspace.
 - Production deployment/runtime adapter for SvelteKit is still undecided.
 - Tauri packaging is documented but not implemented.
 - Automated crawling rate limiting is not implemented because remote fetching itself is intentionally deferred.
@@ -79,6 +80,7 @@ Choose the next product direction rather than the next infrastructure phase. The
   - `apps/web/src/routes/+page.svelte`
   - `apps/web/src/lib/api/client.ts`
   - `apps/web/src/lib/components/*`
+  - `apps/web/src/lib/components/WorkspaceHistoryPanel.svelte`
   - `apps/web/src/lib/components/lifemap/*`
   - `apps/web/src/lib/fixtures/exampleGraphBundle.ts`
   - `apps/web/src/lib/graph/*`

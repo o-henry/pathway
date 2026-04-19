@@ -199,3 +199,56 @@ def test_map_can_be_exported_as_json_and_markdown_and_reimported(client: TestCli
     assert imported_map["goal_id"] == goal_id
     assert imported_map["graph_bundle"]["map"]["goal_id"] == goal_id
     assert imported_map["graph_bundle"]["nodes"][0]["label"] == bundle["nodes"][0]["label"]
+
+
+def test_goal_maps_can_be_listed(client: TestClient) -> None:
+    client.put(
+        "/profiles/default",
+        json={
+            "display_name": "Henry",
+            "weekly_free_hours": 5,
+            "monthly_budget_amount": 100000,
+            "monthly_budget_currency": "KRW",
+        },
+    )
+
+    goal_response = client.post(
+        "/goals",
+        json={
+            "profile_id": "default",
+            "title": "Learn Japanese",
+            "description": "Conversation route",
+            "category": "language",
+            "success_criteria": "Navigate a trip confidently",
+            "status": "active",
+        },
+    )
+    goal_id = goal_response.json()["id"]
+
+    bundle = clone_bundle()
+    bundle["map"]["goal_id"] = goal_id
+
+    first_map = client.post(
+        "/maps",
+        json={
+            "goal_id": goal_id,
+            "title": "Snapshot one",
+            "graph_bundle": bundle,
+        },
+    ).json()
+
+    second_map = client.post(
+        "/maps",
+        json={
+            "goal_id": goal_id,
+            "title": "Snapshot two",
+            "graph_bundle": bundle,
+        },
+    ).json()
+
+    response = client.get(f"/goals/{goal_id}/maps")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 2
+    assert payload[0]["id"] == second_map["id"]
+    assert payload[1]["id"] == first_map["id"]

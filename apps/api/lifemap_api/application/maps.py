@@ -27,6 +27,14 @@ def create_map(
     return map_repo.create(payload)
 
 
+def list_maps_for_goal(
+    map_repo: LifeMapRepository, goal_repo: GoalRepository, goal_id: str
+) -> list[LifeMap]:
+    if goal_repo.get(goal_id) is None:
+        raise EntityNotFoundError("Goal", goal_id)
+    return map_repo.list_for_goal(goal_id)
+
+
 def export_map_bundle(
     *,
     map_id: str,

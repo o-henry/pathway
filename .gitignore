@@ -34,6 +34,7 @@ coverage/
 playwright-report/
 test-results/
 apps/web/.playwright-browsers/
+.playwright-mcp/
 
 # OS/editor
 .DS_Store

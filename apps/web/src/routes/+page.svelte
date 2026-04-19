@@ -6,11 +6,13 @@
   import GenerateMapPanel from '$lib/components/GenerateMapPanel.svelte';
   import LandingHero from '$lib/components/LandingHero.svelte';
   import WorkspaceDataPanel from '$lib/components/WorkspaceDataPanel.svelte';
+  import WorkspaceHistoryPanel from '$lib/components/WorkspaceHistoryPanel.svelte';
   import { exampleGraphBundle } from '$lib/fixtures/exampleGraphBundle';
   import type { GraphBundle } from '$lib/graph/types';
 
   let activeBundle = $state<GraphBundle>(exampleGraphBundle);
   let currentMap = $state<GeneratedMapResponse | null>(null);
+  let workspaceRefreshKey = $state(0);
   let StaticLifeMapComponent = $state<Component<{ bundle: GraphBundle }> | null>(null);
   let SourceLibraryPanelComponent = $state<Component | null>(null);
   let CheckInRevisionPanelComponent = $state<
@@ -23,14 +25,22 @@
   function handleGeneratedMap(map: GeneratedMapResponse) {
     currentMap = map;
     activeBundle = map.graph_bundle;
+    workspaceRefreshKey += 1;
   }
 
   function handleImportedMap(map: GeneratedMapResponse) {
     currentMap = map;
     activeBundle = map.graph_bundle;
+    workspaceRefreshKey += 1;
   }
 
   function handleAcceptedMap(map: GeneratedMapResponse) {
+    currentMap = map;
+    activeBundle = map.graph_bundle;
+    workspaceRefreshKey += 1;
+  }
+
+  function handleSelectedMap(map: GeneratedMapResponse) {
     currentMap = map;
     activeBundle = map.graph_bundle;
   }
@@ -78,6 +88,11 @@
 <div class="page">
   <LandingHero />
   <GenerateMapPanel onGenerated={handleGeneratedMap} />
+  <WorkspaceHistoryPanel
+    activeMapId={currentMap?.id ?? null}
+    refreshKey={workspaceRefreshKey}
+    onSelectMap={handleSelectedMap}
+  />
   <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
 
   {#if SourceLibraryPanelComponent}
