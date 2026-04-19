@@ -3,3 +3,15 @@ class EntityNotFoundError(Exception):
         super().__init__(f"{entity_name} '{entity_id}' was not found")
         self.entity_name = entity_name
         self.entity_id = entity_id
+
+
+class AppConfigurationError(Exception):
+    pass
+
+
+class ProviderInvocationError(Exception):
+    pass
+
+
+class GenerationFailedError(Exception):
+    pass

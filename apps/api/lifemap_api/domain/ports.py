@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
 
 from lifemap_api.domain.models import (
@@ -15,6 +16,16 @@ from lifemap_api.domain.models import (
     SourceDocument,
     SourceDocumentCreate,
 )
+
+
+class LLMProvider(Protocol):
+    def generate_structured_json(
+        self,
+        *,
+        messages: Sequence[dict[str, str]],
+        json_schema: dict,
+        schema_name: str,
+    ) -> str: ...
 
 
 class ProfileRepository(Protocol):

@@ -10,13 +10,17 @@
     type Node
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { onMount } from 'svelte';
 
   import { exampleGraphBundle } from '$lib/fixtures/exampleGraphBundle';
   import { buildFlow } from '$lib/graph/flow';
   import { layoutFlow } from '$lib/graph/layout';
   import { getProgressionPathNodeIds } from '$lib/graph/selection';
-  import type { GraphNodeRecord, MindMapEdgeData, MindMapNodeData } from '$lib/graph/types';
+  import type {
+    GraphBundle,
+    GraphNodeRecord,
+    MindMapEdgeData,
+    MindMapNodeData
+  } from '$lib/graph/types';
 
   import { edgeTypes, nodeTypes } from './flowRegistry';
   import NodeDetailDrawer from './NodeDetailDrawer.svelte';
@@ -24,18 +28,30 @@
   type FlowNode = Node<MindMapNodeData>;
   type FlowEdge = Edge<MindMapEdgeData>;
 
-  const bundle = exampleGraphBundle;
+  let { bundle = exampleGraphBundle }: { bundle?: GraphBundle } = $props();
   const backgroundVariant = BackgroundVariant.Dots;
 
   let flowNodes = $state.raw<FlowNode[]>([]);
   let flowEdges = $state.raw<FlowEdge[]>([]);
   let selectedNodeId = $state<string | null>(null);
   let selectedNode = $state<GraphNodeRecord | null>(null);
+  let layoutPass = 0;
 
-  onMount(async () => {
+  $effect(() => {
+    const pass = ++layoutPass;
     const built = buildFlow(bundle);
-    flowNodes = await layoutFlow(built.nodes, built.edges);
+
+    selectedNodeId = null;
+    selectedNode = null;
     flowEdges = built.edges;
+
+    void layoutFlow(built.nodes, built.edges).then((laidOutNodes) => {
+      if (pass !== layoutPass) {
+        return;
+      }
+      flowNodes = laidOutNodes;
+      syncEdgeState();
+    });
   });
 
   function syncEdgeState(hoveredEdgeId: string | null = null) {

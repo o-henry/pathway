@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from lifemap_api.api.routes_checkins import router as checkins_router
 from lifemap_api.api.routes_goals import router as goals_router
@@ -25,6 +26,18 @@ def create_app() -> FastAPI:
         version="0.1.0",
         summary="Local-first API for the Life Map personal scenario mapper.",
         lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+            "http://127.0.0.1:4173",
+            "http://localhost:4173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.get("/health")

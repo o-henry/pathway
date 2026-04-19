@@ -1,7 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from lifemap_api.api.dependencies import get_goal_repository
-from lifemap_api.application.errors import EntityNotFoundError
+from lifemap_api.api.dependencies import (
+    get_goal_repository,
+    get_lifemap_repository,
+    get_llm_provider,
+    get_profile_repository,
+)
+from lifemap_api.application.errors import (
+    AppConfigurationError,
+    EntityNotFoundError,
+    GenerationFailedError,
+    ProviderInvocationError,
+)
+from lifemap_api.application.generation import generate_map_for_goal
 from lifemap_api.application.goals import (
     create_goal,
     delete_goal,
@@ -9,8 +20,14 @@ from lifemap_api.application.goals import (
     list_goals,
     update_goal,
 )
-from lifemap_api.domain.models import Goal, GoalCreate, GoalUpdate
-from lifemap_api.infrastructure.repositories import SqliteGoalRepository
+from lifemap_api.config import get_settings
+from lifemap_api.domain.models import Goal, GoalCreate, GoalUpdate, LifeMap
+from lifemap_api.domain.ports import LLMProvider
+from lifemap_api.infrastructure.repositories import (
+    SqliteGoalRepository,
+    SqliteLifeMapRepository,
+    SqliteProfileRepository,
+)
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
@@ -58,3 +75,43 @@ def remove_goal(
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{goal_id}/maps/generate",
+    response_model=LifeMap,
+    status_code=status.HTTP_201_CREATED,
+)
+def post_generated_map(
+    goal_id: str,
+    goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
+    profile_repo: SqliteProfileRepository = Depends(get_profile_repository),
+    map_repo: SqliteLifeMapRepository = Depends(get_lifemap_repository),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
+):
+    try:
+        return generate_map_for_goal(
+            goal_id=goal_id,
+            goal_repo=goal_repo,
+            profile_repo=profile_repo,
+            map_repo=map_repo,
+            llm_provider=llm_provider,
+            max_repair_attempts=get_settings().llm_max_repair_attempts,
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AppConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ProviderInvocationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    except GenerationFailedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc

@@ -1,6 +1,11 @@
 <script lang="ts">
+  import GenerateMapPanel from '$lib/components/GenerateMapPanel.svelte';
   import LandingHero from '$lib/components/LandingHero.svelte';
   import StaticLifeMap from '$lib/components/lifemap/StaticLifeMap.svelte';
+  import { exampleGraphBundle } from '$lib/fixtures/exampleGraphBundle';
+  import type { GraphBundle } from '$lib/graph/types';
+
+  let activeBundle = $state<GraphBundle>(exampleGraphBundle);
 
   const roadmap = [
     {
@@ -28,7 +33,12 @@
 
 <div class="page">
   <LandingHero />
-  <StaticLifeMap />
+  <GenerateMapPanel
+    onGenerated={(bundle) => {
+      activeBundle = bundle;
+    }}
+  />
+  <StaticLifeMap bundle={activeBundle} />
 
   <section class="roadmap">
     <div class="section-header">

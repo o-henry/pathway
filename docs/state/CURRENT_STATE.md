@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 3 dynamic graph schema validation is complete.
+Phase 4 LLM graph generation without RAG is complete.
 
 ## Last completed phase
 
-Phase 3 — Dynamic Graph Schema and Validation.
+Phase 4 — LLM Generation Without RAG.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 3 — Dynamic Graph Schema and Validation.
 
 ## Next task
 
-Execute `docs/phases/phase-04-llm-generation-no-rag.md`.
+Execute `docs/phases/phase-05-source-library-rag.md`.
 
 ## Commands run
 
@@ -40,15 +40,19 @@ Execute `docs/phases/phase-04-llm-generation-no-rag.md`.
 - `pnpm --filter web add @xyflow/svelte elkjs roughjs`
 - `pnpm --filter web build`
 - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_bundle_validation.py apps/api/tests/test_api_crud.py apps/api/tests/test_repositories.py`
+- `UV_CACHE_DIR=.uv-cache uv sync`
+- `pnpm --filter web build`
 
 ## Known gaps
 
-- No LLM graph generation yet.
-- No RAG or ingestion pipeline yet.
+- No source-library ingestion UI yet.
+- No RAG grounding pipeline yet.
 - Playwright browsers were not downloaded or executed.
 - The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
 - Semantic provenance checks for “claim must have evidence or assumption” are not yet modeled beyond structural refs.
+- The generation panel is currently a landing-page bootstrap flow, not a full workspace.
+- Production deployment/runtime adapter for SvelteKit is still undecided.
 
 ## Changed files
 
@@ -70,9 +74,18 @@ Execute `docs/phases/phase-04-llm-generation-no-rag.md`.
   - `apps/api/lifemap_api/domain/graph_bundle.py`
   - `apps/api/tests/graph_bundle_fixture.py`
   - `apps/api/tests/test_graph_bundle_validation.py`
+- Backend LLM generation:
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/tests/test_map_generation.py`
+- Frontend generation bootstrap:
+  - `apps/web/src/lib/components/GenerateMapPanel.svelte`
+  - `apps/web/src/lib/components/lifemap/StaticLifeMap.svelte`
+  - `apps/web/src/routes/+page.svelte`
 - Planning state:
   - `docs/state/EXECPLAN_PHASE_00.md`
   - `docs/state/EXECPLAN_PHASE_01.md`
   - `docs/state/EXECPLAN_PHASE_02.md`
   - `docs/state/EXECPLAN_PHASE_03.md`
+  - `docs/state/EXECPLAN_PHASE_04.md`
   - `docs/state/CURRENT_STATE.md`

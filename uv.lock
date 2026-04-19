@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-12T13:45:00.288125Z"
+exclude-newer = "2026-04-12T14:24:04.027647Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -410,6 +410,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "httpx" },
     { name = "pydantic-settings" },
     { name = "sqlmodel" },
 ]
@@ -425,6 +426,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115,<1.0" },
+    { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "pydantic-settings", specifier = ">=2.8,<3.0" },
     { name = "sqlmodel", specifier = ">=0.0.27,<0.0.28" },
 ]
