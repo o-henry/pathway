@@ -1,0 +1,26 @@
+{
+  "name": "life-map",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "concurrently -n web,api -c magenta,cyan \"pnpm dev:web\" \"pnpm dev:api\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "uv run fastapi dev apps/api/lifemap_api/main.py",
+    "build": "pnpm --filter web build",
+    "check": "pnpm --filter web check",
+    "lint": "pnpm lint:web && pnpm lint:api",
+    "lint:web": "pnpm --filter web lint",
+    "lint:api": "uv run ruff check apps/api",
+    "format:api": "uv run ruff format apps/api",
+    "test": "pnpm test:web && pnpm test:api",
+    "test:web": "pnpm --filter web test:unit -- --run",
+    "test:web:e2e": "pnpm --filter web test:e2e",
+    "test:api": "uv run pytest",
+    "typecheck": "pnpm --filter web check",
+    "secret-scan": "uv run pre-commit run gitleaks --all-files"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

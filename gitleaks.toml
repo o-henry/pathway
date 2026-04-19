@@ -1,0 +1,7 @@
+title = "Life Map gitleaks config"
+
+[allowlist]
+description = "Allow placeholder env examples only"
+paths = [
+  ".env.example"
+]
