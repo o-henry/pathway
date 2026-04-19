@@ -106,6 +106,24 @@ class CheckInRecord(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class RevisionProposalRecord(SQLModel, table=True):
+    __tablename__ = "revision_proposals"
+
+    id: str = Field(primary_key=True)
+    goal_id: str = Field(index=True)
+    source_map_id: str = Field(index=True)
+    checkin_id: str = Field(index=True)
+    status: str = Field(default="pending", index=True)
+    rationale: str = Field(sa_column=Column(Text, nullable=False))
+    diff_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    proposed_graph_bundle_json: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    accepted_map_id: str | None = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    resolved_at: datetime | None = None
+
+
 class DecisionRecord(SQLModel, table=True):
     __tablename__ = "decisions"
 

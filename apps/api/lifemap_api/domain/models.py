@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from lifemap_api.domain.graph_bundle import GraphBundle
 
 GoalStatus = Literal["draft", "active", "paused", "completed", "archived"]
+RevisionProposalStatus = Literal["pending", "accepted", "rejected"]
 SourcePolicyState = Literal[
     "manual_note",
     "user_uploaded_file",
@@ -179,6 +180,68 @@ class CheckIn(DomainModel):
     blockers: str
     next_adjustment: str
     created_at: datetime
+
+
+class GraphNodeChange(DomainModel):
+    node_id: str = Field(min_length=1, max_length=120)
+    change_type: Literal["added", "removed", "updated", "status_changed"]
+    label: str = Field(min_length=1, max_length=200)
+    reason: str = Field(min_length=1)
+    previous_status: str | None = Field(default=None, min_length=1, max_length=80)
+    next_status: str | None = Field(default=None, min_length=1, max_length=80)
+    fields_changed: list[str] = Field(default_factory=list)
+
+
+class GraphEdgeChange(DomainModel):
+    edge_id: str = Field(min_length=1, max_length=120)
+    change_type: Literal["added", "removed", "updated"]
+    source: str = Field(min_length=1, max_length=120)
+    target: str = Field(min_length=1, max_length=120)
+    label: str | None = None
+    reason: str = Field(min_length=1)
+
+
+class GraphWarningChange(DomainModel):
+    change_type: Literal["added", "removed"]
+    warning: str = Field(min_length=1)
+
+
+class GraphDiff(DomainModel):
+    summary: list[str] = Field(default_factory=list)
+    node_changes: list[GraphNodeChange] = Field(default_factory=list)
+    edge_changes: list[GraphEdgeChange] = Field(default_factory=list)
+    warning_changes: list[GraphWarningChange] = Field(default_factory=list)
+
+
+class RevisionProposalCreate(DomainModel):
+    goal_id: str = Field(min_length=1, max_length=200)
+    source_map_id: str = Field(min_length=1, max_length=200)
+    checkin_id: str = Field(min_length=1, max_length=200)
+    rationale: str = Field(min_length=1)
+    diff: GraphDiff
+    proposed_graph_bundle: GraphBundle
+
+
+class RevisionProposalRequest(DomainModel):
+    checkin_id: str = Field(min_length=1, max_length=200)
+
+
+class RevisionProposalDecision(DomainModel):
+    note: str = ""
+
+
+class RevisionProposal(DomainModel):
+    id: str
+    goal_id: str
+    source_map_id: str
+    checkin_id: str
+    status: RevisionProposalStatus = "pending"
+    rationale: str
+    diff: GraphDiff
+    proposed_graph_bundle: GraphBundle
+    accepted_map_id: str | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
 
 
 class Decision(DomainModel):

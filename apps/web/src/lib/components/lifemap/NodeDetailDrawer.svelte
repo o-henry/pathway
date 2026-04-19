@@ -34,6 +34,13 @@
 
     <p class="summary">{node.summary}</p>
 
+    {#if node.status}
+      <section>
+        <h3>Route status</h3>
+        <p class="summary">{node.status}</p>
+      </section>
+    {/if}
+
     {#if nodeType?.fields?.length}
       <section>
         <h3>Dynamic fields</h3>
@@ -94,6 +101,20 @@
         <p class="empty">이 노드에 연결된 가정이 없습니다.</p>
       {/if}
     </section>
+
+    {#if node.revision_meta && Object.keys(node.revision_meta).length > 0}
+      <section>
+        <h3>Revision meta</h3>
+        <dl class="field-list">
+          {#each Object.entries(node.revision_meta) as [key, value] (key)}
+            <div>
+              <dt>{key}</dt>
+              <dd>{String(value)}</dd>
+            </div>
+          {/each}
+        </dl>
+      </section>
+    {/if}
   {/if}
 </aside>
 

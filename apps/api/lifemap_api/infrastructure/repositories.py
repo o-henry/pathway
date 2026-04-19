@@ -16,6 +16,8 @@ from lifemap_api.domain.models import (
     LifeMapCreate,
     Profile,
     ProfileUpsert,
+    RevisionProposal,
+    RevisionProposalCreate,
     SourceChunk,
     SourceChunkCreate,
     SourceDocument,
@@ -26,6 +28,7 @@ from lifemap_api.infrastructure.db_models import (
     GoalRecord,
     LifeMapRecord,
     ProfileRecord,
+    RevisionProposalRecord,
     SourceChunkRecord,
     SourceDocumentRecord,
 )
@@ -104,6 +107,22 @@ def _checkin_from_record(record: CheckInRecord) -> CheckIn:
         blockers=record.blockers,
         next_adjustment=record.next_adjustment,
         created_at=record.created_at,
+    )
+
+
+def _revision_proposal_from_record(record: RevisionProposalRecord) -> RevisionProposal:
+    return RevisionProposal(
+        id=record.id,
+        goal_id=record.goal_id,
+        source_map_id=record.source_map_id,
+        checkin_id=record.checkin_id,
+        status=record.status,
+        rationale=record.rationale,
+        diff=record.diff_json,
+        proposed_graph_bundle=record.proposed_graph_bundle_json,
+        accepted_map_id=record.accepted_map_id,
+        created_at=record.created_at,
+        resolved_at=record.resolved_at,
     )
 
 
@@ -196,6 +215,15 @@ class SqliteLifeMapRepository:
     def get(self, map_id: str) -> LifeMap | None:
         record = self.session.get(LifeMapRecord, map_id)
         return _map_from_record(record) if record else None
+
+    def list_for_goal(self, goal_id: str) -> list[LifeMap]:
+        statement = (
+            select(LifeMapRecord)
+            .where(LifeMapRecord.goal_id == goal_id)
+            .order_by(LifeMapRecord.created_at.desc())
+        )
+        records = self.session.exec(statement).all()
+        return [_map_from_record(record) for record in records]
 
     def create(self, payload: LifeMapCreate) -> LifeMap:
         now = utc_now()
@@ -351,3 +379,47 @@ class SqliteCheckInRepository:
         self.session.commit()
         self.session.refresh(record)
         return _checkin_from_record(record)
+
+
+class SqliteRevisionProposalRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get(self, proposal_id: str) -> RevisionProposal | None:
+        record = self.session.get(RevisionProposalRecord, proposal_id)
+        return _revision_proposal_from_record(record) if record else None
+
+    def create(self, payload: RevisionProposalCreate) -> RevisionProposal:
+        record = RevisionProposalRecord(
+            id=f"revprop_{uuid4().hex}",
+            goal_id=payload.goal_id,
+            source_map_id=payload.source_map_id,
+            checkin_id=payload.checkin_id,
+            status="pending",
+            rationale=payload.rationale,
+            diff_json=payload.diff.model_dump(mode="json"),
+            proposed_graph_bundle_json=payload.proposed_graph_bundle.model_dump(mode="json"),
+            created_at=utc_now(),
+        )
+        self.session.add(record)
+        self.session.commit()
+        self.session.refresh(record)
+        return _revision_proposal_from_record(record)
+
+    def update_status(
+        self,
+        proposal_id: str,
+        *,
+        status: str,
+        accepted_map_id: str | None = None,
+    ) -> RevisionProposal | None:
+        record = self.session.get(RevisionProposalRecord, proposal_id)
+        if record is None:
+            return None
+        record.status = status
+        record.accepted_map_id = accepted_map_id
+        record.resolved_at = utc_now()
+        self.session.add(record)
+        self.session.commit()
+        self.session.refresh(record)
+        return _revision_proposal_from_record(record)

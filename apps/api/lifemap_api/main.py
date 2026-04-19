@@ -7,6 +7,7 @@ from lifemap_api.api.routes_checkins import router as checkins_router
 from lifemap_api.api.routes_goals import router as goals_router
 from lifemap_api.api.routes_maps import router as maps_router
 from lifemap_api.api.routes_profiles import router as profiles_router
+from lifemap_api.api.routes_revisions import router as revisions_router
 from lifemap_api.api.routes_sources import router as sources_router
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import init_db
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(maps_router)
     app.include_router(sources_router)
     app.include_router(checkins_router)
+    app.include_router(revisions_router)
 
     return app
 

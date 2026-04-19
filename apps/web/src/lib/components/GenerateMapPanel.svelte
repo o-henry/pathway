@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type { GraphBundle } from '$lib/graph/types';
+  import type { GeneratedMapResponse } from '$lib/api/types';
 
-  interface GeneratedMapResponse {
-    id: string;
-    title: string;
-    goal_id: string;
-    graph_bundle: GraphBundle;
-    created_at: string;
-    updated_at: string;
-  }
-
-  let { onGenerated }: { onGenerated?: (bundle: GraphBundle) => void } = $props();
+  let { onGenerated }: { onGenerated?: (map: GeneratedMapResponse) => void } = $props();
 
   const apiBaseUrl =
     (import.meta.env.PUBLIC_API_BASE_URL as string | undefined) || 'http://127.0.0.1:8000';
@@ -85,7 +76,7 @@
       );
 
       generatedMap = map;
-      onGenerated?.(map.graph_bundle);
+      onGenerated?.(map);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown generation failure';
     } finally {

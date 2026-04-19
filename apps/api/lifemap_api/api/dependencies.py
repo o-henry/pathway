@@ -11,6 +11,7 @@ from lifemap_api.infrastructure.repositories import (
     SqliteGoalRepository,
     SqliteLifeMapRepository,
     SqliteProfileRepository,
+    SqliteRevisionProposalRepository,
     SqliteSourceChunkRepository,
     SqliteSourceRepository,
 )
@@ -41,6 +42,12 @@ def get_source_chunk_repository(
 
 def get_checkin_repository(session: Session = Depends(get_session)) -> SqliteCheckInRepository:
     return SqliteCheckInRepository(session)
+
+
+def get_revision_proposal_repository(
+    session: Session = Depends(get_session),
+) -> SqliteRevisionProposalRepository:
+    return SqliteRevisionProposalRepository(session)
 
 
 def get_llm_provider() -> LLMProvider:

@@ -46,6 +46,9 @@
   {/if}
 
   <div class="chip-row">
+    {#if data.node.status}
+      <span class="chip">Status {data.node.status}</span>
+    {/if}
     {#if data.evidenceCount > 0}
       <span class="chip">Evidence {data.evidenceCount}</span>
     {/if}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { GeneratedMapResponse } from '$lib/api/types';
+  import CheckInRevisionPanel from '$lib/components/CheckInRevisionPanel.svelte';
   import GenerateMapPanel from '$lib/components/GenerateMapPanel.svelte';
   import LandingHero from '$lib/components/LandingHero.svelte';
   import SourceLibraryPanel from '$lib/components/SourceLibraryPanel.svelte';
@@ -7,6 +9,7 @@
   import type { GraphBundle } from '$lib/graph/types';
 
   let activeBundle = $state<GraphBundle>(exampleGraphBundle);
+  let currentMap = $state<GeneratedMapResponse | null>(null);
 
   const roadmap = [
     {
@@ -19,7 +22,11 @@
     },
     {
       title: 'Check-in driven revisions',
-      body: '실제 진행 기록을 바탕으로 경로를 수정하는 revision flow를 추가합니다.'
+      body: '실제 진행 기록을 바탕으로 proposal diff를 만들고 새 snapshot으로 수락하는 revision flow가 적용되어 있습니다.'
+    },
+    {
+      title: 'Quality + export packaging',
+      body: '다음 단계에서는 export/import, workspace polish, packaging, chunk split 정리를 진행합니다.'
     }
   ];
 </script>
@@ -35,11 +42,19 @@
 <div class="page">
   <LandingHero />
   <GenerateMapPanel
-    onGenerated={(bundle) => {
-      activeBundle = bundle;
+    onGenerated={(map) => {
+      currentMap = map;
+      activeBundle = map.graph_bundle;
     }}
   />
   <SourceLibraryPanel />
+  <CheckInRevisionPanel
+    {currentMap}
+    onAccepted={(map) => {
+      currentMap = map;
+      activeBundle = map.graph_bundle;
+    }}
+  />
   <StaticLifeMap bundle={activeBundle} />
 
   <section class="roadmap">
@@ -135,7 +150,7 @@
     }
 
     .grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 </style>

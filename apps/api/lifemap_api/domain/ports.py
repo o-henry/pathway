@@ -13,6 +13,8 @@ from lifemap_api.domain.models import (
     LifeMapCreate,
     Profile,
     ProfileUpsert,
+    RevisionProposal,
+    RevisionProposalCreate,
     SourceChunk,
     SourceChunkCreate,
     SourceDocument,
@@ -58,6 +60,8 @@ class LifeMapRepository(Protocol):
 
     def create(self, payload: LifeMapCreate) -> LifeMap: ...
 
+    def list_for_goal(self, goal_id: str) -> list[LifeMap]: ...
+
 
 class SourceRepository(Protocol):
     def list(self) -> list[SourceDocument]: ...
@@ -93,3 +97,17 @@ class CheckInRepository(Protocol):
     def list_for_goal(self, goal_id: str) -> list[CheckIn]: ...
 
     def create(self, goal_id: str, payload: CheckInCreate) -> CheckIn: ...
+
+
+class RevisionProposalRepository(Protocol):
+    def get(self, proposal_id: str) -> RevisionProposal | None: ...
+
+    def create(self, payload: RevisionProposalCreate) -> RevisionProposal: ...
+
+    def update_status(
+        self,
+        proposal_id: str,
+        *,
+        status: str,
+        accepted_map_id: str | None = None,
+    ) -> RevisionProposal | None: ...

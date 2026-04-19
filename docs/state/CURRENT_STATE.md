@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 6 RAG-grounded map generation is complete.
+Phase 7 check-ins and revision proposals are complete.
 
 ## Last completed phase
 
-Phase 6 — RAG-Grounded Map Generation.
+Phase 7 — Check-ins and Graph Revisions.
 
 ## Known decisions
 
@@ -19,7 +19,7 @@ Phase 6 — RAG-Grounded Map Generation.
 
 ## Next task
 
-Execute `docs/phases/phase-07-checkins-revisions.md`.
+Execute `docs/phases/phase-08-quality-export-packaging.md`.
 
 ## Commands run
 
@@ -48,6 +48,7 @@ Execute `docs/phases/phase-07-checkins-revisions.md`.
 - `UV_CACHE_DIR=.uv-cache pnpm lint`
 - `pnpm typecheck`
 - `pnpm --filter web build`
+- `uv run pytest apps/api/tests/test_revisions.py apps/api/tests/test_api_crud.py apps/api/tests/test_repositories.py`
 
 ## Known gaps
 
@@ -56,8 +57,9 @@ Execute `docs/phases/phase-07-checkins-revisions.md`.
 - The frontend static demo bundle is rendered eagerly; chunk splitting/perf tuning is deferred.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
 - Semantic provenance checks for every individual claim are still lighter than full claim extraction; grounding currently validates evidence refs and canonical evidence packets.
-- The generation panel is currently a landing-page bootstrap flow, not a full workspace.
+- The check-in and revision UI is still anchored to the active landing-page map, not a full historical workspace browser.
 - Production deployment/runtime adapter for SvelteKit is still undecided.
+- Export/import and packaging work are still pending.
 
 ## Changed files
 
@@ -94,9 +96,24 @@ Execute `docs/phases/phase-07-checkins-revisions.md`.
   - `apps/api/lifemap_api/application/generation.py`
   - `apps/api/lifemap_api/api/routes_goals.py`
   - `apps/api/tests/test_map_generation.py`
+- Backend revisions:
+  - `apps/api/lifemap_api/api/dependencies.py`
+  - `apps/api/lifemap_api/domain/models.py`
+  - `apps/api/lifemap_api/domain/ports.py`
+  - `apps/api/lifemap_api/infrastructure/db_models.py`
+  - `apps/api/lifemap_api/infrastructure/repositories.py`
+  - `apps/api/lifemap_api/main.py`
+  - `apps/api/lifemap_api/application/graph_diff.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/api/routes_revisions.py`
+  - `apps/api/tests/test_revisions.py`
 - Frontend generation bootstrap:
+  - `apps/web/src/lib/api/types.ts`
   - `apps/web/src/lib/components/GenerateMapPanel.svelte`
   - `apps/web/src/lib/components/SourceLibraryPanel.svelte`
+  - `apps/web/src/lib/components/CheckInRevisionPanel.svelte`
+  - `apps/web/src/lib/components/lifemap/GenericMindMapNode.svelte`
+  - `apps/web/src/lib/components/lifemap/NodeDetailDrawer.svelte`
   - `apps/web/src/lib/components/lifemap/StaticLifeMap.svelte`
   - `apps/web/src/routes/+page.svelte`
 - Planning state:
@@ -107,4 +124,5 @@ Execute `docs/phases/phase-07-checkins-revisions.md`.
   - `docs/state/EXECPLAN_PHASE_04.md`
   - `docs/state/EXECPLAN_PHASE_05.md`
   - `docs/state/EXECPLAN_PHASE_06.md`
+  - `docs/state/EXECPLAN_PHASE_07.md`
   - `docs/state/CURRENT_STATE.md`
