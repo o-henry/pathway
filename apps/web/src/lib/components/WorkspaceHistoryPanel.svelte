@@ -63,15 +63,15 @@
 <section class="history-panel">
   <div class="section-header">
     <div>
-      <p class="eyebrow">Workspace history</p>
-      <h2>Goal, snapshot, check-in 흐름을 잃지 않고 이어갑니다</h2>
+      <p class="eyebrow">Branch history</p>
+      <h2>이전에 열렸던 Pathway들을 잃지 않습니다</h2>
       <p class="copy">
-        각 goal 아래의 map snapshots와 최근 check-ins를 한 번에 보고, 원하는 snapshot을 다시 현재
-        작업 맵으로 불러올 수 있습니다.
+        하나의 목표 아래에서도 snapshot은 여러 번 갈라집니다. 여기서는 goal, past pathway, recent
+        reality checks를 한 번에 보며 원하는 시점을 다시 현재 작업 그래프로 불러올 수 있습니다.
       </p>
     </div>
     <button type="button" class="refresh-button" onclick={loadWorkspaceHistory} disabled={isLoading}>
-      {#if isLoading}Refreshing...{:else}Refresh history{/if}
+      {#if isLoading}Refreshing...{:else}Refresh timeline{/if}
     </button>
   </div>
 
@@ -80,7 +80,7 @@
   {/if}
 
   {#if historyItems.length === 0 && !isLoading}
-    <p class="empty">아직 기록된 goal이 없습니다. 먼저 목표를 만들거나 map을 생성해보세요.</p>
+    <p class="empty">아직 기록된 goal이 없습니다. 먼저 목표를 만들거나 Pathway를 생성해보세요.</p>
   {/if}
 
   <div class="history-grid">
@@ -95,15 +95,15 @@
         </div>
 
         <div class="meta-row">
-          <span>{item.maps.length} maps</span>
-          <span>{item.checkins.length} check-ins</span>
+          <span>{item.maps.length} pathways</span>
+          <span>{item.checkins.length} reality checks</span>
           <span>{item.goal.category}</span>
         </div>
 
         <section class="subsection">
           <h4>Snapshots</h4>
           {#if item.maps.length === 0}
-            <p class="empty">저장된 map snapshot이 없습니다.</p>
+            <p class="empty">저장된 Pathway snapshot이 없습니다.</p>
           {:else}
             <div class="snapshot-list">
               {#each item.maps as map (map.id)}
@@ -124,7 +124,7 @@
         </section>
 
         <section class="subsection">
-          <h4>Recent check-ins</h4>
+          <h4>Recent reality checks</h4>
           {#if item.checkins.length === 0}
             <p class="empty">아직 check-in이 없습니다.</p>
           {:else}
@@ -147,10 +147,11 @@
   .history-panel {
     display: grid;
     gap: 1rem;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 16px 34px rgba(84, 63, 77, 0.08);
-    padding: 1.4rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    padding: 1rem;
   }
 
   .section-header,
@@ -181,23 +182,24 @@
   }
 
   .eyebrow {
-    color: #8a5562;
-    font-size: 0.78rem;
+    color: var(--pathway-accent-strong);
+    font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   h2 {
-    margin-top: 0.25rem;
-    font-size: clamp(1.3rem, 1.6vw, 1.8rem);
+    margin-top: 0.2rem;
+    font-size: clamp(1.2rem, 1.45vw, 1.7rem);
+    line-height: 1.15;
   }
 
   .copy,
   .goal-header p,
   .empty,
   li p {
-    color: #584955;
+    color: var(--pathway-muted);
     line-height: 1.6;
   }
 
@@ -207,13 +209,13 @@
   }
 
   .refresh-button {
-    border: 0;
-    border-radius: 999px;
-    background: #2f2330;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-chip-radius);
+    background: var(--pathway-ink);
     color: white;
     cursor: pointer;
     font-weight: 800;
-    padding: 0.75rem 1rem;
+    padding: 0.74rem 0.92rem;
   }
 
   .refresh-button:disabled {
@@ -222,9 +224,10 @@
   }
 
   .goal-card {
-    border-radius: 22px;
-    background: rgba(255, 251, 246, 0.92);
-    padding: 1rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.95rem;
   }
 
   .goal-header {
@@ -236,12 +239,13 @@
 
   .goal-status,
   .meta-row span {
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #5b4651;
-    font-size: 0.74rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-chip-radius);
+    background: rgba(255, 255, 255, 0.52);
+    color: var(--pathway-muted);
+    font-size: 0.72rem;
     font-weight: 700;
-    padding: 0.35rem 0.65rem;
+    padding: 0.28rem 0.52rem;
   }
 
   .meta-row {
@@ -253,23 +257,24 @@
   .snapshot-list button {
     display: grid;
     gap: 0.2rem;
-    border: 1px solid rgba(94, 78, 92, 0.14);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.86);
-    color: #2f2330;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--pathway-ink);
     cursor: pointer;
     padding: 0.85rem 0.9rem;
     text-align: left;
   }
 
   .snapshot-list button.selected {
-    border-color: rgba(110, 77, 91, 0.5);
-    box-shadow: 0 0 0 3px rgba(110, 77, 91, 0.1);
+    border-color: rgba(23, 68, 77, 0.42);
+    box-shadow: inset 0 0 0 1px rgba(23, 68, 77, 0.2);
+    background: rgba(226, 238, 239, 0.72);
   }
 
   .snapshot-list button span,
   .snapshot-list button small {
-    color: #6e5966;
+    color: var(--pathway-muted);
   }
 
   ul {
@@ -280,16 +285,16 @@
   }
 
   li {
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.82);
+    border-left: 3px solid var(--pathway-line-strong);
+    background: rgba(255, 255, 255, 0.55);
     padding: 0.75rem 0.85rem;
   }
 
   .error {
-    border-radius: 18px;
-    background: rgba(255, 239, 236, 0.92);
-    color: #7d352c;
-    padding: 0.85rem 0.95rem;
+    border-left: 3px solid var(--pathway-danger);
+    background: rgba(245, 230, 224, 0.9);
+    color: #733624;
+    padding: 0.8rem 0.9rem;
   }
 
   @media (max-width: 860px) {

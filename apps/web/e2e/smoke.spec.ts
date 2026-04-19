@@ -4,9 +4,9 @@ const generatedBundle = {
   schema_version: '1.0.0',
   bundle_id: 'bundle-generated-1',
   map: {
-    title: 'Grounded Japanese Travel Map',
+    title: 'Grounded Japanese Travel Pathway',
     goal_id: 'goal-1',
-    summary: 'Initial grounded map for travel conversation.'
+    summary: 'Initial grounded pathway for travel conversation.'
   },
   ontology: {
     node_types: [
@@ -93,7 +93,7 @@ const acceptedBundle = {
   bundle_id: 'bundle-accepted-1',
   map: {
     ...generatedBundle.map,
-    title: 'Revised Japanese Travel Map',
+    title: 'Revised Japanese Travel Pathway',
     summary: 'Accepted revision adds an explicit weekend speaking loop.'
   },
   nodes: generatedBundle.nodes.map((node) =>
@@ -154,7 +154,7 @@ test('user can generate a map, create a check-in, and accept a revision', async 
         contentType: 'application/json',
         body: JSON.stringify({
           id: 'map-1',
-          title: 'Grounded Japanese Travel Map',
+          title: 'Grounded Japanese Travel Pathway',
           goal_id: 'goal-1',
           graph_bundle: generatedBundle,
           created_at: '2026-04-20T00:00:00Z',
@@ -239,7 +239,7 @@ test('user can generate a map, create a check-in, and accept a revision', async 
         contentType: 'application/json',
         body: JSON.stringify({
           id: 'map-2',
-          title: 'Revised Japanese Travel Map',
+          title: 'Revised Japanese Travel Pathway',
           goal_id: 'goal-1',
           graph_bundle: acceptedBundle,
           created_at: '2026-04-20T00:10:00Z',
@@ -255,27 +255,27 @@ test('user can generate a map, create a check-in, and accept a revision', async 
   await page.goto('/');
 
   await expect(
-    page.getByRole('heading', { name: '선택의 가지를 그려주는 개인용 시나리오 맵' })
+    page.getByRole('heading', { name: '목표를 말하면, 지금의 조건에서 갈라지는 경로와 그 대가를 함께 펼칩니다' })
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Generate map' }).click();
+  await page.getByRole('button', { name: 'Generate initial pathway' }).click();
 
   await expect(
-    page.getByRole('heading', { level: 2, name: 'Grounded Japanese Travel Map' })
+    page.getByRole('heading', { level: 2, name: 'Grounded Japanese Travel Pathway' })
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Keyboard node browser' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Node index' })).toBeVisible();
   await expect(page.getByRole('button', { name: /저비용 독학 \+ 짧은 speaking/i })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Save check-in + generate revision' }).click();
+  await page.getByRole('button', { name: 'Generate revision proposal' }).click();
 
-  await expect(page.getByText('Check-in을 저장했고 revision proposal을 생성했습니다.')).toBeVisible();
+  await expect(page.getByText('현실 기록을 저장했고, 현재 조건에 맞춘 Pathway revision proposal을 만들었습니다.')).toBeVisible();
   await expect(page.getByText('Weekday boredom appeared, so the map adds a short weekend speaking loop.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Accept revision' }).click();
+  await page.getByRole('button', { name: 'Accept new Pathway' }).click();
 
-  await expect(page.getByText('Revision proposal을 수락했고 새 map snapshot을 만들었습니다.')).toBeVisible();
+  await expect(page.getByText('Revision proposal을 수락했고 새 Pathway snapshot을 만들었습니다.')).toBeVisible();
   await expect(
-    page.getByRole('heading', { level: 2, name: 'Revised Japanese Travel Map' })
+    page.getByRole('heading', { level: 2, name: 'Revised Japanese Travel Pathway' })
   ).toBeVisible();
   await expect(
     page.getByText('주말 speaking drill을 명시적으로 붙여 지루함 리스크를 낮춘다.')

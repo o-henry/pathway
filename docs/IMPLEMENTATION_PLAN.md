@@ -1,8 +1,8 @@
-# Implementation Plan — Life Map / Life Guide
+# Implementation Plan — Pathway
 
 ## 1. Target product
 
-Build a local-first personal web service that helps the user create, inspect, and revise a **Life Map**:
+Build a local-first personal web service that helps the user create, inspect, and revise a **Pathway** decision graph:
 
 - Profile: current situation, time, money, energy, personality tags, constraints.
 - Goal: natural-language objective plus success criteria.
@@ -68,7 +68,7 @@ The primary user is the local owner. No SaaS assumptions.
 ## 4. Repository structure
 
 ```text
-life-map/
+pathway/
   AGENTS.md
   README.md
   .env.example
@@ -203,7 +203,7 @@ Deliverables:
 - Pydantic request/response DTOs.
 - Unit tests for model validation.
 
-### Phase 2 — Static Life Map UI
+### Phase 2 — Static Pathway UI
 
 Goal:
 Render a static example graph bundle in the desired visual style.

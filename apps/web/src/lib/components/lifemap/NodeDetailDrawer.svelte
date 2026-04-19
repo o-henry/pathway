@@ -26,10 +26,11 @@
   {#if node}
     <div class="drawer-header" style={`--drawer-accent:${colors.accent};`}>
       <div>
-        <p class="eyebrow">{nodeType?.label ?? `Unknown · ${node.type}`}</p>
+        <p class="eyebrow">Node dossier</p>
         <h2>{node.label}</h2>
+        <p class="type-copy">{nodeType?.label ?? `Unknown · ${node.type}`}</p>
       </div>
-      <button type="button" class="close-button" onclick={onClose}>닫기</button>
+      <button type="button" class="close-button" onclick={onClose}>Close</button>
     </div>
 
     <p class="summary">{node.summary}</p>
@@ -57,7 +58,7 @@
 
     {#if node.scores && Object.keys(node.scores).length > 0}
       <section>
-        <h3>Scores</h3>
+        <h3>Signals</h3>
         <ul class="score-list">
           {#each Object.entries(node.scores) as [key, value] (key)}
             <li>
@@ -121,13 +122,14 @@
 <style>
   .drawer {
     position: sticky;
-    top: 1.5rem;
+    top: 1rem;
     align-self: start;
     display: none;
-    border-radius: 28px;
-    background: rgba(255, 252, 248, 0.94);
-    box-shadow: 0 18px 38px rgba(70, 52, 65, 0.12);
-    padding: 1.25rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: rgba(247, 243, 235, 0.96);
+    box-shadow: 0 18px 38px rgba(35, 30, 24, 0.12);
+    padding: 1rem;
   }
 
   .open {
@@ -140,14 +142,14 @@
     align-items: start;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 2px dashed rgba(94, 78, 92, 0.2);
+    border-bottom: 1px solid rgba(23, 20, 17, 0.12);
     padding-bottom: 0.8rem;
   }
 
   .eyebrow {
-    margin: 0 0 0.25rem;
+    margin: 0 0 0.18rem;
     color: var(--drawer-accent);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -164,26 +166,32 @@
   }
 
   h2 {
-    font-size: 1.35rem;
-    line-height: 1.2;
+    font-size: 1.22rem;
+    line-height: 1.18;
   }
 
-  .close-button {
-    border: 0;
-    border-radius: 999px;
-    background: #efe6dc;
-    color: #5e4a54;
-    cursor: pointer;
-    font-weight: 700;
-    padding: 0.45rem 0.75rem;
-  }
-
+  .type-copy,
   .summary,
   .empty,
   .stack-list p,
   dd {
-    color: #564754;
+    color: var(--pathway-muted);
     line-height: 1.55;
+  }
+
+  .type-copy {
+    margin-top: 0.18rem;
+    font-size: 0.84rem;
+  }
+
+  .close-button {
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-chip-radius);
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--pathway-ink);
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0.42rem 0.62rem;
   }
 
   section {
@@ -192,7 +200,7 @@
   }
 
   h3 {
-    font-size: 0.96rem;
+    font-size: 0.9rem;
   }
 
   .field-list,
@@ -207,15 +215,15 @@
   .field-list div,
   .stack-list li,
   .score-list li {
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.74);
-    padding: 0.8rem 0.9rem;
+    border-left: 3px solid rgba(23, 20, 17, 0.12);
+    background: rgba(255, 255, 255, 0.56);
+    padding: 0.78rem 0.84rem;
   }
 
   dt {
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.12rem;
     opacity: 0.72;
     text-transform: uppercase;
   }
@@ -229,12 +237,12 @@
 
   .stack-list strong {
     display: block;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.16rem;
   }
 
   small {
-    color: #8b7682;
+    color: var(--pathway-muted);
     display: block;
-    margin-top: 0.35rem;
+    margin-top: 0.32rem;
   }
 </style>

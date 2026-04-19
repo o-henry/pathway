@@ -8,7 +8,7 @@ export type ToneToken =
   | 'yellow'
   | 'slate';
 
-export type NodeShape = 'rounded_card' | 'pill';
+export type NodeShape = 'rounded_card' | 'pill' | 'circle';
 export type EdgeRole = 'progression' | 'reference' | string;
 
 export interface GraphFieldDefinition {

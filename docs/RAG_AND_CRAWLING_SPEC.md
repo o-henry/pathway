@@ -2,7 +2,11 @@
 
 ## 1. Goal
 
-Support evidence-aware Life Map generation using the user's own source library.
+Support evidence-aware Pathway generation using:
+
+1. the user's own source library
+2. targeted goal-specific research
+3. broader contextual research that helps the graph branch into alternatives, missed opportunities, and future route switches
 
 The app should prefer:
 
@@ -10,6 +14,7 @@ The app should prefer:
 2. user-provided source excerpts
 3. user-pasted URLs that are safely and explicitly ingested
 4. public datasets or corpora with clear usage rights
+5. permitted public web sources that can be fetched safely
 
 Do not assume that arbitrary community pages may be scraped.
 
@@ -57,6 +62,16 @@ Input source
   -> store vectors
 ```
 
+## 4.1 Research layers
+
+The system should distinguish between:
+
+- `user context`: notes, check-ins, uploaded files, pasted excerpts
+- `targeted evidence`: sources directly about the goal and route options
+- `contextual expansion`: sources about adjacent routes, trade-offs, cost drivers, common failure modes, and switching conditions
+
+Contextual expansion exists so the graph can grow laterally, not just linearly.
+
 ## 5. Fetchers and extractors
 
 ### Manual ingest
@@ -91,6 +106,17 @@ Use when a simpler HTML extraction is enough.
 Allowed only for permitted public pages where normal parsing is needed.
 Disallow stealth/bypass options.
 
+### Lightpanda renderer
+
+Use when a page requires JavaScript execution but full Chromium overhead is unnecessary.
+Prefer safe page rendering, markdown/html extraction, and robots-aware operation.
+Do not treat it as a bypass tool.
+
+### Scrapy orchestration
+
+Use when the project needs breadth-first or scheduled crawling over a bounded allowed domain set.
+Do not introduce Scrapy before there is a clear orchestration need.
+
 ## 6. Chunking
 
 Chunking defaults:
@@ -118,13 +144,13 @@ Chunk metadata:
 
 Default:
 
-- Ollama embeddings.
-- LanceDB local embedded vector store.
+- Ollama embeddings
+- LanceDB local embedded vector store
 
 Optional:
 
-- SQLite FTS5 keyword search.
-- Hybrid ranker combining vector similarity and keyword hits.
+- SQLite FTS5 keyword search
+- hybrid ranker combining vector similarity and keyword hits
 
 Retrieval result must include:
 
@@ -144,7 +170,7 @@ Before graph generation, build an evidence packet:
 {
   "query": "일본어 여행 회화 6개월 주 5시간 월 10만원",
   "goal_summary": "...",
-  "user_constraints": {...},
+  "user_constraints": {},
   "retrieved_evidence": [
     {
       "evidence_id": "ev_001",
@@ -165,6 +191,13 @@ The prompt must instruct the LLM:
 - mark unsupported ideas as assumptions
 - do not produce deterministic future predictions
 - include uncertainty warnings
+
+For multi-step synthesis, prefer chained prompts:
+
+1. extract grounded findings
+2. critique weak findings
+3. synthesize route options
+4. emit final schema-valid graph bundle
 
 ## 9. Grounding policy
 
@@ -198,6 +231,8 @@ For each goal, create retrieval queries:
 - risk query
 - alternative path query
 - check-in revision query, if applicable
+- contextual expansion query
+- missed-opportunity / opportunity-cost query
 
 Example:
 
@@ -209,6 +244,8 @@ queries:
   - 일본어 공부 주 5시간 지속 실패 지점
   - 일본어 회화 초보 말하기 출력 루틴
   - 일본어 독학 2개월차 지루함 극복
+  - 일본어 회화 목표에서 학원 대신 튜터를 택할 때 비용 대비 차이
+  - 일본어 공부를 미루면 3개월 뒤 잃는 학습량과 전환 비용
 ```
 
 ## 11. Evaluation
@@ -226,8 +263,8 @@ Test cases:
 
 ## 12. Later enhancements
 
-- Local SearXNG discovery adapter.
-- Common Crawl based research corpus.
-- GraphRAG-like community summaries for large source libraries.
-- DSPy-based prompt optimization/evaluation.
-- Source reliability scoring.
+- local SearXNG discovery adapter
+- Common Crawl based research corpus
+- GraphRAG-like community summaries for large source libraries
+- DSPy-based prompt optimization/evaluation
+- source reliability scoring

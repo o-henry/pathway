@@ -23,9 +23,9 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="Life Map API",
+        title="Pathway API",
         version="0.1.0",
-        summary="Local-first API for the Life Map personal scenario mapper.",
+        summary="Local-first API for the Pathway decision-graph workspace.",
         lifespan=lifespan,
     )
     app.add_middleware(

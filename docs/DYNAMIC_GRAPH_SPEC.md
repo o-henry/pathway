@@ -24,7 +24,7 @@ Conceptual JSON:
   "schema_version": "1.0.0",
   "bundle_id": "gb_01",
   "map": {
-    "title": "일본어 여행 회화 6개월 Life Map",
+    "title": "일본어 여행 회화를 위한 Pathway",
     "goal_id": "goal_01",
     "summary": "6개월 동안 여행 회화 수준에 도달하기 위한 선택 경로"
   },

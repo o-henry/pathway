@@ -25,10 +25,10 @@
 
   const edgeData = $derived(data as MindMapEdgeData);
   const stroke = $derived(
-    edgeData.role === 'reference' ? '#9eabb6' : edgeData.active ? '#b76437' : '#7d6e82'
+    edgeData.role === 'reference' ? '#7a8a92' : edgeData.active ? '#8a5a35' : '#5d6f74'
   );
   const strokeWidth = $derived(
-    edgeData.active ? 3 : edgeData.role === 'reference' ? 1.6 : 2.2
+    edgeData.active ? 2.8 : edgeData.role === 'reference' ? 1.5 : 2
   );
   const dash = $derived(
     edgeData.role === 'reference'
@@ -39,7 +39,7 @@
   );
   const labelText = $derived(edgeData.edge.condition ?? edgeData.edge.label ?? '');
   const edgeStyle = $derived(
-    `stroke:${stroke};stroke-width:${strokeWidth};opacity:${edgeData.hovered || edgeData.active ? 1 : 0.76};${dash ? `stroke-dasharray:${dash};` : ''}`
+    `stroke:${stroke};stroke-width:${strokeWidth};opacity:${edgeData.hovered || edgeData.active ? 1 : 0.78};${dash ? `stroke-dasharray:${dash};` : ''}`
   );
 </script>
 
@@ -53,14 +53,14 @@
 
 <style>
   .label {
-    border: 1px solid rgba(97, 78, 84, 0.18);
-    border-radius: 999px;
-    background: rgba(255, 252, 245, 0.95);
-    box-shadow: 0 8px 18px rgba(92, 72, 84, 0.1);
+    border: 1px solid rgba(23, 20, 17, 0.12);
+    border-radius: 6px;
+    background: rgba(248, 245, 238, 0.94);
+    box-shadow: 0 8px 18px rgba(35, 30, 24, 0.1);
     color: #4b3d45;
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     font-weight: 600;
-    padding: 0.32rem 0.62rem;
+    padding: 0.28rem 0.56rem;
     white-space: nowrap;
   }
 </style>

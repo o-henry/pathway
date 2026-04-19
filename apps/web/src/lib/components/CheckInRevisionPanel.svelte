@@ -16,9 +16,9 @@
 
   const apiBaseUrl = getApiBaseUrl();
 
-  let progressSummary = $state('히라가나는 안정적이지만 문법 진입에서 흥미가 떨어지기 시작했다.');
-  let blockers = $state('평일 저녁엔 피곤해서 길게 공부하기 어렵다.');
-  let nextAdjustment = $state('주말 20분 speaking drill을 추가하고 평일엔 짧은 복습만 유지한다.');
+  let progressSummary = $state('문자 복습은 유지되지만 평일 피로 때문에 문법 진입 속도가 크게 떨어지고 있다.');
+  let blockers = $state('퇴근 후에는 길게 몰입하기 어려워 speaking이나 drill이 빠지기 쉽다.');
+  let nextAdjustment = $state('평일은 10분짜리 micro loop로 줄이고, 주말에 speaking drill을 명시적으로 넣는다.');
   let actualTimeSpent = $state('3');
   let actualMoneySpent = $state('0');
   let mood = $state('mixed');
@@ -82,7 +82,7 @@
           body: JSON.stringify({ checkin_id: createdCheckin.id })
         })
       );
-      successMessage = 'Check-in을 저장했고 revision proposal을 생성했습니다.';
+      successMessage = '현실 기록을 저장했고, 현재 조건에 맞춘 Pathway revision proposal을 만들었습니다.';
     } catch (error) {
       errorMessage =
         error instanceof Error ? error.message : 'Unknown check-in or revision failure';
@@ -107,7 +107,7 @@
         })
       );
       proposal = null;
-      successMessage = 'Revision proposal을 수락했고 새 map snapshot을 만들었습니다.';
+      successMessage = 'Revision proposal을 수락했고 새 Pathway snapshot을 만들었습니다.';
       onAccepted?.(acceptedMap);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown accept failure';
@@ -143,41 +143,41 @@
 <section class="revision-panel">
   <div class="section-header">
     <div>
-      <p class="eyebrow">Phase 7</p>
-      <h2>Check-ins + revisions</h2>
+      <p class="eyebrow">Reality revision loop</p>
+      <h2>현재가 바뀌면 Pathway도 다시 그려져야 합니다</h2>
       <p class="copy">
-        실제 진행 기록을 남기고, 현재 map과 비교한 revision proposal diff를 확인한 뒤 새 snapshot으로
-        수락할 수 있습니다.
+        이 서비스의 핵심은 계획이 아니라 수정입니다. 실제 시간, 돈, 감정, 실패 패턴을 기록하면
+        그래프는 그 현실을 반영해 다시 갈라져야 합니다.
       </p>
     </div>
   </div>
 
   {#if !currentMap}
-    <p class="empty">먼저 map을 생성하면 check-in과 revision flow를 이어서 사용할 수 있습니다.</p>
+    <p class="empty">먼저 Pathway를 생성하면 reality check-in과 revision loop가 활성화됩니다.</p>
   {:else}
     <div class="grid">
       <article class="card">
-        <h3>Create check-in</h3>
-        <p class="muted">Current map: {currentMap.title}</p>
+        <h3>Record what actually happened</h3>
+        <p class="muted">Current snapshot: {currentMap.title}</p>
         <label>
-          <span>Progress summary</span>
+          <span>What changed in reality</span>
           <textarea bind:value={progressSummary} rows="3"></textarea>
         </label>
         <label>
-          <span>Blockers</span>
+          <span>Pressure / blockers</span>
           <textarea bind:value={blockers} rows="2"></textarea>
         </label>
         <label>
-          <span>Next adjustment</span>
+          <span>What you want to try next</span>
           <textarea bind:value={nextAdjustment} rows="2"></textarea>
         </label>
         <div class="compact-grid">
           <label>
-            <span>Actual hours</span>
+            <span>Hours spent</span>
             <input bind:value={actualTimeSpent} inputmode="decimal" />
           </label>
           <label>
-            <span>Actual spend</span>
+            <span>Money spent</span>
             <input bind:value={actualMoneySpent} inputmode="decimal" />
           </label>
           <label>
@@ -186,14 +186,14 @@
           </label>
         </div>
         <button type="button" onclick={handleCreateCheckinAndProposal} disabled={isSubmitting}>
-          {#if isSubmitting}Submitting...{:else}Save check-in + generate revision{/if}
+          {#if isSubmitting}Submitting...{:else}Generate revision proposal{/if}
         </button>
       </article>
 
       <article class="card">
-        <h3>Recent check-ins</h3>
+        <h3>Recent reality checks</h3>
         {#if checkins.length === 0}
-          <p class="empty">아직 check-in이 없습니다.</p>
+          <p class="empty">아직 기록된 reality check가 없습니다.</p>
         {:else}
           <ul class="stack-list">
             {#each checkins as checkin (checkin.id)}
@@ -211,7 +211,7 @@
     </div>
 
     <article class="card proposal-card">
-      <h3>Revision proposal diff</h3>
+      <h3>What this revision would reshape</h3>
       {#if proposal}
         <p class="muted">{proposal.rationale}</p>
 
@@ -247,7 +247,7 @@
           </section>
 
           <section>
-            <h4>Edge + warning changes</h4>
+            <h4>Edges, warnings, and pressure</h4>
             <ul class="stack-list">
               {#each proposal.diff.edge_changes as change (`edge-${change.change_type}-${change.edge_id}`)}
                 <li>
@@ -273,14 +273,14 @@
 
         <div class="action-row">
           <button type="button" class="accept" onclick={handleAccept} disabled={isAccepting}>
-            {#if isAccepting}Accepting...{:else}Accept revision{/if}
+            {#if isAccepting}Accepting...{:else}Accept new Pathway{/if}
           </button>
           <button type="button" class="reject" onclick={handleReject} disabled={isRejecting}>
-            {#if isRejecting}Rejecting...{:else}Reject revision{/if}
+            {#if isRejecting}Rejecting...{:else}Hold proposal{/if}
           </button>
         </div>
       {:else}
-        <p class="empty">새 check-in을 저장하면 여기에서 proposal diff를 검토할 수 있습니다.</p>
+        <p class="empty">새 reality check를 저장하면 여기에서 Pathway diff를 검토할 수 있습니다.</p>
       {/if}
     </article>
   {/if}
@@ -298,10 +298,11 @@
   .revision-panel {
     display: grid;
     gap: 1rem;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 16px 34px rgba(84, 63, 77, 0.08);
-    padding: 1.4rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    padding: 1rem;
   }
 
   .section-header,
@@ -323,29 +324,31 @@
   }
 
   .eyebrow {
-    color: #8a5562;
-    font-size: 0.78rem;
+    color: var(--pathway-accent-strong);
+    font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   h2 {
-    margin-top: 0.25rem;
-    font-size: clamp(1.3rem, 1.6vw, 1.8rem);
+    margin-top: 0.2rem;
+    font-size: clamp(1.2rem, 1.45vw, 1.7rem);
+    line-height: 1.15;
   }
 
   .copy,
   .muted,
   .empty {
-    color: #584955;
+    color: var(--pathway-muted);
     line-height: 1.6;
   }
 
   .card {
-    border-radius: 22px;
-    background: rgba(255, 252, 248, 0.9);
-    padding: 1rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.95rem;
   }
 
   label {
@@ -354,19 +357,21 @@
   }
 
   label span {
-    color: #5d4a56;
-    font-size: 0.82rem;
+    color: var(--pathway-muted);
+    font-size: 0.76rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
   input,
   textarea {
-    border: 1px solid rgba(94, 78, 92, 0.14);
-    border-radius: 16px;
-    background: rgba(255, 251, 246, 0.94);
-    color: #2f2330;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.62);
+    color: var(--pathway-ink);
     font: inherit;
-    padding: 0.8rem 0.9rem;
+    padding: 0.78rem 0.82rem;
   }
 
   textarea {
@@ -374,14 +379,14 @@
   }
 
   button {
-    border: 0;
-    border-radius: 999px;
-    background: #2f2330;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-chip-radius);
+    background: var(--pathway-ink);
     color: white;
     cursor: pointer;
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     font-weight: 800;
-    padding: 0.8rem 1rem;
+    padding: 0.76rem 0.92rem;
   }
 
   button:disabled {
@@ -397,57 +402,62 @@
     gap: 0.75rem;
   }
 
+  .compact-grid label {
+    min-width: 140px;
+    flex: 1 1 140px;
+  }
+
   .stack-list {
     list-style: none;
     padding: 0;
   }
 
   .stack-list li {
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.78);
+    border-left: 3px solid var(--pathway-line-strong);
+    background: rgba(255, 255, 255, 0.55);
     padding: 0.8rem 0.9rem;
   }
 
   .stack-list small {
-    color: #7a6774;
+    color: var(--pathway-muted);
     display: block;
     margin-top: 0.3rem;
   }
 
   .pill {
-    border-radius: 999px;
-    background: rgba(255, 240, 224, 0.95);
+    border: 1px solid rgba(138, 90, 53, 0.22);
+    border-radius: var(--pathway-chip-radius);
+    background: rgba(240, 226, 208, 0.92);
     color: #6d4c36;
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     font-weight: 800;
-    padding: 0.35rem 0.7rem;
+    padding: 0.32rem 0.62rem;
   }
 
   .accept {
-    background: #2e5d45;
+    background: #274b38;
   }
 
   .reject {
-    background: #7a575e;
+    background: rgba(23, 20, 17, 0.78);
   }
 
   .success,
   .error {
-    border-left: 4px solid;
-    border-radius: 18px;
-    padding: 0.85rem 0.95rem;
+    border-left: 3px solid;
+    padding: 0.8rem 0.9rem;
   }
 
   .success {
-    border-left-color: #4a8f6d;
-    background: rgba(239, 255, 247, 0.92);
-    color: #2f6e52;
+    border-left-color: var(--pathway-success);
+    background: rgba(232, 242, 233, 0.9);
+    color: #254b31;
   }
 
   .error {
-    border-left-color: #d06b5d;
-    background: rgba(255, 239, 236, 0.92);
-    color: #7d352c;
+    border-left-color: var(--pathway-danger);
+    background: rgba(245, 230, 224, 0.9);
+    color: #733624;
   }
 
   @media (min-width: 980px) {

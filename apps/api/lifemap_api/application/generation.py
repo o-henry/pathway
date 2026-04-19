@@ -42,7 +42,7 @@ def _serialize_goal(goal: Goal) -> str:
 def _build_system_prompt() -> str:
     return dedent(
         """
-        You generate Life Map graph bundles for a local-first scenario mapping product.
+        You generate Pathway graph bundles for a local-first decision-graph product.
 
         Non-negotiable rules:
         - Return JSON only.
@@ -60,7 +60,7 @@ def _build_system_prompt() -> str:
         - Every progression path must remain acyclic.
         - Make the copy human, crisp, and slightly witty when appropriate,
           but never jokey enough to reduce clarity.
-        - Keep field values compact and readable for a mind-map UI.
+        - Keep field values compact and readable for a graph-first UI.
         - Include only the evidence items actually referenced by at least one node.
         """
     ).strip()

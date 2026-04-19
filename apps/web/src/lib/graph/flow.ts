@@ -1,5 +1,4 @@
 import type { Edge, Node } from '@xyflow/svelte';
-import { Position } from '@xyflow/svelte';
 
 import { formatFieldValue } from './format';
 import { resolveEdgeStyle, resolveNodeStyle } from './style';
@@ -47,8 +46,6 @@ export function buildFlow(bundle: GraphBundle): {
         fieldPreview,
         riskLevel: node.scores?.risk ?? null
       },
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
       draggable: false,
       selectable: true,
       focusable: true

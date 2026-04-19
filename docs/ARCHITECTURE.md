@@ -12,9 +12,11 @@ Browser / SvelteKit UI
       -> LLM provider interface
       -> Embedding provider interface
       -> Source ingestion adapters
+      -> Research orchestration roles
 ```
 
 The system is local-first. It should work without external network access after dependencies and local models are installed, except for explicit source fetching or optional external LLM usage.
+The graph workspace is the center of the product; support panels exist to help create, inspect, revise, and ground the graph.
 
 ## 2. Layering
 
@@ -34,6 +36,8 @@ Contains pure concepts:
 - `CheckIn`
 - `Decision`
 - `RevisionProposal`
+- `ResearchRun`
+- `ResearchFinding`
 
 Domain layer must not import FastAPI, SQLAlchemy sessions, Svelte, HTTP clients, or LLM SDKs.
 
@@ -42,6 +46,8 @@ Domain layer must not import FastAPI, SQLAlchemy sessions, Svelte, HTTP clients,
 Use cases:
 
 - create/update profile
+- analyze goal
+- infer required resource dimensions
 - create goal
 - create map from manual input
 - generate map with LLM
@@ -61,6 +67,8 @@ Application services depend on protocols/interfaces:
 - `LLMProvider`
 - `EmbeddingProvider`
 - `SourceFetcher`
+- `ResearchRole`
+- `ResearchPlanner`
 
 ### 2.3 Infrastructure layer
 
@@ -71,6 +79,8 @@ Implements:
 - Ollama provider
 - OpenAI provider
 - Crawl4AI fetcher
+- Lightpanda-backed renderer when JS execution is needed
+- Scrapy crawl queue/orchestration when breadth increases
 - Scrapling parser, restricted
 - file storage
 - config loading
@@ -92,16 +102,36 @@ SvelteKit UI:
 
 - routes
 - graph rendering
-- forms
+- intake forms
 - API client
 - stores
 - layout/theme
 
 No persistence logic or RAG logic in UI components.
+The center column should remain the graph workspace whenever possible.
 
-## 3. API endpoint map
+## 3. Research orchestration
 
-Initial API:
+Pathway should evolve toward a bounded orchestration model:
+
+```text
+Goal statement
+  -> goal analyst
+  -> resource-dimension inference
+  -> targeted query planner
+  -> scout agents
+  -> skeptic/verifier
+  -> evidence packet
+  -> graph builder
+  -> graph validator / repair
+```
+
+This does not require many runtime agents on day one.
+It does require keeping the roles explicit in code so the system does not collapse into one giant prompt with mixed responsibilities.
+
+## 4. API endpoint map
+
+Current and near-term API:
 
 ```text
 GET    /health
@@ -114,6 +144,9 @@ POST   /goals
 GET    /goals/{goal_id}
 PATCH  /goals/{goal_id}
 DELETE /goals/{goal_id}
+
+POST   /goals/intake/analyze
+POST   /goals/intake/questions
 
 GET    /maps/{map_id}
 POST   /maps
@@ -132,7 +165,9 @@ GET    /goals/{goal_id}/checkins
 POST   /maps/{map_id}/revise-from-checkin
 ```
 
-## 4. Database model
+The `intake` endpoints may initially be stubs or a phased feature, but the architecture should reserve space for them.
+
+## 5. Database model
 
 SQLite tables:
 
@@ -221,12 +256,28 @@ decisions
   decision_text TEXT
   selected_at TEXT
   metadata_json TEXT
+
+research_runs
+  id TEXT PRIMARY KEY
+  goal_id TEXT
+  objective TEXT
+  planner_output_json TEXT
+  status TEXT
+  created_at TEXT
+
+research_findings
+  id TEXT PRIMARY KEY
+  run_id TEXT
+  role TEXT
+  source_id TEXT NULL
+  finding_json TEXT
+  created_at TEXT
 ```
 
 Store graph bundle JSON as a full snapshot. This simplifies dynamic schema evolution.
 Later, frequently queried fields can be indexed separately.
 
-## 5. Graph rendering architecture
+## 6. Graph rendering architecture
 
 Frontend graph modules:
 
@@ -249,13 +300,17 @@ Rules:
 - Node detail panel displays dynamic fields using field definitions.
 - Evidence badges use `node.evidence_refs`.
 - Progression path highlighting uses edge roles.
+- Lost opportunity / invalidated path overlays should be possible without breaking the base schema.
 
-## 6. Dynamic graph generation pipeline
+## 7. Dynamic graph generation pipeline
 
 ```text
-User profile + goal
-  -> normalize constraints
-  -> optional source retrieval
+User goal statement
+  -> infer missing resource dimensions
+  -> collect user facts
+  -> targeted query planning
+  -> optional local + permitted web retrieval
+  -> skeptic / verifier pass
   -> generate graph ontology
   -> generate nodes and edges
   -> validate bundle
@@ -265,7 +320,7 @@ User profile + goal
   -> render
 ```
 
-## 7. Error handling
+## 8. Error handling
 
 Failure categories:
 
@@ -283,7 +338,7 @@ Each category must have:
 - developer log without secrets
 - suggested next action
 
-## 8. Local-first privacy
+## 9. Local-first privacy
 
 Default storage:
 

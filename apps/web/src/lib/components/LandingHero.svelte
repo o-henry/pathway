@@ -1,111 +1,71 @@
 <script lang="ts">
   const bullets = [
-    '목표와 제약을 입력하면 여러 선택 경로를 펼쳐봅니다.',
-    '근거와 가정을 분리한 로컬 시나리오 맵을 유지합니다.',
-    '체크인 이후에도 경로를 다시 계산하는 개인용 라이프 가이드입니다.'
+    '목표를 먼저 받고, 그 목표에 진짜 영향을 주는 resource lens만 다시 묻습니다.',
+    '조사 근거와 가정, 닫힌 분기와 손실을 같은 그래프 표면 위에 같이 둡니다.',
+    '체크인 이후에는 과거 계획을 지키기보다 현재 조건에 맞춰 Pathway를 다시 엽니다.'
   ];
 </script>
 
 <section class="hero">
-  <div class="copy">
-    <p class="eyebrow">Local-first Life Map</p>
-    <h1>선택의 가지를 그려주는 개인용 시나리오 맵</h1>
-    <p class="lede">
-      Life Map은 미래를 예언하지 않습니다. 대신 지금의 조건과 목표를 바탕으로
-      가능한 경로, 리스크, 전환점을 한 장의 지도처럼 펼쳐 보여줍니다.
-    </p>
+  <p class="eyebrow">Pathway / mutable decision graph</p>
+  <h1>목표를 말하면, 지금의 조건에서 갈라지는 경로와 그 대가를 함께 펼칩니다</h1>
+  <p class="lede">
+    미래를 예언하는 대신, 지금의 시간과 돈, 거리와 피로, 흥미와 손실이 어디에서 분기를
+    바꾸는지 시각적으로 붙잡는 로컬 워크스페이스를 지향합니다.
+  </p>
 
-    <ul>
-      {#each bullets as bullet (bullet)}
-        <li>{bullet}</li>
-      {/each}
-    </ul>
-  </div>
-
-  <div class="card">
-    <div class="badge">Phase 0</div>
-    <h2>Bootstrapped safely</h2>
-    <p>
-      현재 단계에서는 루트 설정, 보안 가드레일, 기본 UI, 헬스체크 API만 준비합니다.
-      그래프 생성과 RAG는 이후 phase에서 연결됩니다.
-    </p>
+  <div class="bullet-stack">
+    {#each bullets as bullet (bullet)}
+      <p>{bullet}</p>
+    {/each}
   </div>
 </section>
 
 <style>
   .hero {
     display: grid;
-    gap: 1.5rem;
+    gap: 0.85rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    padding: 1rem;
   }
 
-  .copy {
-    display: grid;
-    gap: 1rem;
+  .eyebrow,
+  h1,
+  p {
+    margin: 0;
   }
 
   .eyebrow {
-    margin: 0;
-    color: #8a5562;
-    font-size: 0.9rem;
-    font-weight: 700;
+    color: var(--pathway-accent-strong);
+    font-size: 0.76rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  h1,
-  h2,
-  p,
-  li {
-    margin: 0;
-  }
-
   h1 {
-    font-size: clamp(2.2rem, 4vw, 4rem);
-    line-height: 0.98;
+    font-size: clamp(1.7rem, 2.8vw, 2.8rem);
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+    max-width: 10ch;
   }
 
-  .lede {
-    max-width: 62ch;
-    color: #4f3e49;
-    font-size: 1.05rem;
-    line-height: 1.6;
+  .lede,
+  .bullet-stack p {
+    color: var(--pathway-muted);
+    line-height: 1.62;
   }
 
-  ul {
+  .bullet-stack {
     display: grid;
-    gap: 0.75rem;
-    padding-left: 1.2rem;
-    color: #43353f;
+    gap: 0.68rem;
   }
 
-  .card {
-    border: 2px dashed rgba(103, 77, 86, 0.4);
-    border-radius: 28px;
-    background: rgba(255, 247, 240, 0.9);
-    box-shadow: 0 12px 32px rgba(88, 56, 72, 0.08);
-    padding: 1.5rem;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: fit-content;
-    margin-bottom: 0.75rem;
-    border-radius: 999px;
-    background: #ffe3b9;
-    color: #6d4832;
-    font-size: 0.78rem;
-    font-weight: 700;
-    padding: 0.35rem 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  @media (min-width: 900px) {
-    .hero {
-      align-items: start;
-      grid-template-columns: 1.5fr 0.9fr;
-    }
+  .bullet-stack p {
+    border-left: 2px solid rgba(23, 68, 77, 0.24);
+    padding-left: 0.7rem;
   }
 </style>

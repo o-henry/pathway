@@ -1,1 +1,1 @@
-"""Life Map FastAPI application package."""
+"""Pathway FastAPI application package."""

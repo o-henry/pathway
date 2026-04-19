@@ -13,6 +13,7 @@
   let activeBundle = $state<GraphBundle>(exampleGraphBundle);
   let currentMap = $state<GeneratedMapResponse | null>(null);
   let workspaceRefreshKey = $state(0);
+  let activeDock = $state<'revision' | 'evidence' | 'history' | 'snapshot'>('revision');
   let StaticLifeMapComponent = $state<Component<{ bundle: GraphBundle }> | null>(null);
   let SourceLibraryPanelComponent = $state<Component | null>(null);
   let CheckInRevisionPanelComponent = $state<
@@ -46,170 +47,271 @@
   }
 
   onMount(async () => {
-    const [lifeMapModule, sourceModule, revisionModule] = await Promise.all([
+    const [pathwayModule, sourceModule, revisionModule] = await Promise.all([
       import('$lib/components/lifemap/StaticLifeMap.svelte'),
       import('$lib/components/SourceLibraryPanel.svelte'),
       import('$lib/components/CheckInRevisionPanel.svelte')
     ]);
 
-    StaticLifeMapComponent = lifeMapModule.default;
+    StaticLifeMapComponent = pathwayModule.default;
     SourceLibraryPanelComponent = sourceModule.default;
     CheckInRevisionPanelComponent = revisionModule.default;
   });
 
-  const roadmap = [
-    {
-      title: 'Dynamic graph ontology',
-      body: '목표마다 다른 노드 타입을 갖는 GraphBundle 기반 구조가 이미 적용되어 있습니다.'
-    },
-    {
-      title: 'Evidence-aware generation',
-      body: '사용자 노트와 허용된 소스에서 가져온 근거를 RAG로 붙여서 지도 생성에 실제로 반영합니다.'
-    },
-    {
-      title: 'Check-in driven revisions',
-      body: '실제 진행 기록을 바탕으로 proposal diff를 만들고 새 snapshot으로 수락하는 revision flow가 적용되어 있습니다.'
-    },
-    {
-      title: 'Quality + export packaging',
-      body: 'export/import, workspace polish, packaging, chunk split 정리를 적용해 개인용 로컬 툴로 오래 쓸 수 있게 마무리합니다.'
-    }
+  const operatingModel = [
+    'Research swarm이 서로 다른 편향으로 자료를 긁고 교차 검증한다.',
+    '현재의 시간, 돈, 거리, 에너지 변화가 branch를 열고 닫는다.',
+    '도달 경로뿐 아니라 늦게 선택해서 잃는 것과 과한 루트도 함께 보여준다.'
   ];
+
+  const dockTabs = [
+    { id: 'revision', label: 'Revision loop' },
+    { id: 'evidence', label: 'Evidence desk' },
+    { id: 'history', label: 'Branch history' },
+    { id: 'snapshot', label: 'Snapshot controls' }
+  ] as const;
 </script>
 
 <svelte:head>
-  <title>Life Map</title>
+  <title>Pathway</title>
   <meta
     name="description"
-    content="Local-first scenario mapping workspace for goals, constraints, choices, and revisions."
+    content="Local-first graph workspace for goals, evidence, routes, and revisions."
   />
 </svelte:head>
 
 <div class="page">
-  <LandingHero />
-  <GenerateMapPanel onGenerated={handleGeneratedMap} />
-  <WorkspaceHistoryPanel
-    activeMapId={currentMap?.id ?? null}
-    refreshKey={workspaceRefreshKey}
-    onSelectMap={handleSelectedMap}
-  />
-  <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
+  <main class="workspace-shell">
+    <aside class="control-rail">
+      <LandingHero />
+      <GenerateMapPanel onGenerated={handleGeneratedMap} />
 
-  {#if SourceLibraryPanelComponent}
-    <SourceLibraryPanelComponent />
-  {/if}
+      <section class="rail-note">
+        <p class="eyebrow">Pathway rules</p>
+        <div class="rule-list">
+          {#each operatingModel as item (item)}
+            <p>{item}</p>
+          {/each}
+        </div>
+      </section>
+    </aside>
 
-  {#if CheckInRevisionPanelComponent}
-    <CheckInRevisionPanelComponent {currentMap} onAccepted={handleAcceptedMap} />
-  {/if}
+    <section class="canvas-column">
+      <div class="graph-stage">
+        {#if StaticLifeMapComponent}
+          <StaticLifeMapComponent bundle={activeBundle} />
+        {:else}
+          <section class="loading-card">
+            <p class="eyebrow">Graph engine</p>
+            <h2>Pathway workspace를 로딩하는 중입니다</h2>
+            <p>그래프 엔진과 revision panel을 분리 로딩해 초반 번들을 가볍게 유지합니다.</p>
+          </section>
+        {/if}
+      </div>
 
-  {#if StaticLifeMapComponent}
-    <StaticLifeMapComponent bundle={activeBundle} />
-  {:else}
-    <section class="loading-card">
-      <p class="eyebrow">Workspace</p>
-      <h2>Interactive graph workspace를 불러오는 중입니다</h2>
-      <p>그래프 엔진과 revision panel을 분리 로딩해서 초반 번들을 가볍게 유지합니다.</p>
+      <section class="dock">
+        <div class="dock-tab-row" role="tablist" aria-label="Pathway dock">
+          {#each dockTabs as tab (tab.id)}
+            <button
+              type="button"
+              role="tab"
+              class:active={activeDock === tab.id}
+              aria-selected={activeDock === tab.id}
+              onclick={() => (activeDock = tab.id)}
+            >
+              {tab.label}
+            </button>
+          {/each}
+        </div>
+
+        <div class="dock-surface">
+          {#if activeDock === 'revision'}
+            {#if CheckInRevisionPanelComponent}
+              <CheckInRevisionPanelComponent {currentMap} onAccepted={handleAcceptedMap} />
+            {/if}
+          {:else if activeDock === 'evidence'}
+            {#if SourceLibraryPanelComponent}
+              <SourceLibraryPanelComponent />
+            {/if}
+          {:else if activeDock === 'history'}
+            <WorkspaceHistoryPanel
+              activeMapId={currentMap?.id ?? null}
+              refreshKey={workspaceRefreshKey}
+              onSelectMap={handleSelectedMap}
+            />
+          {:else}
+            <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
+          {/if}
+        </div>
+      </section>
     </section>
-  {/if}
-
-  <section class="roadmap">
-    <div class="section-header">
-      <p class="eyebrow">Build trajectory</p>
-      <h2>Phase-by-phase로 쪼개서 context rot를 방지합니다</h2>
-    </div>
-
-    <div class="grid">
-      {#each roadmap as item (item.title)}
-        <article>
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-        </article>
-      {/each}
-    </div>
-  </section>
+  </main>
 </div>
 
 <style>
+  :global(:root) {
+    --pathway-bg: #f2ede2;
+    --pathway-bg-strong: #e6dfd0;
+    --pathway-panel: rgba(250, 247, 240, 0.92);
+    --pathway-panel-strong: rgba(243, 238, 228, 0.96);
+    --pathway-line: rgba(45, 40, 33, 0.12);
+    --pathway-line-strong: rgba(45, 40, 33, 0.24);
+    --pathway-ink: #171411;
+    --pathway-muted: #61594f;
+    --pathway-accent: #2d6570;
+    --pathway-accent-strong: #17444d;
+    --pathway-warm: #8a5a35;
+    --pathway-danger: #a65440;
+    --pathway-success: #356b49;
+    --pathway-panel-radius: 10px;
+    --pathway-card-radius: 8px;
+    --pathway-chip-radius: 6px;
+    --pathway-shadow: 0 18px 40px rgba(35, 30, 24, 0.08);
+  }
+
   :global(body) {
     margin: 0;
     background:
-      radial-gradient(circle at top left, rgba(255, 228, 211, 0.9), transparent 28%),
-      radial-gradient(circle at top right, rgba(208, 232, 255, 0.7), transparent 24%),
-      linear-gradient(180deg, #fff8ef 0%, #fffef9 100%);
-    color: #2f2330;
+      linear-gradient(var(--pathway-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--pathway-line) 1px, transparent 1px),
+      linear-gradient(180deg, #f7f2e7 0%, var(--pathway-bg) 100%);
+    background-size:
+      28px 28px,
+      28px 28px,
+      cover;
+    color: var(--pathway-ink);
     font-family:
-      "Avenir Next", "Nunito", "Pretendard Variable", "Pretendard", system-ui, sans-serif;
+      'IBM Plex Sans', 'Pretendard Variable', 'Pretendard', system-ui, sans-serif;
   }
 
   .page {
-    display: grid;
-    gap: 3rem;
     min-height: 100vh;
-    padding: 3rem 1.5rem 4rem;
+    padding: 1rem;
   }
 
-  .roadmap {
+  .workspace-shell {
     display: grid;
-    gap: 1.5rem;
+    gap: 1rem;
+    min-height: 100vh;
   }
 
-  .section-header,
-  .loading-card {
-    display: grid;
-    gap: 0.65rem;
-  }
-
-  .eyebrow {
-    margin: 0;
-    color: #8a5562;
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  h2,
-  h3,
-  p {
-    margin: 0;
-  }
-
-  h2 {
-    font-size: clamp(1.6rem, 2vw, 2.2rem);
-  }
-
-  .grid {
+  .control-rail,
+  .canvas-column,
+  .dock,
+  .rule-list {
     display: grid;
     gap: 1rem;
   }
 
-  article,
-  .loading-card {
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.68);
-    box-shadow: 0 10px 28px rgba(106, 72, 86, 0.07);
-    padding: 1.2rem 1.25rem;
+  .canvas-column,
+  .graph-stage,
+  .dock-surface {
+    min-width: 0;
   }
 
-  article h3 {
-    margin-bottom: 0.45rem;
-    font-size: 1.05rem;
+  .loading-card,
+  .rail-note {
+    display: grid;
+    gap: 0.8rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    padding: 1rem;
   }
 
-  article p,
-  .loading-card p {
-    color: #554651;
+  .control-rail {
+    align-content: start;
+  }
+
+  .eyebrow,
+  h2,
+  p {
+    margin: 0;
+  }
+
+  .eyebrow {
+    color: var(--pathway-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    font-size: clamp(1.35rem, 2vw, 2rem);
+    line-height: 1.1;
+  }
+
+  .loading-card p:last-child,
+  .rule-list p {
+    color: var(--pathway-muted);
     line-height: 1.6;
   }
 
-  @media (min-width: 900px) {
-    .page {
-      padding-inline: 3rem;
+  .rule-list p {
+    border-left: 2px solid rgba(23, 68, 77, 0.26);
+    padding-left: 0.7rem;
+  }
+
+  .graph-stage {
+    min-height: 0;
+  }
+
+  .dock {
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    overflow: hidden;
+  }
+
+  .dock-tab-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--pathway-line);
+    background: rgba(245, 239, 229, 0.9);
+    padding: 0.75rem;
+  }
+
+  .dock-tab-row button {
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-chip-radius);
+    background: rgba(255, 255, 255, 0.52);
+    color: var(--pathway-muted);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.55rem 0.78rem;
+  }
+
+  .dock-tab-row button.active {
+    border-color: rgba(23, 68, 77, 0.28);
+    background: rgba(218, 229, 232, 0.92);
+    color: var(--pathway-accent-strong);
+  }
+
+  .dock-surface {
+    min-height: 320px;
+  }
+
+  .dock-surface :global(section) {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  @media (min-width: 1120px) {
+    .workspace-shell {
+      grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
+      align-items: start;
     }
 
-    .grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+    .control-rail {
+      position: sticky;
+      top: 1rem;
     }
   }
 </style>

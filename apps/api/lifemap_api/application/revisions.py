@@ -51,7 +51,7 @@ def _serialize_checkins(checkins: list[CheckIn]) -> str:
 def _build_revision_system_prompt() -> str:
     return dedent(
         """
-        You revise an existing Life Map after real-world progress updates.
+        You revise an existing Pathway graph after real-world progress updates.
 
         Non-negotiable rules:
         - Return JSON only.

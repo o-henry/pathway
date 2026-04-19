@@ -37,6 +37,19 @@
   let selectedNode = $state<GraphNodeRecord | null>(null);
   let layoutPass = 0;
 
+  const progressionEdgeCount = $derived(
+    bundle.edges.filter((edge) => {
+      const edgeType = bundle.ontology.edge_types.find((item) => item.id === edge.type);
+      return (edgeType?.role ?? 'reference') === 'progression';
+    }).length
+  );
+  const riskNodeCount = $derived(
+    bundle.nodes.filter((node) => (node.scores?.risk ?? 0) >= 0.55 || node.status === 'at_risk').length
+  );
+  const evidenceLinkedNodeCount = $derived(
+    bundle.nodes.filter((node) => node.evidence_refs.length > 0).length
+  );
+
   $effect(() => {
     const pass = ++layoutPass;
     const built = buildFlow(bundle);
@@ -45,11 +58,12 @@
     selectedNode = null;
     flowEdges = built.edges;
 
-    void layoutFlow(built.nodes, built.edges).then((laidOutNodes) => {
+    void layoutFlow(built.nodes, built.edges, bundle.map.goal_id).then((layoutResult) => {
       if (pass !== layoutPass) {
         return;
       }
-      flowNodes = laidOutNodes;
+      flowNodes = layoutResult.nodes;
+      flowEdges = layoutResult.edges;
       syncEdgeState();
     });
   });
@@ -104,15 +118,16 @@
   <section class="map-panel">
     <header class="map-header">
       <div>
-        <p class="eyebrow">Static example map</p>
+        <p class="eyebrow">Live pathway graph</p>
         <h2>{bundle.map.title}</h2>
         <p class="summary">{bundle.map.summary}</p>
       </div>
 
       <div class="pill-list">
         <span>{bundle.nodes.length} nodes</span>
-        <span>{bundle.edges.length} edges</span>
-        <span>{bundle.warnings.length} warnings</span>
+        <span>{progressionEdgeCount} progression edges</span>
+        <span>{riskNodeCount} pressure points</span>
+        <span>{evidenceLinkedNodeCount} evidence-linked nodes</span>
       </div>
     </header>
 
@@ -123,7 +138,8 @@
         nodes={flowNodes}
         edges={flowEdges}
         fitView
-        minZoom={0.45}
+        fitViewOptions={{ padding: 0.18 }}
+        minZoom={0.6}
         maxZoom={1.6}
         nodesDraggable={false}
         nodesConnectable={false}
@@ -135,16 +151,16 @@
       >
         <Background
           bgColor="transparent"
-          patternColor="#eadfce"
+          patternColor="rgba(23, 20, 17, 0.12)"
           variant={backgroundVariant}
           gap={18}
-          size={1.2}
+          size={1.1}
         />
         <MiniMap pannable zoomable />
         <Controls showLock={false} />
         <Panel position="top-left">
           <div class="legend">
-            <span>Click a node to inspect its dynamic fields, evidence, and assumptions.</span>
+            Node를 클릭하면 dynamic fields, evidence, assumptions, revision meta가 오른쪽 dossier에 열립니다.
           </div>
         </Panel>
       </SvelteFlow>
@@ -152,8 +168,8 @@
 
     <section class="node-browser" aria-labelledby="node-browser-title">
       <div class="node-browser-header">
-        <h3 id="node-browser-title">Keyboard node browser</h3>
-        <p>그래프를 마우스로 탐색하지 않아도, 탭 이동으로 노드를 선택하고 상세 패널을 열 수 있습니다.</p>
+        <h3 id="node-browser-title">Node index</h3>
+        <p>그래프에서 눈에 띄는 갈래를 빠르게 다시 집는 용도의 keyboard-friendly index입니다.</p>
       </div>
 
       <div class="node-button-grid">
@@ -183,7 +199,7 @@
 <style>
   .workspace {
     display: grid;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .map-panel {
@@ -206,23 +222,24 @@
   }
 
   .eyebrow {
-    color: #8a5562;
-    font-size: 0.82rem;
+    color: var(--pathway-accent-strong);
+    font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.25rem;
   }
 
   h2 {
-    font-size: clamp(1.55rem, 2.6vw, 2.4rem);
-    line-height: 1.08;
+    font-size: clamp(1.45rem, 2.3vw, 2.2rem);
+    line-height: 1.04;
   }
 
   .summary {
-    color: #584955;
-    margin-top: 0.4rem;
+    color: var(--pathway-muted);
+    margin-top: 0.35rem;
     max-width: 60ch;
+    line-height: 1.55;
   }
 
   .pill-list {
@@ -233,24 +250,29 @@
 
   .pill-list span,
   .legend {
-    border: 1px solid rgba(94, 78, 92, 0.14);
-    border-radius: 999px;
-    background: rgba(255, 251, 245, 0.95);
-    color: #4e404a;
-    font-size: 0.78rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-chip-radius);
+    background: rgba(248, 245, 238, 0.92);
+    color: var(--pathway-muted);
+    font-size: 0.74rem;
     font-weight: 700;
-    padding: 0.45rem 0.8rem;
+    padding: 0.38rem 0.62rem;
   }
 
   .flow-shell {
-    height: 70vh;
-    min-height: 560px;
-    border: 2px dashed rgba(102, 82, 92, 0.18);
-    border-radius: 32px;
+    height: min(78vh, 900px);
+    min-height: 700px;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
     background:
-      radial-gradient(circle at top left, rgba(255, 241, 229, 0.8), transparent 20%),
-      linear-gradient(180deg, rgba(255, 254, 250, 0.92), rgba(255, 250, 244, 0.9));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 42px rgba(73, 55, 67, 0.08);
+      linear-gradient(var(--pathway-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--pathway-line) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(252, 249, 242, 0.92), rgba(244, 238, 227, 0.96));
+    background-size:
+      24px 24px,
+      24px 24px,
+      cover;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 18px 42px rgba(35, 30, 24, 0.08);
     overflow: hidden;
   }
 
@@ -262,9 +284,10 @@
   .node-browser {
     display: grid;
     gap: 0.8rem;
-    border-radius: 24px;
-    background: rgba(255, 251, 245, 0.88);
-    padding: 1rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.95rem;
   }
 
   .node-browser-header {
@@ -273,11 +296,11 @@
   }
 
   .node-browser-header h3 {
-    font-size: 1rem;
+    font-size: 0.98rem;
   }
 
   .node-browser-header p {
-    color: #5a4a55;
+    color: var(--pathway-muted);
     line-height: 1.5;
   }
 
@@ -291,10 +314,10 @@
     display: grid;
     gap: 0.25rem;
     align-content: start;
-    border: 1px solid rgba(94, 78, 92, 0.14);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.86);
-    color: #2f2330;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--pathway-ink);
     cursor: pointer;
     font: inherit;
     padding: 0.9rem;
@@ -302,8 +325,9 @@
   }
 
   .node-button-grid button.selected {
-    border-color: rgba(110, 77, 91, 0.5);
-    box-shadow: 0 0 0 3px rgba(110, 77, 91, 0.1);
+    border-color: rgba(23, 68, 77, 0.42);
+    box-shadow: inset 0 0 0 1px rgba(23, 68, 77, 0.2);
+    background: rgba(226, 238, 239, 0.72);
   }
 
   .node-button-grid button strong {
@@ -311,37 +335,36 @@
   }
 
   .node-button-grid button span {
-    color: #6f5b67;
-    font-size: 0.78rem;
+    color: var(--pathway-muted);
+    font-size: 0.76rem;
     text-transform: uppercase;
   }
 
   .warning-strip article {
-    border-left: 4px solid #d88a63;
-    border-radius: 18px;
-    background: rgba(255, 247, 238, 0.88);
+    border-left: 3px solid var(--pathway-warm);
+    background: rgba(245, 235, 223, 0.9);
     color: #624534;
-    padding: 0.9rem 1rem;
+    padding: 0.82rem 0.92rem;
   }
 
   :global(.svelte-flow__attribution) {
-    background: rgba(255, 251, 245, 0.88);
-    border-radius: 999px;
+    background: rgba(248, 245, 238, 0.92);
+    border-radius: var(--pathway-chip-radius);
   }
 
   :global(.svelte-flow__controls) {
-    border-radius: 20px;
+    border-radius: var(--pathway-card-radius);
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(72, 57, 70, 0.1);
+    box-shadow: 0 10px 25px rgba(35, 30, 24, 0.1);
   }
 
   :global(.svelte-flow__background) {
-    opacity: 0.55;
+    opacity: 0.6;
   }
 
   @media (min-width: 1180px) {
     .workspace {
-      grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+      grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.82fr);
       align-items: start;
     }
   }

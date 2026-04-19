@@ -27,7 +27,7 @@ Run backend tests/lint and update docs/state/CURRENT_STATE.md.
 ```text
 Read AGENTS.md, docs/STYLE_GUIDE.md, docs/DYNAMIC_GRAPH_SPEC.md, and docs/phases/phase-02-static-life-map-ui.md.
 Execute Phase 2 only.
-Implement static Life Map rendering using Svelte Flow, custom nodes, custom edges, Rough.js/CSS sketch styling, node detail drawer, and the example graph bundle.
+Implement static Pathway graph rendering using Svelte Flow, custom nodes, custom edges, Rough.js/CSS sketch styling, node detail drawer, and the example graph bundle.
 Do not implement LLM generation yet.
 Run frontend tests/lint and update docs/state/CURRENT_STATE.md.
 ```

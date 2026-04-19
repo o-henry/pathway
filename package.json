@@ -1,12 +1,12 @@
 {
-  "name": "life-map",
+  "name": "pathway",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "concurrently -n web,api -c magenta,cyan \"pnpm dev:web\" \"pnpm dev:api\"",
-    "dev:web": "pnpm --filter web dev",
-    "dev:api": "uv run fastapi dev apps/api/lifemap_api/main.py",
+    "dev:web": "pnpm --filter web exec vite dev --host 127.0.0.1 --port 5173",
+    "dev:api": "UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000",
     "build": "pnpm --filter web build",
     "check": "pnpm --filter web check",
     "lint": "pnpm lint:web && pnpm lint:api",

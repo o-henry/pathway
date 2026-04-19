@@ -1,34 +1,52 @@
-# AGENTS.md — Life Map / Life Guide
+# AGENTS.md — Pathway
 
-This repository is a local-first personal Life Map / Life Guide application.
+This repository is a local-first personal **Pathway** application.
 Codex must treat this file as the root instruction document for all code changes.
 
 ## 0. Product contract
 
-Build a local web service that helps the user structure goals, choices, risks, checkpoints, and evidence into a dynamic mind-map / life-map.
+Build a local web service that helps the user turn a live goal into an evolving decision graph.
 
-The app is **not** a fortune teller and must not claim to predict the user's future.
-It must present outputs as scenario maps, assumptions, trade-offs, and possible routes.
+Pathway is:
+
+- a goal-first, graph-first decision workspace
+- a local research and planning surface
+- an evolving map of routes, costs, risks, checkpoints, missed options, and state changes
+
+Pathway is **not**:
+
+- a fortune teller
+- a generic to-do app
+- a static concept-map toy
+- a regex-heavy decision tree hardcoded in advance
+
+The app must not claim to predict the user's future.
+It must present outputs as scenario maps, evidence-backed observations, assumptions, trade-offs, and possible routes.
 
 Core product loop:
 
-1. User enters profile, constraints, and a goal.
-2. System generates a dynamic graph bundle from user input and optional RAG evidence.
-3. Graph is rendered as a playful hand-drawn mind-map / tree.
-4. User selects a route and writes check-ins.
-5. System revises the graph based on actual progress.
+1. User states a goal in natural language.
+2. System infers what resource dimensions matter for that goal and asks only the necessary follow-up questions.
+3. System runs multi-agent research across the user's source library and permitted public sources.
+4. System synthesizes a dynamic graph bundle from user facts, retrieved evidence, and explicit assumptions.
+5. Graph is rendered as the primary workspace, not as a secondary visualization below forms.
+6. User selects routes, records reality, and updates current constraints.
+7. System revises the graph so the map reflects the user's current state, not a stale earlier snapshot.
 
 ## 1. Read order before implementation
 
 Before touching code, read in this order:
 
 1. `docs/CODEX_START_HERE.md`
-2. `docs/IMPLEMENTATION_PLAN.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/DYNAMIC_GRAPH_SPEC.md`
-5. `docs/SECURITY_CHECKLIST.md`
-6. The specific phase file under `docs/phases/` for the current task
-7. `docs/state/CURRENT_STATE.md`
+2. `docs/PATHWAY_REFRAME.md`
+3. `docs/DESIGN_RESEARCH_PLAYBOOK.md`
+4. `docs/IMPLEMENTATION_PLAN.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/DYNAMIC_GRAPH_SPEC.md`
+7. `docs/RAG_AND_CRAWLING_SPEC.md`
+8. `docs/SECURITY_CHECKLIST.md`
+9. The specific phase file under `docs/phases/` for the current task
+10. `docs/state/CURRENT_STATE.md`
 
 Do not load every document into a single huge prompt unless necessary. Work phase by phase.
 
@@ -37,14 +55,16 @@ Do not load every document into a single huge prompt unless necessary. Work phas
 For non-trivial changes:
 
 - Create or update an ExecPlan using the template in `docs/PLANS.md`.
-- Work on exactly one phase at a time.
+- Work on exactly one bounded objective at a time.
 - Keep the diff small and reviewable.
-- At the end of every phase, update `docs/state/CURRENT_STATE.md` with:
+- At the end of every bounded objective, update `docs/state/CURRENT_STATE.md` with:
   - completed work
   - changed files
   - commands run
   - known gaps
   - next recommended task
+- Re-read the relevant phase doc before resuming work after an interruption.
+- Prefer adding a new phase doc or sub-phase note over keeping a massive rolling task in memory.
 
 If the task becomes too broad, split it into a smaller phase and document the split.
 
@@ -76,7 +96,11 @@ Required local guardrails:
 
 ## 4. Crawling and source collection rules
 
-The default ingestion path is manual: user-pasted notes, URLs, exported markdown, or local files.
+The ingestion path has three layers:
+
+1. user-owned context
+2. targeted goal-specific research
+3. broader contextual research that helps the graph branch into alternatives, missed opportunities, and future route switches
 
 Automated crawling must obey:
 
@@ -106,12 +130,36 @@ Use a layered architecture:
 Follow SOLID pragmatically:
 
 - Single responsibility per module.
-- Depend on interfaces/protocols for LLM, embeddings, source fetching, vector search, and graph layout.
+- Depend on interfaces/protocols for LLM, embeddings, source fetching, vector search, graph layout, and research roles.
 - Keep domain logic free of framework code.
 - Keep graph validation deterministic and unit-tested.
 - Do not let UI components contain RAG or persistence logic.
 
-## 6. Dynamic graph requirements
+Avoid brittle hardcoding:
+
+- Do not use regex or text-branching as the core strategy for goal analysis, resource inference, route generation, or graph semantics.
+- Regex is acceptable for sanitation, parsing tiny known formats, or validation of bounded machine formats.
+- The primary logic for intake and generation must be schema-driven, model-assisted, and evidence-aware.
+- Route semantics must emerge from dynamic ontology and grounded synthesis, not from giant `if/elif` trees keyed by topic names.
+
+## 6. Multi-agent research contract
+
+Pathway should move toward a bounded multi-agent research loop:
+
+- `goal analyst`: rewrites the user's goal into research questions and identifies which resource dimensions matter
+- `scout agents`: collect diverse evidence from user-owned sources and permitted public sources
+- `skeptic/verifier`: challenges weak claims, flags bias, duplication, stale evidence, and unsupported leaps
+- `synthesizer`: produces the evidence packet and graph-ready ontology proposal
+- `graph builder`: emits schema-valid `GraphBundle`
+
+This is an orchestration contract, not an excuse for agent sprawl.
+Every extra agent must have:
+
+- a sharply bounded role
+- explicit inputs/outputs
+- a measurable reason to exist
+
+## 7. Dynamic graph requirements
 
 Do not implement node types as a fixed global enum.
 
@@ -130,7 +178,17 @@ Unknown node types must render with a generic fallback style.
 
 Temporal/progression edges must form a DAG unless explicitly marked as non-progression reference edges.
 
-## 7. AI/RAG rules
+The graph must be able to grow as the user's present changes.
+New constraints, reduced budget, lost time, changed motivation, or new evidence should be able to:
+
+- add branches
+- collapse branches
+- downgrade routes
+- surface opportunity cost
+- mark previously viable routes as out of reach
+- recover routes that become viable again
+
+## 8. AI/RAG rules
 
 Generated content must distinguish:
 
@@ -144,24 +202,55 @@ Every unsupported claim must be labeled as an assumption or suggestion.
 
 LLM JSON output must be schema-validated. If invalid, repair through a deterministic or LLM-assisted repair loop, then validate again.
 
-## 8. UX rules
+For long-context synthesis:
 
-The map should look like a playful mind-map, not a sterile enterprise graph.
+- place retrieved evidence before the task query
+- structure documents with XML-like sections or equivalent machine-parsable blocks
+- ask the model to quote or ground claims before synthesizing route recommendations
+- split complex flows into chained subtasks when one prompt becomes unstable
+
+## 9. UX rules
+
+The graph is the protagonist.
+Forms, history, source management, and revisions are supporting rails around the graph workspace.
+
+The Pathway visual language should be:
+
+- graph-first
+- editorial, technical, and intentional
+- low-radius or near-square by default
+- light on candy colors
+- spatially clear under high information density
+- capable of looking slightly hand-directed without becoming childish
+
+Avoid:
+
+- giant rounded pills everywhere
+- generic SaaS landing page sections stacked vertically
+- “cute pastel dashboard” defaults
+- decoration that weakens information hierarchy
 
 Use:
 
-- rounded pastel nodes
-- hand-drawn/sketchy borders or connectors
-- soft spacing
-- small node-specific visual accents
-- clear risk/checkpoint/evidence markers
-- readable labels
+- restrained corners
+- strong contrast between canvas and rails
+- clear route status markers
+- visible evidence / assumption / risk affordances
+- graph-paper / plotting-room / decision-table sensibility
 
-Do not sacrifice readability for decoration.
+Use the reference images in `assets/references/` as inspiration for spatial branching, not as a direct style target.
 
-Use the reference images in `assets/references/` as style direction, not as exact copies.
+## 10. Design quality protocol
 
-## 9. Preferred stack
+When changing the UI:
+
+- define success criteria before coding
+- use reference-driven direction, not generic dashboard habits
+- do one design pass, one critique pass, then one refinement pass
+- document the critique in the relevant phase or state note if the change is substantial
+- prefer fewer, stronger visual ideas over many weak ones
+
+## 11. Preferred stack
 
 Frontend:
 
@@ -189,11 +278,13 @@ Crawler/RAG:
 
 - Manual source ingestion first
 - Crawl4AI for permitted LLM-ready Markdown extraction
-- Trafilatura/readability-style extraction as fallback
+- Lightpanda for fast JS-capable headless fetch flows when browser execution is needed
+- Scrapy for disciplined crawl orchestration and queueing when breadth increases
 - Scrapling only for permitted parsing, no bypass behavior
+- Trafilatura/readability-style fallback for article extraction
 - Optional local SearXNG adapter later
 
-## 10. Commands must be documented
+## 12. Commands must be documented
 
 Whenever commands are added, document them in `README.md`.
 Expected command categories:
@@ -208,7 +299,7 @@ Expected command categories:
 - typecheck
 - secret scan
 
-## 11. Definition of done
+## 13. Definition of done
 
 A phase is done only when:
 

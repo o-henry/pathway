@@ -31,11 +31,11 @@
 
   const apiBaseUrl = getApiBaseUrl();
 
-  let sourceTitle = $state('일본어 루틴 메모');
+  let sourceTitle = $state('직장인 일본어 루프 메모');
   let sourceBody = $state(
-    '일본어 여행 회화를 목표로 하면, Anki 복습과 짧은 speaking drill을 같이 넣는 편이 덜 질린다.'
+    '주 5시간 이하일 때는 문법만 밀어붙이기보다 speaking drill과 짧은 복습을 섞는 편이 이탈이 적었다.'
   );
-  let searchQuery = $state('일본어 speaking');
+  let searchQuery = $state('speaking boredom');
   let previewUrl = $state('https://example.com/japanese-study-note');
   let saveMessage = $state('');
   let errorMessage = $state('');
@@ -60,12 +60,12 @@
             title: sourceTitle,
             content_text: sourceBody,
             source_type: 'manual_note',
-            metadata: { tags: ['manual', 'phase-5'] }
+            metadata: { tags: ['manual', 'pathway'] }
           })
         })
       );
       lastSource = source;
-      saveMessage = `Saved source ${source.title}`;
+      saveMessage = `${source.title} 자료를 evidence desk에 저장했습니다.`;
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown source ingestion failure';
     } finally {
@@ -113,28 +113,28 @@
 <section class="source-panel">
   <div class="section-header">
     <div>
-      <p class="eyebrow">Phase 5</p>
-      <h2>Source library + local retrieval</h2>
+      <p class="eyebrow">Evidence desk</p>
+      <h2>에이전트 리서치가 사용할 근거층을 쌓습니다</h2>
       <p class="copy">
-        사용자 노트를 저장하고 chunk/embedding/index를 거쳐 바로 검색합니다. URL preview는 아직
-        정책 판정만 수행합니다.
+        현재는 수동 노트와 로컬 검색이 중심이지만, 여기서 축적된 자료가 이후 research swarm과
+        Pathway revision의 바닥 데이터가 됩니다.
       </p>
     </div>
   </div>
 
   <div class="grid">
     <article class="card">
-      <h3>Manual note ingest</h3>
+      <h3>Capture a note</h3>
       <label>
-        <span>Title</span>
+        <span>Source title</span>
         <input bind:value={sourceTitle} />
       </label>
       <label>
-        <span>Body</span>
+        <span>Observed pattern</span>
         <textarea bind:value={sourceBody} rows="5"></textarea>
       </label>
       <button type="button" onclick={handleSaveSource} disabled={isSaving}>
-        {#if isSaving}Saving...{:else}Save source{/if}
+        {#if isSaving}Saving...{:else}Store evidence note{/if}
       </button>
       {#if saveMessage}
         <p class="success">{saveMessage}</p>
@@ -145,24 +145,24 @@
     </article>
 
     <article class="card">
-      <h3>Source search</h3>
+      <h3>Query the evidence base</h3>
       <label>
         <span>Query</span>
         <input bind:value={searchQuery} />
       </label>
       <button type="button" onclick={handleSearch} disabled={isSearching}>
-        {#if isSearching}Searching...{:else}Search chunks{/if}
+        {#if isSearching}Searching...{:else}Search stored evidence{/if}
       </button>
       <div class="results">
         {#if searchResults.length === 0}
-          <p class="muted">No retrieval results yet.</p>
+          <p class="muted">아직 검색 결과가 없습니다.</p>
         {:else}
           {#each searchResults as result (result.chunk_id)}
             <div class="result-card">
               <strong>{result.title}</strong>
               <p>{result.snippet}</p>
               <small>
-                score {result.similarity_score.toFixed(3)} · {result.reliability}
+                similarity {result.similarity_score.toFixed(3)} · {result.reliability}
               </small>
             </div>
           {/each}
@@ -171,20 +171,20 @@
     </article>
 
     <article class="card">
-      <h3>URL preview skeleton</h3>
+      <h3>URL policy gate</h3>
       <label>
-        <span>URL</span>
+        <span>Candidate URL</span>
         <input bind:value={previewUrl} />
       </label>
       <button type="button" onclick={handlePreviewUrl} disabled={isPreviewing}>
-        {#if isPreviewing}Previewing...{:else}Preview policy{/if}
+        {#if isPreviewing}Previewing...{:else}Check policy state{/if}
       </button>
       {#if lastPreview}
         <div class="result-card">
           <strong>{lastPreview.policy_state}</strong>
           <p>{lastPreview.reason}</p>
           <small>
-            {lastPreview.domain ?? 'no-domain'} · metadata_only {String(lastPreview.metadata_only)}
+            {lastPreview.domain ?? 'no-domain'} · fetch_allowed {String(lastPreview.fetch_allowed)}
           </small>
         </div>
       {/if}
@@ -200,10 +200,11 @@
   .source-panel {
     display: grid;
     gap: 1rem;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 16px 34px rgba(84, 63, 77, 0.08);
-    padding: 1.4rem;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-panel-radius);
+    background: var(--pathway-panel);
+    box-shadow: var(--pathway-shadow);
+    padding: 1rem;
   }
 
   .section-header,
@@ -222,23 +223,25 @@
   }
 
   .eyebrow {
-    color: #8a5562;
-    font-size: 0.78rem;
+    color: var(--pathway-accent-strong);
+    font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   h2 {
-    margin-top: 0.25rem;
-    font-size: clamp(1.3rem, 1.6vw, 1.8rem);
+    margin-top: 0.2rem;
+    font-size: clamp(1.2rem, 1.45vw, 1.7rem);
+    line-height: 1.15;
   }
 
-  .copy {
-    margin-top: 0.45rem;
-    color: #584955;
+  .copy,
+  .muted,
+  .result-card p,
+  small {
+    color: var(--pathway-muted);
     line-height: 1.6;
-    max-width: 68ch;
   }
 
   .grid {
@@ -247,9 +250,10 @@
   }
 
   .card {
-    border-radius: 22px;
-    background: rgba(255, 251, 246, 0.92);
-    padding: 1rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.95rem;
   }
 
   label {
@@ -258,9 +262,11 @@
   }
 
   label span {
-    color: #5d4a56;
-    font-size: 0.82rem;
+    color: var(--pathway-muted);
+    font-size: 0.76rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
   input,
@@ -271,11 +277,11 @@
 
   input,
   textarea {
-    border: 1px solid rgba(94, 78, 92, 0.14);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #2f2330;
-    padding: 0.8rem 0.9rem;
+    border: 1px solid var(--pathway-line);
+    border-radius: var(--pathway-card-radius);
+    background: rgba(255, 255, 255, 0.62);
+    color: var(--pathway-ink);
+    padding: 0.78rem 0.82rem;
   }
 
   textarea {
@@ -283,13 +289,13 @@
   }
 
   button {
-    border: 0;
-    border-radius: 999px;
-    background: #2f2330;
+    border: 1px solid var(--pathway-line-strong);
+    border-radius: var(--pathway-chip-radius);
+    background: var(--pathway-ink);
     color: white;
     cursor: pointer;
     font-weight: 800;
-    padding: 0.75rem 1rem;
+    padding: 0.74rem 0.92rem;
   }
 
   button:disabled {
@@ -300,29 +306,21 @@
   .result-card {
     display: grid;
     gap: 0.35rem;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.85);
+    border-left: 3px solid var(--pathway-accent);
+    background: rgba(255, 255, 255, 0.55);
     padding: 0.8rem 0.9rem;
   }
 
-  .muted,
-  .result-card p,
-  small {
-    color: #5f505b;
-    line-height: 1.55;
-  }
-
   .success {
-    color: #2f6e4d;
+    color: var(--pathway-success);
     font-weight: 700;
   }
 
   .error {
-    border-left: 4px solid #d06b5d;
-    border-radius: 18px;
-    background: rgba(255, 239, 236, 0.92);
-    color: #7d352c;
-    padding: 0.85rem 0.95rem;
+    border-left: 3px solid var(--pathway-danger);
+    background: rgba(245, 230, 224, 0.9);
+    color: #733624;
+    padding: 0.8rem 0.9rem;
   }
 
   @media (min-width: 1000px) {
