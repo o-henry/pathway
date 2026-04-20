@@ -259,6 +259,7 @@ export function MainAppShell(props: any) {
               isWorkflowBusy={isWorkflowBusy}
               marqueeSelection={marqueeSelection}
               nodeAnchorSides={nodeAnchorSides}
+              collapsedPathwayNodeIds={new Set<string>()}
               nodeCardSummary={nodeCardSummary}
               nodeStates={nodeStates}
               nodeStatusLabel={nodeStatusLabel}
@@ -277,6 +278,7 @@ export function MainAppShell(props: any) {
               onNodeAnchorDragStart={onNodeAnchorDragStart}
               onNodeAnchorDrop={onNodeAnchorDrop}
               onNodeDragStart={onNodeDragStart}
+              onTogglePathwayBranch={() => {}}
               onOpenFeedFromNode={onOpenFeedFromNode}
               onOpenKnowledgeFilePicker={onOpenKnowledgeFilePicker}
               onOpenWebInputForNode={onOpenWebInputForNode}

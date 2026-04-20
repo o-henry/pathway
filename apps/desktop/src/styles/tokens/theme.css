@@ -12,7 +12,7 @@
   color: #1b2229;
   background: #f6f6f6;
   --header-control-height: 34px;
-  --titlebar-overlay-height: 34px;
+  --titlebar-overlay-height: 0px;
   --workspace-tab-bottom-inset: 12px;
   --content-max-width: 860px;
   --surface: #ffffff;

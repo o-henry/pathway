@@ -24,6 +24,8 @@ type WorkflowCanvasNodesLayerProps = {
   isNodeDragAllowedTarget: (target: EventTarget | null) => boolean;
   onNodeDragStart: (event: ReactMouseEvent<HTMLDivElement>, nodeId: string) => void;
   nodeAnchorSides: readonly NodeAnchorSide[];
+  collapsedPathwayNodeIds: Set<string>;
+  onTogglePathwayBranch: (nodeId: string) => void;
   onNodeAnchorDragStart: (event: ReactMouseEvent<HTMLButtonElement>, nodeId: string, side: NodeAnchorSide) => void;
   onNodeAnchorDrop: (event: ReactMouseEvent<HTMLButtonElement>, nodeId: string, side: NodeAnchorSide) => void;
   selectedEdgeKey: string;
@@ -63,6 +65,8 @@ export default function WorkflowCanvasNodesLayer({
   isNodeDragAllowedTarget,
   onNodeDragStart,
   nodeAnchorSides,
+  collapsedPathwayNodeIds,
+  onTogglePathwayBranch,
   onNodeAnchorDragStart,
   onNodeAnchorDrop,
   selectedEdgeKey,
@@ -165,6 +169,10 @@ export default function WorkflowCanvasNodesLayer({
         const pathwayNodeType = String((node.config as Record<string, unknown>)?.pathwayNodeType ?? "").trim().toLowerCase();
         const pathwayVisualWidth = Number((node.config as Record<string, unknown>)?.pathwayVisualWidth ?? 176);
         const pathwayVisualHeight = Number((node.config as Record<string, unknown>)?.pathwayVisualHeight ?? 36);
+        const pathwayPreviewChange = String((node.config as Record<string, unknown>)?.pathwayPreviewChange ?? "").trim().toLowerCase();
+        const pathwayPreviewStatus = String((node.config as Record<string, unknown>)?.pathwayPreviewStatus ?? "").trim().toLowerCase();
+        const isPathwayBranchCollapsed = collapsedPathwayNodeIds.has(node.id);
+        const canTogglePathwayBranch = isPathwayNode && pathwayChildCount > 0;
         return (
           <div
             className={`graph-node node-${node.type} ${isRagModeNode ? "is-rag-mode-node" : ""} ${isRagNodeRunning ? "is-rag-running" : ""} ${isDataPipelineNode ? "is-data-pipeline-node" : ""} ${isDataResearchNode ? "is-data-research-node" : ""} ${isInternalRoleNode ? "is-internal-role-node" : ""} ${handoffRoleClass} ${isNodeSelected ? "selected" : ""} ${isNodeDragging ? "is-dragging" : ""}`.trim()}
@@ -175,6 +183,9 @@ export default function WorkflowCanvasNodesLayer({
             data-pathway-leaf={isPathwayNode ? String(isPathwayLeaf) : undefined}
             data-pathway-node-type={pathwayNodeType || undefined}
             data-pathway-tone={pathwayTone || undefined}
+            data-pathway-collapsed={canTogglePathwayBranch ? String(isPathwayBranchCollapsed) : undefined}
+            data-pathway-preview-change={pathwayPreviewChange || undefined}
+            data-pathway-preview-status={pathwayPreviewStatus || undefined}
             key={node.id}
             onClick={(event) => {
               if (event.shiftKey) {
@@ -231,6 +242,22 @@ export default function WorkflowCanvasNodesLayer({
                       <span className="pathway-branch-kicker" title={pathwayKicker}>
                         {pathwayKicker}
                       </span>
+                    ) : null}
+                    {canTogglePathwayBranch ? (
+                      <button
+                        aria-label={isPathwayBranchCollapsed ? "연결 노드 펼치기" : "연결 노드 접기"}
+                        className="pathway-branch-toggle"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setNodeSelection([node.id], node.id);
+                          setSelectedEdgeKey("");
+                          onTogglePathwayBranch(node.id);
+                        }}
+                        title={isPathwayBranchCollapsed ? "연결 노드 펼치기" : "연결 노드 접기"}
+                        type="button"
+                      >
+                        {isPathwayBranchCollapsed ? "+" : "−"}
+                      </button>
                     ) : null}
                   </div>
                 ) : (

@@ -96,13 +96,7 @@ function normalizeLocale(input: unknown): AppLocale {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<AppLocale>(() => {
-    try {
-      return normalizeLocale(window.localStorage.getItem(STORAGE_KEY));
-    } catch {
-      return "ko";
-    }
-  });
+  const [locale, setLocaleState] = useState<AppLocale>("ko");
 
   useEffect(() => {
     setCurrentLocale(locale);

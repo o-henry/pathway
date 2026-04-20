@@ -2,36 +2,42 @@ import { type ReactNode, useEffect, useState } from 'react';
 
 import AppNav from '../components/AppNav';
 import {
+  acceptRevisionPreview,
   analyzeGoal,
   createGoal,
+  createRevisionPreview,
   createStateUpdate,
   fetchCurrentState,
   fetchGoalMaps,
   fetchGoals,
+  fetchRevisionPreview,
   fetchRouteSelection,
   fetchStateUpdates,
   generatePathway,
-  getApiBaseUrl,
   getAssumptionsForNode,
   getEvidenceForNode,
+  rejectRevisionPreview,
   updateRouteSelection
 } from '../lib/api';
-import { exampleGraphBundle } from '../lib/exampleGraphBundle';
 import PathwayRailCanvas from './PathwayRailCanvas';
 import type {
   CurrentStateSnapshot,
   GoalAnalysisRecord,
   GoalRecord,
+  GraphBundle,
+  GraphNodeRecord,
   LifeMap,
+  RevisionProposalRecord,
   RouteSelectionRecord,
   StateUpdateRecord
 } from '../lib/types';
 
-type WorkspaceTab = 'tasks' | 'workflow' | 'knowledge' | 'visualize' | 'adaptation' | 'settings';
+type WorkspaceTab = 'tasks' | 'workflow' | 'knowledge' | 'adaptation';
+const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'knowledge', 'adaptation'];
 
 function formatFieldValue(value: unknown): string {
   if (value == null) {
-    return 'No data';
+    return '데이터 없음';
   }
   if (Array.isArray(value)) {
     return value.join(', ');
@@ -52,13 +58,10 @@ function NavIcon({ tab }: { tab: WorkspaceTab; active?: boolean }) {
   if (tab === 'knowledge') {
     return <img alt="" aria-hidden="true" className="nav-workflow-image nav-database-image" src="/data-service-svgrepo-com.svg" />;
   }
-  if (tab === 'visualize') {
-    return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/chart-svgrepo-com.svg" />;
-  }
   if (tab === 'adaptation') {
     return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/star.svg" />;
   }
-  return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/setting.svg" />;
+  return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/scroll.svg" />;
 }
 
 function EmptyState({
@@ -79,10 +82,81 @@ function EmptyState({
   );
 }
 
+function mergePreviewBundle(baseBundle: GraphBundle, proposal: RevisionProposalRecord | null): GraphBundle {
+  if (!proposal) {
+    return baseBundle;
+  }
+
+  const proposedBundle = proposal.proposed_graph_bundle;
+  const mergedNodeTypes = new Map(
+    [...baseBundle.ontology.node_types, ...proposedBundle.ontology.node_types].map((item) => [item.id, item])
+  );
+  const mergedEdgeTypes = new Map(
+    [...baseBundle.ontology.edge_types, ...proposedBundle.ontology.edge_types].map((item) => [item.id, item])
+  );
+  const mergedEvidence = new Map(
+    [...baseBundle.evidence, ...proposedBundle.evidence].map((item) => [item.id, item])
+  );
+  const mergedAssumptions = new Map(
+    [...baseBundle.assumptions, ...proposedBundle.assumptions].map((item) => [item.id, item])
+  );
+  const mergedNodes = new Map(proposedBundle.nodes.map((item) => [item.id, item]));
+  const mergedEdges = new Map(proposedBundle.edges.map((item) => [item.id, item]));
+
+  for (const change of proposal.diff.node_changes) {
+    if (change.change_type !== 'removed') {
+      continue;
+    }
+    const existingNode = baseBundle.nodes.find((item) => item.id === change.node_id);
+    if (existingNode) {
+      mergedNodes.set(existingNode.id, existingNode);
+    }
+  }
+
+  for (const change of proposal.diff.edge_changes) {
+    if (change.change_type !== 'removed') {
+      continue;
+    }
+    const existingEdge = baseBundle.edges.find(
+      (item) =>
+        item.id === change.edge_id ||
+        (item.source === change.source && item.target === change.target)
+    );
+    if (existingEdge) {
+      mergedEdges.set(existingEdge.id, existingEdge);
+    }
+  }
+
+  return {
+    ...proposedBundle,
+    ontology: {
+      node_types: [...mergedNodeTypes.values()],
+      edge_types: [...mergedEdgeTypes.values()]
+    },
+    nodes: [...mergedNodes.values()],
+    edges: [...mergedEdges.values()],
+    evidence: [...mergedEvidence.values()],
+    assumptions: [...mergedAssumptions.values()]
+  };
+}
+
+function findSelectedNode(
+  bundle: GraphBundle | null,
+  selectedNodeId: string | null
+): GraphNodeRecord | null {
+  if (!bundle || !selectedNodeId) {
+    return null;
+  }
+  return bundle.nodes.find((node) => node.id === selectedNodeId) ?? null;
+}
+
+function getVisibleNodeFields(node: GraphNodeRecord): Array<[string, unknown]> {
+  return Object.entries(node.data).filter(([key]) => !key.startsWith('__'));
+}
+
 export default function MainApp() {
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('workflow');
   const [showWorkflowInspector, setShowWorkflowInspector] = useState(true);
-  const [showWorkflowRail, setShowWorkflowRail] = useState(true);
   const [goals, setGoals] = useState<GoalRecord[]>([]);
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<GoalRecord | null>(null);
@@ -93,9 +167,10 @@ export default function MainApp() {
   const [currentState, setCurrentState] = useState<CurrentStateSnapshot | null>(null);
   const [stateUpdates, setStateUpdates] = useState<StateUpdateRecord[]>([]);
   const [routeSelection, setRouteSelection] = useState<RouteSelectionRecord | null>(null);
+  const [revisionPreview, setRevisionPreview] = useState<RevisionProposalRecord | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [statusMessage, setStatusMessage] = useState('Pathway local workspace is ready. Create a goal, inspect resources, and expand the map.');
+  const [statusMessage, setStatusMessage] = useState('Pathway 로컬 작업공간이 준비되었습니다. 목표를 만들고, 자원을 분석한 뒤, 그래프를 확장하세요.');
   const [isBusy, setIsBusy] = useState(false);
 
   const [goalForm, setGoalForm] = useState({
@@ -113,12 +188,18 @@ export default function MainApp() {
     mood: ''
   });
 
-  const activeBundle = activeMap?.graph_bundle ?? exampleGraphBundle;
-  const selectedNode = selectedNodeId
-    ? activeBundle.nodes.find((node) => node.id === selectedNodeId) ?? null
-    : null;
-  const selectedEvidence = selectedNode ? getEvidenceForNode(activeBundle, selectedNode.id) : [];
-  const selectedAssumptions = selectedNode ? getAssumptionsForNode(activeBundle, selectedNode.id) : [];
+  const activeBundle = activeMap?.graph_bundle ?? null;
+  const visibleBundle = activeBundle && revisionPreview
+    ? mergePreviewBundle(activeBundle, revisionPreview)
+    : activeBundle;
+  const selectedNode = findSelectedNode(visibleBundle, selectedNodeId);
+  const selectedEvidence = selectedNode && visibleBundle ? getEvidenceForNode(visibleBundle, selectedNode.id) : [];
+  const selectedAssumptions = selectedNode && visibleBundle ? getAssumptionsForNode(visibleBundle, selectedNode.id) : [];
+  const selectedNodePreviewChange =
+    selectedNode && revisionPreview
+      ? revisionPreview.diff.node_changes.find((item) => item.node_id === selectedNode.id) ?? null
+      : null;
+  const hasWorkflowRail = Boolean(goalAnalysis || routeSelection || currentState || stateUpdates.length > 0);
 
   async function refreshGoals(preserveSelection = true) {
     const nextGoals = await fetchGoals();
@@ -137,6 +218,7 @@ export default function MainApp() {
   }
 
   async function refreshGoalWorkspace(goalId: string, preferredMapId?: string | null) {
+    setRevisionPreview(null);
     const goal = goals.find((item) => item.id === goalId) ?? (await fetchGoals()).find((item) => item.id === goalId) ?? null;
     setActiveGoal(goal);
 
@@ -171,7 +253,7 @@ export default function MainApp() {
       try {
         await refreshGoals(false);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to load goals');
+        setErrorMessage(error instanceof Error ? error.message : '목표를 불러오지 못했습니다.');
       }
     })();
   }, []);
@@ -185,14 +267,44 @@ export default function MainApp() {
         setErrorMessage('');
         await refreshGoalWorkspace(activeGoalId, activeMapId);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to load goal workspace');
+        setErrorMessage(error instanceof Error ? error.message : '목표 작업공간을 불러오지 못했습니다.');
       }
     })();
   }, [activeGoalId]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName ?? '';
+      const isTypingContext =
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        tagName === 'SELECT' ||
+        target?.isContentEditable;
+      if (isTypingContext) {
+        return;
+      }
+
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < WORKSPACE_TAB_SHORTCUTS.length) {
+        event.preventDefault();
+        setWorkspaceTab(WORKSPACE_TAB_SHORTCUTS[index] as WorkspaceTab);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   async function handleCreateGoal() {
     if (!goalForm.title.trim() || !goalForm.successCriteria.trim()) {
-      setErrorMessage('Title and success criteria are required.');
+      setErrorMessage('목표 제목과 성공 기준은 필수입니다.');
       return;
     }
 
@@ -206,11 +318,11 @@ export default function MainApp() {
         success_criteria: goalForm.successCriteria.trim()
       });
       setGoalForm({ title: '', description: '', category: 'general', successCriteria: '' });
-      setStatusMessage('Goal created. The RAIL workspace is now pointed at a new Pathway objective.');
+      setStatusMessage('목표가 생성되었습니다. 이제 새 목표를 기준으로 Pathway가 전개됩니다.');
       await refreshGoals(false);
       setActiveGoalId(created.id);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Goal creation failed');
+      setErrorMessage(error instanceof Error ? error.message : '목표 생성에 실패했습니다.');
     } finally {
       setIsBusy(false);
     }
@@ -225,9 +337,9 @@ export default function MainApp() {
       setErrorMessage('');
       const analysis = await analyzeGoal(activeGoalId);
       setGoalAnalysis(analysis);
-      setStatusMessage('Goal analysis refreshed. Resource dimensions and research prompts were updated.');
+      setStatusMessage('목표 분석이 갱신되었습니다. 필요한 자원 축과 조사 입력이 업데이트되었습니다.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Goal analysis failed');
+      setErrorMessage(error instanceof Error ? error.message : '목표 분석에 실패했습니다.');
     } finally {
       setIsBusy(false);
     }
@@ -241,11 +353,11 @@ export default function MainApp() {
       setIsBusy(true);
       setErrorMessage('');
       const nextMap = await generatePathway(activeGoalId);
-      setStatusMessage('A fresh pathway graph was generated and loaded into the workflow view.');
+      setStatusMessage('새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.');
       await refreshGoalWorkspace(activeGoalId, nextMap.id);
       setWorkspaceTab('workflow');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Pathway generation failed');
+      setErrorMessage(error instanceof Error ? error.message : 'Pathway 그래프 생성에 실패했습니다.');
     } finally {
       setIsBusy(false);
     }
@@ -253,34 +365,37 @@ export default function MainApp() {
 
   async function handleSelectNode(nodeId: string) {
     setSelectedNodeId(nodeId);
+    if (revisionPreview) {
+      return;
+    }
     if (!activeMap) {
       return;
     }
     try {
       const selection = await updateRouteSelection(activeMap.id, {
         selected_node_id: nodeId,
-        rationale: 'Selected from the RAIL-based desktop graph.'
+        rationale: ''
       });
       setRouteSelection(selection);
-      setStatusMessage('Route selection updated from the graph workspace.');
+      setStatusMessage('그래프에서 현재 루트를 선택했습니다.');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Route selection update failed');
+      setErrorMessage(error instanceof Error ? error.message : '루트 선택 업데이트에 실패했습니다.');
     }
   }
 
-  async function handleCreateStateUpdate() {
-    if (!activeGoalId) {
+  async function handlePreviewStateUpdate() {
+    if (!activeGoalId || !activeMap) {
       return;
     }
     if (!stateForm.progress_summary.trim()) {
-      setErrorMessage('Progress summary is required to log a state update.');
+      setErrorMessage('현실 변경 사항을 기록하려면 진행 요약이 필요합니다.');
       return;
     }
 
     try {
       setIsBusy(true);
       setErrorMessage('');
-      await createStateUpdate(activeGoalId, {
+      const stateUpdate = await createStateUpdate(activeGoalId, {
         update_date: new Date().toISOString().slice(0, 10),
         actual_time_spent: stateForm.actual_time_spent ? Number(stateForm.actual_time_spent) : null,
         actual_money_spent: stateForm.actual_money_spent ? Number(stateForm.actual_money_spent) : null,
@@ -291,8 +406,31 @@ export default function MainApp() {
         resource_deltas: {},
         learned_items: [],
         source_refs: [],
-        pathway_id: activeMap?.id ?? null
+        pathway_id: activeMap.id
       });
+      const preview = await createRevisionPreview(activeMap.id, {
+        checkin_id: stateUpdate.id
+      });
+      const hydratedPreview = await fetchRevisionPreview(preview.id);
+      setRevisionPreview(hydratedPreview);
+      setStatusMessage('그래프 변경 미리보기를 생성했습니다. 캔버스에서 약해진 선, 차단된 루트, 새 브랜치를 먼저 검토하세요.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '그래프 변경 미리보기를 생성하지 못했습니다.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleAcceptRevisionPreview() {
+    if (!activeGoalId || !revisionPreview) {
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      setErrorMessage('');
+      const acceptedMap = await acceptRevisionPreview(revisionPreview.id);
+      setRevisionPreview(null);
       setStateForm({
         progress_summary: '',
         blockers: '',
@@ -301,168 +439,264 @@ export default function MainApp() {
         actual_money_spent: '',
         mood: ''
       });
-      setStatusMessage('Reality log captured. The latest state has been synchronized into the workspace.');
-      await refreshGoalWorkspace(activeGoalId, activeMap?.id ?? null);
+      setStatusMessage('변경 미리보기를 적용했습니다. 그래프가 새로운 현실을 반영하도록 갱신되었습니다.');
+      await refreshGoalWorkspace(activeGoalId, acceptedMap.id);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'State update failed');
+      setErrorMessage(error instanceof Error ? error.message : '그래프 미리보기를 적용하지 못했습니다.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleDismissRevisionPreview() {
+    if (!revisionPreview) {
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      setErrorMessage('');
+      await rejectRevisionPreview(revisionPreview.id);
+      setRevisionPreview(null);
+      setStatusMessage('변경 미리보기를 닫았습니다. 기존 그래프는 그대로 유지됩니다.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '그래프 미리보기를 닫지 못했습니다.');
     } finally {
       setIsBusy(false);
     }
   }
 
   function renderWorkflowTab() {
+    const hasGraph = Boolean(visibleBundle);
+    const shouldShowInspector = showWorkflowInspector && Boolean(selectedNode);
+    const previewNodeChanges = revisionPreview?.diff.node_changes ?? [];
+    const previewEdgeChanges = revisionPreview?.diff.edge_changes ?? [];
+    const workflowCanvasStats = hasGraph ? (
+      <div className="pathway-canvas-status-strip" aria-label="그래프 상태">
+        <span className="pathway-canvas-status-label">그래프</span>
+        <span className="pathway-canvas-stat-badge">노드 {activeBundle.nodes.length}</span>
+        <span className="pathway-canvas-stat-badge">루트 {activeBundle.edges.length}</span>
+        <span className="pathway-canvas-stat-badge">근거 {activeBundle.evidence.length}</span>
+      </div>
+    ) : null;
+    const workflowCanvasActions = (
+      <>
+        <button
+          aria-label={showWorkflowInspector ? "인스펙터 숨기기" : "인스펙터 보기"}
+          className={`pathway-canvas-icon-button ${showWorkflowInspector ? "is-active" : ""}`.trim()}
+          onClick={() => setShowWorkflowInspector((current) => !current)}
+          title={showWorkflowInspector ? "인스펙터 숨기기" : "인스펙터 보기"}
+          type="button"
+        >
+          <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-eye.svg" />
+          <span className="sr-only">{showWorkflowInspector ? "인스펙터 숨기기" : "인스펙터 보기"}</span>
+        </button>
+        <button
+          aria-label="입력 분석"
+          className="pathway-canvas-icon-button"
+          disabled={!activeGoalId || isBusy}
+          onClick={handleAnalyzeGoal}
+          title="입력 분석"
+          type="button"
+        >
+          <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-magic-wand.svg" />
+          <span className="sr-only">입력 분석</span>
+        </button>
+        <button
+          aria-label="루트 생성"
+          className="pathway-canvas-icon-button pathway-canvas-icon-button-primary"
+          disabled={!activeGoalId || isBusy}
+          onClick={handleGeneratePathway}
+          title="루트 생성"
+          type="button"
+        >
+          <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-branch.svg" />
+          <span className="sr-only">루트 생성</span>
+        </button>
+      </>
+    );
+
     return (
       <section className="pathway-workflow-shell workspace-tab-panel">
         <div className="pathway-workflow-frame panel-card">
-          <header className="pathway-workflow-header">
-            <div className="pathway-workflow-titleblock">
-              <span className="pathway-panel-kicker">Adaptive pathway graph</span>
-              <strong>{activeGoal?.title ?? activeBundle.map.title}</strong>
-              <p>{activeGoal?.description || activeBundle.map.summary}</p>
-            </div>
-            <div className="pathway-workflow-actions">
-              <span className="pathway-workflow-stat">{activeBundle.nodes.length} nodes</span>
-              <span className="pathway-workflow-stat">{activeBundle.edges.length} routes</span>
-              <span className="pathway-workflow-stat">{activeBundle.evidence.length} evidence</span>
-              <button className="mini-action-button" onClick={() => setShowWorkflowRail((current) => !current)} type="button">
-                {showWorkflowRail ? 'Hide rail' : 'Show rail'}
-              </button>
-              <button className="mini-action-button" onClick={() => setShowWorkflowInspector((current) => !current)} type="button">
-                {showWorkflowInspector ? 'Hide inspector' : 'Show inspector'}
-              </button>
-              <button className="mini-action-button" onClick={handleAnalyzeGoal} type="button" disabled={!activeGoalId || isBusy}>
-                Analyze inputs
-              </button>
-              <button className="mini-action-button pathway-primary-button" onClick={handleGeneratePathway} type="button" disabled={!activeGoalId || isBusy}>
-                Generate routes
-              </button>
-            </div>
-          </header>
-
-          <div className={`pathway-workflow-body ${showWorkflowInspector ? 'has-inspector' : ''}`.trim()}>
-            {showWorkflowRail ? (
+          <div className={`pathway-workflow-body ${shouldShowInspector ? 'has-inspector' : ''}`.trim()}>
+              {hasWorkflowRail ? (
               <aside className="pathway-workflow-rail">
-                <section className="pathway-workflow-rail-card">
-                  <span className="pathway-panel-kicker">Pathway loop</span>
-                  <ol className="pathway-loop-list">
-                    <li className={activeGoalId ? 'is-complete' : ''}>
-                      <strong>Goal</strong>
-                      <span>{activeGoal?.title ?? 'Define the outcome you want to reach.'}</span>
-                    </li>
-                    <li className={goalAnalysis ? 'is-complete' : ''}>
-                      <strong>Resource check</strong>
-                      <span>{goalAnalysis ? `${goalAnalysis.resource_dimensions.length} dimensions loaded.` : 'The agent asks what is available, constrained, or already true.'}</span>
-                    </li>
-                    <li className={activeMapId ? 'is-complete' : ''}>
-                      <strong>Route graph</strong>
-                      <span>{activeMapId ? `${activeBundle.nodes.length} nodes are branching toward the goal.` : 'Generate a large route map grounded in evidence and lived cases.'}</span>
-                    </li>
-                    <li className={stateUpdates.length > 0 ? 'is-complete' : ''}>
-                      <strong>Reality revision</strong>
-                      <span>{stateUpdates.length > 0 ? `${stateUpdates.length} revisions recorded.` : 'When life changes, evolve the existing graph instead of replacing it.'}</span>
-                    </li>
-                  </ol>
-                </section>
+                {goalAnalysis ? (
+                  <section className="pathway-workflow-rail-card">
+                    <span className="pathway-panel-kicker">자원 모델</span>
+                    <strong>{goalAnalysis.resource_dimensions.length}개 자원 축 로드됨</strong>
+                    <p className="pathway-panel-copy">{goalAnalysis.analysis_summary}</p>
+                  </section>
+                ) : null}
 
-                <section className="pathway-workflow-rail-card">
-                  <span className="pathway-panel-kicker">Current route</span>
-                  <strong>{routeSelection?.selected_node_id ?? 'No route locked'}</strong>
-                  <p className="pathway-panel-copy">
-                    {routeSelection?.rationale || 'Select a node in the graph to lock the current route and capture why it deserves attention.'}
-                  </p>
-                </section>
+                {routeSelection ? (
+                  <section className="pathway-workflow-rail-card">
+                    <span className="pathway-panel-kicker">현재 루트</span>
+                    <strong>{routeSelection.selected_node_id}</strong>
+                    {routeSelection.rationale ? (
+                      <p className="pathway-panel-copy">{routeSelection.rationale}</p>
+                    ) : null}
+                  </section>
+                ) : null}
 
-                <section className="pathway-workflow-rail-card">
-                  <span className="pathway-panel-kicker">Reality loop</span>
-                  <strong>{currentState?.state_summary ?? 'No live revision yet'}</strong>
-                  <p className="pathway-panel-copy">
-                    Record what changed, what became impossible, and what new branch deserves to exist.
-                  </p>
-                </section>
+                {currentState || stateUpdates.length > 0 ? (
+                  <section className="pathway-workflow-rail-card">
+                    <span className="pathway-panel-kicker">현실 상태</span>
+                    <strong>{currentState?.state_summary ?? `${stateUpdates.length}개 업데이트 기록됨`}</strong>
+                    <p className="pathway-panel-copy">
+                      {stateUpdates.length > 0 ? `${stateUpdates.length}개의 현실 업데이트가 그래프 수정에 사용 가능합니다.` : '현재 목표에 대한 상태 데이터가 준비되어 있습니다.'}
+                    </p>
+                  </section>
+                ) : null}
               </aside>
             ) : null}
 
             <div className="pathway-workflow-main">
-              <section className="pathway-workflow-canvas-panel">
-                <PathwayRailCanvas
-                  bundle={activeBundle}
-                  selectedNodeId={selectedNodeId}
-                  selectedRouteId={routeSelection?.selected_node_id ?? null}
-                  onSelectNode={handleSelectNode}
-                />
-              </section>
+              {visibleBundle ? (
+                <section className="pathway-workflow-canvas-panel">
+                  {revisionPreview ? (
+                    <div className="pathway-preview-banner">
+                    <div>
+                      <span className="pathway-panel-kicker">변경 미리보기</span>
+                      <strong>요청을 반영하면 그래프가 이렇게 달라집니다</strong>
+                      <p className="pathway-panel-copy">
+                          초록은 새 루트, 주황은 수정 또는 약화, 자주색 점선과 X는 차단되거나 제거되는 경로입니다.
+                        </p>
+                        <p className="pathway-panel-copy">
+                          노드 {previewNodeChanges.length}개 / 연결 {previewEdgeChanges.length}개 변화
+                        </p>
+                    </div>
+                      <div className="pathway-preview-banner-actions">
+                        <button className="mini-action-button pathway-primary-button" onClick={handleAcceptRevisionPreview} type="button" disabled={isBusy}>
+                          미리보기 적용
+                        </button>
+                        <button className="mini-action-button" onClick={handleDismissRevisionPreview} type="button" disabled={isBusy}>
+                          미리보기 폐기
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
 
-              <section className="pathway-request-panel">
-                <div className="pathway-request-head">
-                  <div>
-                    <span className="pathway-panel-kicker">Graph revision request</span>
-                    <strong>Update the existing graph, do not replace it</strong>
-                  </div>
-                  <button className="mini-action-button pathway-primary-button" onClick={handleCreateStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
-                    Evolve graph
-                  </button>
-                </div>
-
-                <label className="pathway-field">
-                  <span>What changed in reality?</span>
-                  <textarea
-                    className="pathway-textarea pathway-request-textarea"
-                    value={stateForm.progress_summary}
-                    onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
-                    placeholder="Describe progress, setbacks, newly impossible paths, or a personal method the graph should incorporate."
+                  {!selectedNode ? (
+                    <div className="pathway-canvas-cue">
+                      {revisionPreview
+                        ? '노드 또는 연결선을 확인해 어떤 루트가 추가되고, 약해지고, 막히는지 먼저 검토하세요.'
+                        : '그래프 노드를 선택하면 루트 정보, 근거, 가정을 바로 확인할 수 있습니다.'}
+                    </div>
+                  ) : null}
+                  <PathwayRailCanvas
+                    bundle={visibleBundle}
+                    baseBundle={activeBundle ?? undefined}
+                    overlayActions={workflowCanvasActions}
+                    overlayStats={workflowCanvasStats}
+                    revisionPreview={revisionPreview}
+                    selectedNodeId={selectedNodeId}
+                    selectedRouteId={routeSelection?.selected_node_id ?? null}
+                    onSelectNode={handleSelectNode}
                   />
-                </label>
+                </section>
+              ) : (
+                <section className="pathway-workflow-canvas-panel">
+                  <EmptyState
+                    title={activeGoalId ? '그래프가 아직 생성되지 않았습니다' : '선택된 목표가 없습니다'}
+                    copy={
+                      activeGoalId
+                        ? '활성 목표를 기준으로 경로 그래프를 생성하면 이 캔버스가 주 작업면으로 열립니다.'
+                        : '먼저 목표를 만들거나 선택하세요. 백엔드에서 실제 Pathway 데이터가 준비되면 그래프 작업면이 열립니다.'
+                    }
+                    action={
+                      activeGoalId ? (
+                        <button className="mini-action-button pathway-primary-button" onClick={handleGeneratePathway} type="button" disabled={isBusy}>
+                          루트 생성
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                </section>
+              )}
 
-                <div className="pathway-request-grid">
+              {activeMap ? (
+                <section className="pathway-request-panel">
+                  <div className="pathway-request-head">
+                    <div>
+                      <span className="pathway-panel-kicker">그래프 수정 요청</span>
+                      <strong>기존 그래프를 유지한 채 먼저 변경 미리보기 생성</strong>
+                    </div>
+                    {revisionPreview ? null : (
+                      <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
+                        변경 미리보기
+                      </button>
+                    )}
+                  </div>
+
+                  {revisionPreview ? (
+                    <p className="pathway-preview-note">
+                      현실 기록은 먼저 저장되고, 현재 화면의 미리보기만 선택적으로 적용 또는 폐기할 수 있습니다.
+                    </p>
+                  ) : null}
+
                   <label className="pathway-field">
-                    <span>Blocked or weakened line</span>
-                    <input
-                      className="pathway-input"
-                      value={stateForm.blockers}
-                      onChange={(event) => setStateForm((current) => ({ ...current, blockers: event.target.value }))}
-                      placeholder="What route is losing viability?"
+                    <span>현실에서 무엇이 달라졌나요?</span>
+                    <textarea
+                      className="pathway-textarea pathway-request-textarea"
+                      value={stateForm.progress_summary}
+                      onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
+                      placeholder="진행 상황, 막힌 점, 새로 불가능해진 길, 혹은 그래프에 반영할 개인적인 방식을 적어주세요."
                     />
                   </label>
-                  <label className="pathway-field">
-                    <span>New route or method</span>
-                    <input
-                      className="pathway-input"
-                      value={stateForm.next_adjustment}
-                      onChange={(event) => setStateForm((current) => ({ ...current, next_adjustment: event.target.value }))}
-                      placeholder="What new branch should be connected?"
-                    />
-                  </label>
-                  <label className="pathway-field">
-                    <span>Hours used</span>
-                    <input
-                      className="pathway-input"
-                      value={stateForm.actual_time_spent}
-                      onChange={(event) => setStateForm((current) => ({ ...current, actual_time_spent: event.target.value }))}
-                      placeholder="e.g. 12"
-                    />
-                  </label>
-                  <label className="pathway-field">
-                    <span>Money used</span>
-                    <input
-                      className="pathway-input"
-                      value={stateForm.actual_money_spent}
-                      onChange={(event) => setStateForm((current) => ({ ...current, actual_money_spent: event.target.value }))}
-                      placeholder="e.g. 450000"
-                    />
-                  </label>
-                </div>
-              </section>
+
+                  <div className="pathway-request-grid">
+                    <label className="pathway-field">
+                      <span>막히거나 약해진 경로</span>
+                      <input
+                        className="pathway-input"
+                        value={stateForm.blockers}
+                        onChange={(event) => setStateForm((current) => ({ ...current, blockers: event.target.value }))}
+                        placeholder="어떤 루트의 실현 가능성이 떨어졌나요?"
+                      />
+                    </label>
+                    <label className="pathway-field">
+                      <span>새로운 루트 또는 방법</span>
+                      <input
+                        className="pathway-input"
+                        value={stateForm.next_adjustment}
+                        onChange={(event) => setStateForm((current) => ({ ...current, next_adjustment: event.target.value }))}
+                        placeholder="새로 연결해야 할 브랜치는 무엇인가요?"
+                      />
+                    </label>
+                    <label className="pathway-field">
+                      <span>사용 시간</span>
+                      <input
+                        className="pathway-input"
+                        value={stateForm.actual_time_spent}
+                        onChange={(event) => setStateForm((current) => ({ ...current, actual_time_spent: event.target.value }))}
+                        placeholder="예: 12"
+                      />
+                    </label>
+                    <label className="pathway-field">
+                      <span>사용 금액</span>
+                      <input
+                        className="pathway-input"
+                        value={stateForm.actual_money_spent}
+                        onChange={(event) => setStateForm((current) => ({ ...current, actual_money_spent: event.target.value }))}
+                        placeholder="예: 450000"
+                      />
+                    </label>
+                  </div>
+                </section>
+              ) : null}
             </div>
 
-            {showWorkflowInspector ? (
+            {shouldShowInspector ? (
               <aside className="pathway-workflow-inspector is-open">
                 <header className="pathway-workflow-inspector-head">
                   <div>
-                    <span className="pathway-panel-kicker">Node inspector</span>
-                    <strong>{selectedNode?.label ?? 'Choose a node'}</strong>
+                    <span className="pathway-panel-kicker">노드 인스펙터</span>
+                    <strong>{selectedNode?.label ?? '노드를 선택하세요'}</strong>
                   </div>
                   <button className="mini-action-button" onClick={() => setShowWorkflowInspector(false)} type="button">
-                    Close
+                    닫기
                   </button>
                 </header>
 
@@ -470,10 +704,25 @@ export default function MainApp() {
                   <div className="pathway-workflow-inspector-body">
                     <p className="pathway-panel-copy">{selectedNode.summary}</p>
 
+                    {selectedNodePreviewChange ? (
+                      <section className="pathway-inspector-section">
+                        <span className="pathway-panel-kicker">미리보기 영향</span>
+                        <ul className="pathway-detail-list">
+                          <li>
+                            <strong>{selectedNodePreviewChange.change_type}</strong>
+                            <span>{selectedNodePreviewChange.reason}</span>
+                            {selectedNodePreviewChange.next_status ? (
+                              <p>다음 상태: {selectedNodePreviewChange.next_status}</p>
+                            ) : null}
+                          </li>
+                        </ul>
+                      </section>
+                    ) : null}
+
                     <section className="pathway-inspector-section">
-                      <span className="pathway-panel-kicker">Route facts</span>
+                      <span className="pathway-panel-kicker">루트 정보</span>
                       <ul className="pathway-fact-list">
-                        {Object.entries(selectedNode.data).map(([key, value]) => (
+                        {getVisibleNodeFields(selectedNode).map(([key, value]) => (
                           <li key={key}>
                             <span>{key.replaceAll('_', ' ')}</span>
                             <strong>{formatFieldValue(value)}</strong>
@@ -483,9 +732,9 @@ export default function MainApp() {
                     </section>
 
                     <section className="pathway-inspector-section">
-                      <span className="pathway-panel-kicker">Evidence</span>
+                      <span className="pathway-panel-kicker">근거</span>
                       {selectedEvidence.length === 0 ? (
-                        <p className="pathway-panel-copy">No evidence is attached to this node yet.</p>
+                        <p className="pathway-panel-copy">이 노드에 연결된 근거가 아직 없습니다.</p>
                       ) : (
                         <ul className="pathway-detail-list">
                           {selectedEvidence.map((item) => (
@@ -500,9 +749,9 @@ export default function MainApp() {
                     </section>
 
                     <section className="pathway-inspector-section">
-                      <span className="pathway-panel-kicker">Assumptions</span>
+                      <span className="pathway-panel-kicker">가정</span>
                       {selectedAssumptions.length === 0 ? (
-                        <p className="pathway-panel-copy">No assumptions are linked to this node.</p>
+                        <p className="pathway-panel-copy">이 노드에 연결된 가정이 없습니다.</p>
                       ) : (
                         <ul className="pathway-detail-list">
                           {selectedAssumptions.map((item) => (
@@ -515,9 +764,7 @@ export default function MainApp() {
                       )}
                     </section>
                   </div>
-                ) : (
-                  <p className="pathway-panel-copy">Select a node to inspect route fit, evidence, and assumptions.</p>
-                )}
+                ) : null}
               </aside>
             ) : null}
           </div>
@@ -532,45 +779,45 @@ export default function MainApp() {
         <section className="panel-card pathway-form-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">Goal intake</span>
-              <strong>Define the goal Pathway should model</strong>
+              <span className="pathway-panel-kicker">목표 입력</span>
+              <strong>Pathway가 모델링할 목표 정의</strong>
             </div>
           </div>
           <textarea
             className="pathway-textarea pathway-textarea-large"
             value={goalForm.title}
             onChange={(event) => setGoalForm((current) => ({ ...current, title: event.target.value }))}
-            placeholder="Describe the goal in natural language. The system will infer the resource dimensions that actually matter."
+            placeholder="자연어로 목표를 설명하세요. 시스템이 실제로 중요한 자원 축을 추론합니다."
           />
           <textarea
             className="pathway-textarea"
             value={goalForm.description}
             onChange={(event) => setGoalForm((current) => ({ ...current, description: event.target.value }))}
-            placeholder="Context, current constraints, or any non-obvious background."
+            placeholder="배경 맥락, 현재 제약, 미리 알아야 할 조건을 적어주세요."
           />
           <div className="pathway-input-row">
             <input
               className="pathway-input"
               value={goalForm.category}
               onChange={(event) => setGoalForm((current) => ({ ...current, category: event.target.value }))}
-              placeholder="Category"
+              placeholder="카테고리"
             />
             <input
               className="pathway-input"
               value={goalForm.successCriteria}
               onChange={(event) => setGoalForm((current) => ({ ...current, successCriteria: event.target.value }))}
-              placeholder="Success criteria"
+              placeholder="성공 기준"
             />
           </div>
           <div className="pathway-actions-row">
             <button className="mini-action-button pathway-primary-button" onClick={handleCreateGoal} type="button" disabled={isBusy}>
-              Create goal
+              목표 생성
             </button>
             <button className="mini-action-button" onClick={handleAnalyzeGoal} type="button" disabled={!activeGoalId || isBusy}>
-              Analyze resources
+              자원 분석
             </button>
             <button className="mini-action-button" onClick={handleGeneratePathway} type="button" disabled={!activeGoalId || isBusy}>
-              Generate graph
+              그래프 생성
             </button>
           </div>
         </section>
@@ -578,12 +825,12 @@ export default function MainApp() {
         <section className="panel-card pathway-list-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">Goal library</span>
-              <strong>Recent Pathway goals</strong>
+              <span className="pathway-panel-kicker">목표 목록</span>
+              <strong>최근 Pathway 목표</strong>
             </div>
           </div>
           {goals.length === 0 ? (
-            <EmptyState title="No goals yet" copy="Create the first goal to start a local decision graph." />
+            <EmptyState title="목표가 아직 없습니다" copy="첫 목표를 만들어 로컬 의사결정 그래프를 시작하세요." />
           ) : (
             <ul className="pathway-goal-list">
               {goals.map((goal) => (
@@ -612,8 +859,8 @@ export default function MainApp() {
         <section className="panel-card pathway-list-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">Resource dimensions</span>
-              <strong>{goalAnalysis ? 'What matters for this goal' : 'Run goal analysis first'}</strong>
+              <span className="pathway-panel-kicker">자원 축</span>
+              <strong>{goalAnalysis ? '이 목표에 실제로 중요한 것' : '먼저 목표를 분석하세요'}</strong>
             </div>
           </div>
           {goalAnalysis ? (
@@ -628,11 +875,11 @@ export default function MainApp() {
             </ul>
           ) : (
             <EmptyState
-              title="No resource model yet"
-              copy="Analyze the active goal to infer relevant dimensions, follow-up questions, and research prompts."
+              title="자원 모델이 아직 없습니다"
+              copy="활성 목표를 분석하면 관련 자원 축, 후속 질문, 조사 입력이 생성됩니다."
               action={
                 <button className="mini-action-button pathway-primary-button" onClick={handleAnalyzeGoal} type="button" disabled={!activeGoalId || isBusy}>
-                  Analyze goal
+                  목표 분석
                 </button>
               }
             />
@@ -642,16 +889,16 @@ export default function MainApp() {
         <section className="panel-card pathway-list-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">Evidence and assumptions</span>
-              <strong>{selectedNode?.label ?? 'Select a workflow node'}</strong>
+              <span className="pathway-panel-kicker">근거와 가정</span>
+              <strong>{selectedNode?.label ?? '워크플로우 노드를 선택하세요'}</strong>
             </div>
           </div>
           {selectedNode ? (
             <div className="pathway-knowledge-stack">
               <section>
-                <h3>Evidence</h3>
+                <h3>근거</h3>
                 {selectedEvidence.length === 0 ? (
-                  <p className="pathway-panel-copy">No evidence linked to this node yet.</p>
+                  <p className="pathway-panel-copy">이 노드에 연결된 근거가 아직 없습니다.</p>
                 ) : (
                   <ul className="pathway-detail-list">
                     {selectedEvidence.map((item) => (
@@ -665,9 +912,9 @@ export default function MainApp() {
                 )}
               </section>
               <section>
-                <h3>Assumptions</h3>
+                <h3>가정</h3>
                 {selectedAssumptions.length === 0 ? (
-                  <p className="pathway-panel-copy">No assumptions linked to this node.</p>
+                  <p className="pathway-panel-copy">이 노드에 연결된 가정이 없습니다.</p>
                 ) : (
                   <ul className="pathway-detail-list">
                     {selectedAssumptions.map((item) => (
@@ -681,84 +928,8 @@ export default function MainApp() {
               </section>
             </div>
           ) : (
-            <EmptyState title="No node selected" copy="Choose a node in the workflow tab to inspect grounded evidence and explicit assumptions." />
+            <EmptyState title="선택된 노드가 없습니다" copy="워크플로우 탭에서 노드를 선택하면 근거와 명시적 가정을 확인할 수 있습니다." />
           )}
-        </section>
-      </section>
-    );
-  }
-
-  function renderVisualizeTab() {
-    return (
-      <section className="pathway-grid-layout workspace-tab-panel">
-        <section className="panel-card pathway-list-card">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">Saved graph bundles</span>
-              <strong>Map versions for this goal</strong>
-            </div>
-          </div>
-          {maps.length === 0 ? (
-            <EmptyState title="No saved maps yet" copy="Generate the first workflow graph to start comparing route bundles." />
-          ) : (
-            <ul className="pathway-goal-list">
-              {maps.map((map) => (
-                <li key={map.id}>
-                  <button
-                    className={`pathway-list-button ${activeMapId === map.id ? 'is-active' : ''}`}
-                    onClick={() => {
-                      setActiveMap(map);
-                      setActiveMapId(map.id);
-                      setSelectedNodeId(map.graph_bundle.nodes[0]?.id ?? null);
-                      void fetchRouteSelection(map.id).then(setRouteSelection).catch(() => undefined);
-                    }}
-                    type="button"
-                  >
-                    <strong>{map.title}</strong>
-                    <span>{new Date(map.created_at).toLocaleString()}</span>
-                    <span>{map.graph_bundle.nodes.length} nodes / {map.graph_bundle.edges.length} edges</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel-card pathway-list-card">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">Bundle notes</span>
-              <strong>Warnings and ontology</strong>
-            </div>
-          </div>
-          <div className="pathway-knowledge-stack">
-            <section>
-              <h3>Warnings</h3>
-              {activeBundle.warnings.length === 0 ? (
-                <p className="pathway-panel-copy">No warnings attached to this bundle.</p>
-              ) : (
-                <ul className="pathway-detail-list">
-                  {activeBundle.warnings.map((warning) => (
-                    <li key={warning}>
-                      <strong>{warning}</strong>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-            <section>
-              <h3>Node ontology</h3>
-              <ul className="pathway-detail-list">
-                {activeBundle.ontology.node_types.map((type) => (
-                  <li key={type.id}>
-                    <strong>{type.label}</strong>
-                    <span>{type.id}</span>
-                    <p>{type.description}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
         </section>
       </section>
     );
@@ -770,132 +941,76 @@ export default function MainApp() {
         <section className="panel-card pathway-form-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">Reality updates</span>
-              <strong>Record what actually happened</strong>
+              <span className="pathway-panel-kicker">현실 업데이트</span>
+              <strong>실제로 일어난 일을 기록</strong>
             </div>
           </div>
           <textarea
             className="pathway-textarea pathway-textarea-large"
             value={stateForm.progress_summary}
             onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
-            placeholder="What changed in reality since the last update?"
+            placeholder="지난 업데이트 이후 현실에서 무엇이 달라졌나요?"
           />
           <input
             className="pathway-input"
             value={stateForm.blockers}
             onChange={(event) => setStateForm((current) => ({ ...current, blockers: event.target.value }))}
-            placeholder="Current blockers"
+            placeholder="현재 막히는 점"
           />
           <input
             className="pathway-input"
             value={stateForm.next_adjustment}
             onChange={(event) => setStateForm((current) => ({ ...current, next_adjustment: event.target.value }))}
-            placeholder="Next adjustment"
+            placeholder="다음 조정안"
           />
           <div className="pathway-input-row">
             <input
               className="pathway-input"
               value={stateForm.actual_time_spent}
               onChange={(event) => setStateForm((current) => ({ ...current, actual_time_spent: event.target.value }))}
-              placeholder="Hours spent"
+              placeholder="사용 시간"
             />
             <input
               className="pathway-input"
               value={stateForm.actual_money_spent}
               onChange={(event) => setStateForm((current) => ({ ...current, actual_money_spent: event.target.value }))}
-              placeholder="Money spent"
+              placeholder="사용 금액"
             />
             <input
               className="pathway-input"
               value={stateForm.mood}
               onChange={(event) => setStateForm((current) => ({ ...current, mood: event.target.value }))}
-              placeholder="Mood"
+              placeholder="컨디션"
             />
           </div>
-          <button className="mini-action-button pathway-primary-button" onClick={handleCreateStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
-            Record update
+          <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
+            변경 미리보기
           </button>
         </section>
 
         <section className="panel-card pathway-list-card">
           <div className="pathway-panel-head">
             <div>
-              <span className="pathway-panel-kicker">State timeline</span>
-              <strong>Most recent adaptation log</strong>
+              <span className="pathway-panel-kicker">상태 타임라인</span>
+              <strong>가장 최근 적응 로그</strong>
             </div>
           </div>
           <p className="pathway-panel-copy">
-            {currentState?.state_summary ?? 'No summarized current state yet. Start recording reality updates to evolve the graph.'}
+            {currentState?.state_summary ?? '아직 요약된 현재 상태가 없습니다. 현실 업데이트를 기록하면 그래프를 진화시킬 수 있습니다.'}
           </p>
           {stateUpdates.length === 0 ? (
-            <EmptyState title="No updates yet" copy="The graph will become more useful as real-world constraints and progress accumulate." />
+            <EmptyState title="업데이트가 아직 없습니다" copy="현실 제약과 진행이 쌓일수록 그래프는 더 유용해집니다." />
           ) : (
             <ul className="pathway-detail-list">
               {stateUpdates.map((update) => (
                 <li key={update.id}>
                   <strong>{update.update_date}</strong>
                   <span>{update.progress_summary}</span>
-                  <p>{update.blockers || 'No blockers noted.'}</p>
+                  <p>{update.blockers || '기록된 장애 요소 없음'}</p>
                 </li>
               ))}
             </ul>
           )}
-        </section>
-      </section>
-    );
-  }
-
-  function renderSettingsTab() {
-    return (
-      <section className="pathway-grid-layout workspace-tab-panel">
-        <section className="panel-card pathway-list-card">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">Local runtime</span>
-              <strong>Pathway desktop wiring</strong>
-            </div>
-          </div>
-          <ul className="pathway-fact-list">
-            <li>
-              <span>API endpoint</span>
-              <strong>{getApiBaseUrl()}</strong>
-            </li>
-            <li>
-              <span>Loaded goals</span>
-              <strong>{goals.length}</strong>
-            </li>
-            <li>
-              <span>Loaded maps</span>
-              <strong>{maps.length}</strong>
-            </li>
-            <li>
-              <span>Current bundle</span>
-              <strong>{activeBundle.bundle_id}</strong>
-            </li>
-          </ul>
-        </section>
-
-        <section className="panel-card pathway-list-card">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">Product stance</span>
-              <strong>Decision graph, not prediction</strong>
-            </div>
-          </div>
-          <ul className="pathway-detail-list">
-            <li>
-              <strong>Evidence-backed map</strong>
-              <p>Every graph bundle is framed as routes, constraints, assumptions, and evidence rather than a promised future.</p>
-            </li>
-            <li>
-              <strong>Dynamic ontology</strong>
-              <p>Node and edge types are generated per graph bundle and rendered with fallbacks instead of a fixed global enum.</p>
-            </li>
-            <li>
-              <strong>Local-first runtime</strong>
-              <p>This desktop shell reuses the RAIL app chrome while switching the workspace semantics to Pathway planning and revision.</p>
-            </li>
-          </ul>
         </section>
       </section>
     );
@@ -910,27 +1025,6 @@ export default function MainApp() {
         renderIcon={(tab, active) => <NavIcon active={active} tab={tab as WorkspaceTab} />}
       />
       <section className={`workspace ${errorMessage ? 'workspace-has-error' : ''}`.trim()}>
-        <header className="workspace-header">
-          <div className="header-actions">
-            {workspaceTab === 'workflow' ? (
-              <>
-                <span className="chip">Pathway desktop</span>
-                <span className="chip">{routeSelection ? `Route ${routeSelection.selected_node_id}` : 'No route locked'}</span>
-                <span className="chip pathway-status-chip">{statusMessage}</span>
-              </>
-            ) : (
-              <>
-                <span className="chip">API {getApiBaseUrl()}</span>
-                <span className="chip">{activeBundle.nodes.length} nodes</span>
-                <span className="chip">{activeBundle.evidence.length} evidence</span>
-                <span className="chip">{stateUpdates.length} updates</span>
-                <span className="chip pathway-status-chip">{statusMessage}</span>
-                <span className="primary-action">{routeSelection ? `Route ${routeSelection.selected_node_id}` : 'Route unlocked'}</span>
-              </>
-            )}
-          </div>
-        </header>
-
         {errorMessage ? (
           <div className="error">
             <span>{errorMessage}</span>
@@ -940,9 +1034,7 @@ export default function MainApp() {
         {workspaceTab === 'workflow' && renderWorkflowTab()}
         {workspaceTab === 'tasks' && renderTasksTab()}
         {workspaceTab === 'knowledge' && renderKnowledgeTab()}
-        {workspaceTab === 'visualize' && renderVisualizeTab()}
         {workspaceTab === 'adaptation' && renderAdaptationTab()}
-        {workspaceTab === 'settings' && renderSettingsTab()}
       </section>
     </main>
   );

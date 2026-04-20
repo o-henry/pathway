@@ -4,6 +4,7 @@ import type {
   GoalRecord,
   GraphBundle,
   LifeMap,
+  RevisionProposalRecord,
   RouteSelectionRecord,
   StateUpdateRecord
 } from './types';
@@ -116,6 +117,45 @@ export async function updateRouteSelection(
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
+    })
+  );
+}
+
+export async function createRevisionPreview(
+  mapId: string,
+  payload: { checkin_id: string }
+): Promise<RevisionProposalRecord> {
+  return parseJson<RevisionProposalRecord>(
+    await fetch(`${API_BASE_URL}/maps/${mapId}/revision-proposals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+  );
+}
+
+export async function fetchRevisionPreview(proposalId: string): Promise<RevisionProposalRecord> {
+  return parseJson<RevisionProposalRecord>(
+    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}`)
+  );
+}
+
+export async function acceptRevisionPreview(proposalId: string): Promise<LifeMap> {
+  return parseJson<LifeMap>(
+    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: '' })
+    })
+  );
+}
+
+export async function rejectRevisionPreview(proposalId: string): Promise<RevisionProposalRecord> {
+  return parseJson<RevisionProposalRecord>(
+    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: '' })
     })
   );
 }

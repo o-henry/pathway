@@ -37,6 +37,7 @@ apps/web/.playwright-browsers/
 .playwright-mcp/
 apps/desktop/dist/
 src-tauri/target/
+pathway-*.png
 
 # OS/editor
 .DS_Store

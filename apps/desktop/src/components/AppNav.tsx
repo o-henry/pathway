@@ -2,26 +2,17 @@ import type { ReactNode } from "react";
 import { localeShortLabel, useI18n } from "../i18n";
 
 type WorkspaceTab =
-  | "workbench"
-  | "dashboard"
-  | "intelligence"
   | "workflow"
   | "tasks"
-  | "shell"
-  | "feed"
-  | "agents"
-  | "handoff"
   | "knowledge"
-  | "visualize"
-  | "adaptation"
-  | "bridge"
-  | "settings";
+  | "adaptation";
 
 type NavItem = {
   tab: WorkspaceTab;
   label: string;
   ariaLabel: string;
   title: string;
+  shortcut: string;
 };
 
 type AppNavProps = {
@@ -32,12 +23,10 @@ type AppNavProps = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { tab: "tasks", label: "nav.tasks", ariaLabel: "nav.tasks", title: "nav.tasks" },
-  { tab: "workflow", label: "nav.workflow.short", ariaLabel: "nav.workflow.title", title: "nav.workflow.title" },
-  { tab: "knowledge", label: "nav.knowledge", ariaLabel: "nav.knowledge", title: "nav.knowledge" },
-  { tab: "visualize", label: "nav.visualize", ariaLabel: "nav.visualize", title: "nav.visualize" },
-  { tab: "adaptation", label: "nav.adaptation", ariaLabel: "nav.adaptation", title: "nav.adaptation" },
-  { tab: "settings", label: "nav.settings", ariaLabel: "nav.settings", title: "nav.settings" },
+  { tab: "tasks", label: "nav.tasks", ariaLabel: "nav.tasks", title: "nav.tasks", shortcut: "Cmd+1" },
+  { tab: "workflow", label: "nav.workflow.short", ariaLabel: "nav.workflow.title", title: "nav.workflow.title", shortcut: "Cmd+2" },
+  { tab: "knowledge", label: "nav.knowledge", ariaLabel: "nav.knowledge", title: "nav.knowledge", shortcut: "Cmd+3" },
+  { tab: "adaptation", label: "nav.adaptation", ariaLabel: "nav.adaptation", title: "nav.adaptation", shortcut: "Cmd+4" },
 ];
 const SHOW_LANGUAGE_SWITCH = false;
 
@@ -57,7 +46,7 @@ export default function AppNav({ activeTab, hidden = false, onSelectTab, renderI
               className={active ? "is-active" : ""}
               key={item.tab}
               onClick={() => onSelectTab(item.tab)}
-              title={title}
+              title={`${title} · ${item.shortcut}`}
               type="button"
             >
               <span className="nav-icon">{renderIcon(item.tab, active)}</span>

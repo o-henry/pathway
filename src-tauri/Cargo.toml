@@ -1,7 +1,7 @@
 [package]
 name = "pathway-desktop"
 version = "0.1.0"
-description = "Tauri desktop shell for Pathway"
+description = "Tauri desktop shell for PATHWAY"
 authors = ["Henry"]
 license = ""
 repository = ""

@@ -15,10 +15,14 @@ type EdgeLine = {
   path: string;
   startPoint: { x: number; y: number };
   endPoint: { x: number; y: number };
+  previewChange?: string;
+  previewReason?: string;
 };
 
 type WorkflowCanvasPaneProps = {
   canvasVariant?: "default" | "pathway";
+  pathwayOverlayActions?: ReactNode;
+  pathwayOverlayStats?: ReactNode;
   panMode: boolean;
   onCanvasKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   onCanvasMouseDown: (event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -59,6 +63,8 @@ type WorkflowCanvasPaneProps = {
   isNodeDragAllowedTarget: (target: EventTarget | null) => boolean;
   onNodeDragStart: (event: ReactMouseEvent<HTMLDivElement>, nodeId: string) => void;
   nodeAnchorSides: readonly NodeAnchorSide[];
+  collapsedPathwayNodeIds: Set<string>;
+  onTogglePathwayBranch: (nodeId: string) => void;
   nodeCardSummary: (node: GraphNode) => string;
   turnModelLabel: (node: GraphNode) => string;
   turnRoleLabel: (node: GraphNode) => string;
@@ -120,6 +126,8 @@ type WorkflowConversationMessage = {
 
 export default function WorkflowCanvasPane({
   canvasVariant = "default",
+  pathwayOverlayActions,
+  pathwayOverlayStats,
   panMode,
   onCanvasKeyDown,
   onCanvasMouseDown,
@@ -155,6 +163,8 @@ export default function WorkflowCanvasPane({
   isNodeDragAllowedTarget,
   onNodeDragStart,
   nodeAnchorSides,
+  collapsedPathwayNodeIds,
+  onTogglePathwayBranch,
   nodeCardSummary,
   turnModelLabel,
   turnRoleLabel,
@@ -325,9 +335,19 @@ export default function WorkflowCanvasPane({
                     <marker id="edge-arrow-readonly" markerHeight="7" markerUnits="userSpaceOnUse" markerWidth="7" orient="auto" refX="6" refY="3.5">
                       <path d="M0 0 L7 3.5 L0 7 Z" fill="#c07a2f" />
                     </marker>
+                    <marker id="edge-arrow-preview-added" markerHeight="7" markerUnits="userSpaceOnUse" markerWidth="7" orient="auto" refX="6" refY="3.5">
+                      <path d="M0 0 L7 3.5 L0 7 Z" fill="#2d9960" />
+                    </marker>
+                    <marker id="edge-arrow-preview-warning" markerHeight="7" markerUnits="userSpaceOnUse" markerWidth="7" orient="auto" refX="6" refY="3.5">
+                      <path d="M0 0 L7 3.5 L0 7 Z" fill="#c77a29" />
+                    </marker>
+                    <marker id="edge-arrow-preview-removed" markerHeight="7" markerUnits="userSpaceOnUse" markerWidth="7" orient="auto" refX="6" refY="3.5">
+                      <path d="M0 0 L7 3.5 L0 7 Z" fill="#8c6ccf" />
+                    </marker>
                   </defs>
                   {edgeLines.map((line) => (
                     <g key={line.key}>
+                      {line.previewReason ? <title>{line.previewReason}</title> : null}
                       {!line.readOnly && (
                         <path
                           className="edge-path-hit"
@@ -350,14 +370,58 @@ export default function WorkflowCanvasPane({
                         }`.trim()}
                         d={line.path}
                         fill="none"
-                        markerEnd={line.readOnly ? "url(#edge-arrow-readonly)" : "url(#edge-arrow)"}
+                        markerEnd={
+                          line.previewChange === "added"
+                            ? "url(#edge-arrow-preview-added)"
+                            : line.previewChange === "removed"
+                              ? "url(#edge-arrow-preview-removed)"
+                              : line.previewChange === "updated"
+                                ? "url(#edge-arrow-preview-warning)"
+                                : line.readOnly
+                                  ? "url(#edge-arrow-readonly)"
+                                  : "url(#edge-arrow)"
+                        }
                         pointerEvents="none"
-                        stroke={line.readOnly ? "#c07a2f" : selectedEdgeKey === line.edgeKey ? "#4f83ff" : "#4f6271"}
-                        strokeDasharray={line.readOnly ? "7 4" : undefined}
+                        stroke={
+                          line.previewChange === "added"
+                            ? "#2d9960"
+                            : line.previewChange === "removed"
+                              ? "#8c6ccf"
+                              : line.previewChange === "updated"
+                                ? "#c77a29"
+                                : line.readOnly
+                                  ? "#c07a2f"
+                                  : selectedEdgeKey === line.edgeKey
+                                    ? "#4f83ff"
+                                    : "#4f6271"
+                        }
+                        strokeDasharray={
+                          line.previewChange === "removed"
+                            ? "10 6"
+                            : line.previewChange === "updated" || line.readOnly
+                              ? "7 4"
+                              : undefined
+                        }
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={selectedEdgeKey === line.edgeKey ? 3 : 2}
+                        strokeWidth={
+                          line.previewChange === "added"
+                            ? 2.5
+                            : selectedEdgeKey === line.edgeKey
+                              ? 3
+                              : 2
+                        }
                       />
+                      {line.previewChange === "removed" ? (
+                        <text
+                          className="edge-preview-x"
+                          x={(line.startPoint.x + line.endPoint.x) / 2}
+                          y={(line.startPoint.y + line.endPoint.y) / 2 - 10}
+                          textAnchor="middle"
+                        >
+                          X
+                        </text>
+                      ) : null}
                       {!line.readOnly && (
                         <circle
                           className="edge-arrow-handle"
@@ -399,6 +463,7 @@ export default function WorkflowCanvasPane({
                   isNodeDragAllowedTarget={isNodeDragAllowedTarget}
                   marqueeSelection={marqueeSelection}
                   nodeAnchorSides={nodeAnchorSides}
+                  collapsedPathwayNodeIds={collapsedPathwayNodeIds}
                   nodeCardSummary={nodeCardSummary}
                   nodeStates={nodeStates}
                   nodeStatusLabel={nodeStatusLabel}
@@ -407,6 +472,7 @@ export default function WorkflowCanvasPane({
                   onNodeAnchorDragStart={onNodeAnchorDragStart}
                   onNodeAnchorDrop={onNodeAnchorDrop}
                   onNodeDragStart={onNodeDragStart}
+                  onTogglePathwayBranch={onTogglePathwayBranch}
                   onOpenFeedFromNode={onOpenFeedFromNode}
                   onOpenWebInputForNode={onOpenWebInputForNode}
                   openTerminalNodeId={openTerminalNodeId}
@@ -432,6 +498,10 @@ export default function WorkflowCanvasPane({
           </div>
 
           <div className={`canvas-overlay canvas-overlay-${canvasVariant}`}>
+            {canvasVariant === "pathway" && pathwayOverlayStats ? (
+              <div className="pathway-canvas-stats-overlay">{pathwayOverlayStats}</div>
+            ) : null}
+
             <div className="canvas-zoom-controls">
               <div className="canvas-zoom-group">
                 <button onClick={onCanvasZoomIn} title={t("workflow.canvas.zoomIn")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/plus.svg" /></button>
@@ -446,6 +516,10 @@ export default function WorkflowCanvasPane({
                 </button>
               ) : null}
             </div>
+
+            {canvasVariant === "pathway" && pathwayOverlayActions ? (
+              <div className="pathway-canvas-actions-overlay">{pathwayOverlayActions}</div>
+            ) : null}
 
             {canvasVariant !== "pathway" ? (
               <div className="canvas-runbar">

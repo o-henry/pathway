@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
@@ -11,9 +12,15 @@ import {
 import WorkflowCanvasPane from "./main/presentation/WorkflowCanvasPane";
 import { buildCanvasEdgeLines, NODE_HEIGHT, NODE_WIDTH, nodeCardSummary, turnModelLabel } from "../features/workflow/graph-utils";
 import { nodeStatusLabel, nodeTypeLabel, turnRoleLabel } from "../features/workflow/labels";
-import type { GraphData, GraphEdge, GraphNode, NodeAnchorSide } from "../features/workflow/types";
+import type { GraphData, GraphNode, NodeAnchorSide } from "../features/workflow/types";
 import type { DragState, MarqueeSelection, NodeRunState } from "./main/types";
-import type { GraphBundle, GraphEdgeRecord, GraphNodeRecord, GraphNodeTypeDefinition } from "../lib/types";
+import type {
+  GraphBundle,
+  GraphEdgeRecord,
+  GraphNodeRecord,
+  GraphNodeTypeDefinition,
+  RevisionProposalRecord
+} from "../lib/types";
 
 type LayoutNode = {
   node: GraphNodeRecord;
@@ -23,6 +30,20 @@ type LayoutNode = {
   childCount: number;
   width: number;
   height: number;
+};
+
+type LayoutBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+type CanvasPanState = {
+  pointerClientX: number;
+  pointerClientY: number;
+  scrollLeft: number;
+  scrollTop: number;
 };
 
 type PathwayTone = "sky" | "iris" | "mist";
@@ -95,7 +116,7 @@ function measurePathwayNode(node: GraphNodeRecord, depth: number, childCount: nu
   return { width: measuredWidth, height };
 }
 
-function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number; height: number } {
+function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number; height: number; bounds: LayoutBounds; progressionTypeIds: Set<string> } {
   const progressionTypeIds = new Set(
     bundle.ontology.edge_types.filter((item) => item.role === "progression").map((item) => item.id),
   );
@@ -213,10 +234,20 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     });
   });
 
-  const width = Math.max(1480, Math.max(...positioned.map((item) => item.x + item.width), 0) + 260);
-  const height = Math.max(920, Math.max(...positioned.map((item) => item.y + item.height), 0) + lanePaddingBottom);
+  const minX = Math.min(...positioned.map((item) => item.x), 120);
+  const minY = Math.min(...positioned.map((item) => item.y), rootBaseY);
+  const maxX = Math.max(...positioned.map((item) => item.x + item.width), 0);
+  const maxY = Math.max(...positioned.map((item) => item.y + item.height), 0);
+  const width = Math.max(1480, maxX + 260);
+  const height = Math.max(920, maxY + lanePaddingBottom);
 
-  return { nodes: positioned, width, height };
+  return {
+    nodes: positioned,
+    width,
+    height,
+    bounds: { minX, minY, maxX, maxY },
+    progressionTypeIds,
+  };
 }
 
 function mapNodeType(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): GraphNode["type"] {
@@ -230,19 +261,81 @@ function mapNodeType(definition: GraphNodeTypeDefinition | undefined, node: Grap
   return "turn";
 }
 
-function edgeToRailEdge(edge: GraphEdgeRecord): GraphEdge {
-  return {
-    from: { nodeId: edge.source, port: "out" },
-    to: { nodeId: edge.target, port: "in" },
-  };
-}
-
 type PathwayRailCanvasProps = {
   bundle: GraphBundle;
+  baseBundle?: GraphBundle;
+  overlayActions?: ReactNode;
+  overlayStats?: ReactNode;
+  revisionPreview?: RevisionProposalRecord | null;
   selectedNodeId: string | null;
   selectedRouteId: string | null;
   onSelectNode: (nodeId: string) => void;
 };
+
+type PreviewNodeVisual = {
+  changeType: string;
+  nextStatus: string;
+  reason: string;
+};
+
+type PreviewEdgeVisual = {
+  changeType: string;
+  reason: string;
+};
+
+function edgeIdentity(edge: GraphEdgeRecord): string {
+  return `${edge.source}:${edge.target}`;
+}
+
+function buildPreviewNodeMap(proposal: RevisionProposalRecord | null): Map<string, PreviewNodeVisual> {
+  const map = new Map<string, PreviewNodeVisual>();
+  if (!proposal) {
+    return map;
+  }
+
+  for (const change of proposal.diff.node_changes) {
+    map.set(change.node_id, {
+      changeType: change.change_type,
+      nextStatus: change.next_status ?? "",
+      reason: change.reason
+    });
+  }
+
+  return map;
+}
+
+function buildPreviewEdgeMap(
+  bundle: GraphBundle,
+  baseBundle: GraphBundle | undefined,
+  proposal: RevisionProposalRecord | null
+): Map<string, PreviewEdgeVisual> {
+  const map = new Map<string, PreviewEdgeVisual>();
+  if (!proposal) {
+    return map;
+  }
+
+  const visibleEdges = new Map(bundle.edges.map((edge) => [edge.id || edgeIdentity(edge), edge]));
+  const baseEdges = new Map((baseBundle?.edges ?? []).map((edge) => [edge.id || edgeIdentity(edge), edge]));
+
+  for (const change of proposal.diff.edge_changes) {
+    const visibleEdge =
+      visibleEdges.get(change.edge_id) ??
+      bundle.edges.find((edge) => edge.source === change.source && edge.target === change.target);
+    const baseEdge =
+      baseEdges.get(change.edge_id) ??
+      baseBundle?.edges.find((edge) => edge.source === change.source && edge.target === change.target);
+    const targetEdge = visibleEdge ?? baseEdge;
+    if (!targetEdge) {
+      continue;
+    }
+    map.set(edgeIdentity(targetEdge), {
+      changeType: change.change_type,
+      reason: change.reason
+    });
+  }
+
+  return map;
+}
 
 const EMPTY_NODE_STATES: Record<string, NodeRunState> = {};
 const EMPTY_SELECTION: Set<string> = new Set();
@@ -253,19 +346,67 @@ function clampZoom(value: number): number {
   return Math.max(0.55, Math.min(1.8, Number(value.toFixed(2))));
 }
 
+function buildCollapsedDescendantSet(bundle: GraphBundle, collapsedNodeIds: Set<string>): Set<string> {
+  if (collapsedNodeIds.size === 0) {
+    return new Set();
+  }
+
+  const progressionTypeIds = new Set(
+    bundle.ontology.edge_types.filter((item) => item.role === "progression").map((item) => item.id),
+  );
+  const outgoing = new Map<string, string[]>();
+
+  bundle.nodes.forEach((node) => {
+    outgoing.set(node.id, []);
+  });
+
+  bundle.edges.forEach((edge) => {
+    if (!progressionTypeIds.has(edge.type)) {
+      return;
+    }
+    outgoing.get(edge.source)?.push(edge.target);
+  });
+
+  const hiddenNodeIds = new Set<string>();
+  for (const collapsedNodeId of collapsedNodeIds) {
+    const queue = [...(outgoing.get(collapsedNodeId) ?? [])];
+    while (queue.length > 0) {
+      const current = queue.shift() as string;
+      if (hiddenNodeIds.has(current) || collapsedNodeIds.has(current)) {
+        continue;
+      }
+      hiddenNodeIds.add(current);
+      queue.push(...(outgoing.get(current) ?? []));
+    }
+  }
+
+  return hiddenNodeIds;
+}
+
 export default function PathwayRailCanvas({
   bundle,
+  baseBundle,
+  overlayActions,
+  overlayStats,
+  revisionPreview = null,
   selectedNodeId,
   selectedRouteId,
   onSelectNode,
 }: PathwayRailCanvasProps) {
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasFullscreen, setCanvasFullscreen] = useState(false);
+  const [collapsedBranchNodeIds, setCollapsedBranchNodeIds] = useState<Set<string>>(new Set());
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(selectedNodeId ? [selectedNodeId] : []);
   const [selectedEdgeKey, setSelectedEdgeKey] = useState("");
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [panState, setPanState] = useState<CanvasPanState | null>(null);
   const graphCanvasRef = useRef<HTMLDivElement | null>(null);
   const viewportTouchedRef = useRef(false);
+  const previewNodeMap = useMemo(() => buildPreviewNodeMap(revisionPreview), [revisionPreview]);
+  const previewEdgeMap = useMemo(
+    () => buildPreviewEdgeMap(bundle, baseBundle, revisionPreview),
+    [baseBundle, bundle, revisionPreview]
+  );
 
   useEffect(() => {
     const fallbackId = selectedNodeId ?? selectedRouteId;
@@ -275,25 +416,55 @@ export default function PathwayRailCanvas({
   const adapted = useMemo(() => {
     const layout = buildLayout(bundle);
     const nodeTypes = new Map(bundle.ontology.node_types.map((item) => [item.id, item]));
-    const nodes: GraphNode[] = layout.nodes.map(({ node, x, y, depth, childCount, width, height }) => ({
-      id: node.id,
-      type: mapNodeType(nodeTypes.get(node.type), node),
-      position: { x, y },
-      config: {
-        role: nodeTypes.get(node.type)?.label ?? "PATHWAY NODE",
-        model: node.label,
-        promptTemplate: node.summary,
-        sourceKind: "pathway",
-        pathwayNodeType: node.type,
-        pathwayFamily: nodeSemanticFamily(nodeTypes.get(node.type), node),
-        pathwayTone: toneForFamily(nodeSemanticFamily(nodeTypes.get(node.type), node), node),
-        pathwayDepth: depth,
-        pathwayChildCount: childCount,
-        pathwayVisualWidth: width,
-        pathwayVisualHeight: height,
-      },
-    }));
-    const edges = bundle.edges.map(edgeToRailEdge);
+    const layoutNodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
+    const nodes: GraphNode[] = layout.nodes.map(({ node, x, y, depth, childCount, width, height }) => {
+      const previewVisual = previewNodeMap.get(node.id);
+      return {
+        id: node.id,
+        type: mapNodeType(nodeTypes.get(node.type), node),
+        position: { x, y },
+        config: {
+          role: nodeTypes.get(node.type)?.label ?? "PATHWAY NODE",
+          model: node.label,
+          promptTemplate: node.summary,
+          sourceKind: "pathway",
+          pathwayNodeType: node.type,
+          pathwayFamily: nodeSemanticFamily(nodeTypes.get(node.type), node),
+          pathwayTone: toneForFamily(nodeSemanticFamily(nodeTypes.get(node.type), node), node),
+          pathwayDepth: depth,
+          pathwayChildCount: childCount,
+          pathwayVisualWidth: width,
+          pathwayVisualHeight: height,
+          pathwayPreviewChange: previewVisual?.changeType ?? "",
+          pathwayPreviewStatus: previewVisual?.nextStatus ?? "",
+          pathwayPreviewReason: previewVisual?.reason ?? "",
+        },
+      };
+    });
+    const edges = bundle.edges
+      .filter((edge) => layout.progressionTypeIds.has(edge.type))
+      .map((edge) => {
+        const sourceLayout = layoutNodeById.get(edge.source);
+        const targetLayout = layoutNodeById.get(edge.target);
+        const sourceDepth = sourceLayout?.depth ?? 0;
+        const targetDepth = targetLayout?.depth ?? sourceDepth + 1;
+        if (targetDepth > sourceDepth) {
+          return {
+            from: { nodeId: edge.source, port: "out", side: "right" as const },
+            to: { nodeId: edge.target, port: "in", side: "left" as const },
+          };
+        }
+        if ((targetLayout?.y ?? 0) >= (sourceLayout?.y ?? 0)) {
+          return {
+            from: { nodeId: edge.source, port: "out", side: "bottom" as const },
+            to: { nodeId: edge.target, port: "in", side: "top" as const },
+          };
+        }
+        return {
+          from: { nodeId: edge.source, port: "out", side: "top" as const },
+          to: { nodeId: edge.target, port: "in", side: "bottom" as const },
+        };
+      });
     const graph: GraphData = {
       version: 1,
       nodes,
@@ -309,18 +480,36 @@ export default function PathwayRailCanvas({
       graph,
       width: layout.width,
       height: layout.height,
+      bounds: layout.bounds,
     };
-  }, [bundle]);
+  }, [bundle, previewNodeMap]);
 
   const [graphData, setGraphData] = useState<GraphData>(adapted.graph);
 
   useEffect(() => {
-    setGraphData(adapted.graph);
-  }, [adapted.graph]);
+    const visibleNodes = adapted.graph.nodes.filter((node) => !hiddenNodeIds.has(node.id));
+    const visibleNodeIdSet = new Set(visibleNodes.map((node) => node.id));
+    setGraphData({
+      ...adapted.graph,
+      nodes: visibleNodes,
+      edges: adapted.graph.edges.filter(
+        (edge) => visibleNodeIdSet.has(edge.from.nodeId) && visibleNodeIdSet.has(edge.to.nodeId),
+      ),
+    });
+  }, [adapted.graph, hiddenNodeIds]);
 
   useEffect(() => {
     viewportTouchedRef.current = false;
   }, [bundle.bundle_id]);
+
+  useEffect(() => {
+    setCollapsedBranchNodeIds(new Set());
+  }, [bundle.bundle_id]);
+
+  const hiddenNodeIds = useMemo(
+    () => buildCollapsedDescendantSet(bundle, collapsedBranchNodeIds),
+    [bundle, collapsedBranchNodeIds],
+  );
 
   useEffect(() => {
     const canvas = graphCanvasRef.current;
@@ -338,12 +527,16 @@ export default function PathwayRailCanvas({
         return;
       }
 
-      const fitX = (bounds.width - 120) / adapted.width;
-      const fitY = (bounds.height - 140) / adapted.height;
-      const nextZoom = clampZoom(Math.min(1.08, fitX, fitY));
+      const fitX = (bounds.width - 144) / adapted.width;
+      const fitY = (bounds.height - 156) / adapted.height;
+      const nextZoom = clampZoom(Math.min(1.02, fitX, fitY));
       setCanvasZoom(nextZoom);
-      canvas.scrollLeft = 0;
-      canvas.scrollTop = 0;
+      const visibleGraphWidth = (adapted.bounds.maxX - adapted.bounds.minX) * nextZoom;
+      const visibleGraphHeight = (adapted.bounds.maxY - adapted.bounds.minY) * nextZoom;
+      const targetScrollLeft = Math.max(0, adapted.bounds.minX * nextZoom - (bounds.width - visibleGraphWidth) / 2);
+      const targetScrollTop = Math.max(0, adapted.bounds.minY * nextZoom - (bounds.height - visibleGraphHeight) / 2);
+      canvas.scrollLeft = targetScrollLeft;
+      canvas.scrollTop = targetScrollTop;
     };
 
     fitCanvas();
@@ -356,7 +549,7 @@ export default function PathwayRailCanvas({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [adapted.height, adapted.width]);
+  }, [adapted.bounds.maxX, adapted.bounds.maxY, adapted.bounds.minX, adapted.bounds.minY, adapted.height, adapted.width]);
 
   const edgeLines = useMemo(() => {
     const nodeMap = new Map(graphData.nodes.map((node) => [node.id, node]));
@@ -378,8 +571,15 @@ export default function PathwayRailCanvas({
         }
         return { width: NODE_WIDTH, height: NODE_HEIGHT };
       },
+    }).map((line) => {
+      const previewVisual = previewEdgeMap.get(line.edgeKey);
+      return {
+        ...line,
+        previewChange: previewVisual?.changeType,
+        previewReason: previewVisual?.reason,
+      };
     });
-  }, [graphData]);
+  }, [graphData, previewEdgeMap]);
 
   const setNodeSelection = (nodeIds: string[], focusedNodeId?: string) => {
     setSelectedNodeIds(nodeIds);
@@ -387,6 +587,19 @@ export default function PathwayRailCanvas({
     if (next) {
       onSelectNode(next);
     }
+  };
+
+  const togglePathwayBranch = (nodeId: string) => {
+    viewportTouchedRef.current = true;
+    setCollapsedBranchNodeIds((current) => {
+      const next = new Set(current);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
   };
 
   const zoomIn = () => {
@@ -434,6 +647,15 @@ export default function PathwayRailCanvas({
   };
 
   const onCanvasMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (panState) {
+      const canvas = graphCanvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      canvas.scrollLeft = Math.max(0, panState.scrollLeft - (event.clientX - panState.pointerClientX));
+      canvas.scrollTop = Math.max(0, panState.scrollTop - (event.clientY - panState.pointerClientY));
+      return;
+    }
     if (!dragState) {
       return;
     }
@@ -462,9 +684,35 @@ export default function PathwayRailCanvas({
   };
 
   const onCanvasMouseUp = () => {
+    if (panState) {
+      setPanState(null);
+    }
     if (dragState) {
       setDragState(null);
     }
+  };
+
+  const onCanvasMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const canvas = graphCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    const isBackdrop =
+      target === event.currentTarget ||
+      target?.classList.contains("graph-stage-shell") ||
+      target?.classList.contains("graph-stage") ||
+      target?.classList.contains("edge-layer");
+    if (!isBackdrop) {
+      return;
+    }
+    viewportTouchedRef.current = true;
+    setPanState({
+      pointerClientX: event.clientX,
+      pointerClientY: event.clientY,
+      scrollLeft: canvas.scrollLeft,
+      scrollTop: canvas.scrollTop,
+    });
   };
 
   const onCanvasWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -493,11 +741,20 @@ export default function PathwayRailCanvas({
 
   return (
     <div className="pathway-rail-canvas">
+      {revisionPreview ? (
+        <div className="pathway-canvas-preview-legend">
+          <span className="pathway-canvas-preview-pill is-added">새 루트</span>
+          <span className="pathway-canvas-preview-pill is-updated">약화/수정</span>
+          <span className="pathway-canvas-preview-pill is-removed">차단/제거</span>
+        </div>
+      ) : null}
       <WorkflowCanvasPane
         canvasVariant="pathway"
+        pathwayOverlayActions={overlayActions}
+        pathwayOverlayStats={overlayStats}
         panMode={false}
         onCanvasKeyDown={onCanvasKeyDown}
-        onCanvasMouseDown={() => {}}
+        onCanvasMouseDown={onCanvasMouseDown}
         onCanvasMouseMove={onCanvasMouseMove}
         onCanvasMouseUp={onCanvasMouseUp}
         onCanvasWheel={onCanvasWheel}
@@ -530,6 +787,8 @@ export default function PathwayRailCanvas({
         isNodeDragAllowedTarget={() => true}
         onNodeDragStart={onNodeDragStart}
         nodeAnchorSides={EMPTY_ANCHORS}
+        collapsedPathwayNodeIds={collapsedBranchNodeIds}
+        onTogglePathwayBranch={togglePathwayBranch}
         nodeCardSummary={nodeCardSummary}
         turnModelLabel={turnModelLabel}
         turnRoleLabel={turnRoleLabel}

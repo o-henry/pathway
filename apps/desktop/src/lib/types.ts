@@ -160,3 +160,51 @@ export interface RouteSelectionRecord {
   created_at: string;
   updated_at: string;
 }
+
+export type GraphNodePreviewChangeType = 'added' | 'removed' | 'updated' | 'status_changed';
+export type GraphEdgePreviewChangeType = 'added' | 'removed' | 'updated';
+
+export interface GraphNodeChangeRecord {
+  node_id: string;
+  change_type: GraphNodePreviewChangeType;
+  label: string;
+  reason: string;
+  previous_status: string | null;
+  next_status: string | null;
+  fields_changed: string[];
+}
+
+export interface GraphEdgeChangeRecord {
+  edge_id: string;
+  change_type: GraphEdgePreviewChangeType;
+  source: string;
+  target: string;
+  label: string | null;
+  reason: string;
+}
+
+export interface GraphWarningChangeRecord {
+  change_type: 'added' | 'removed';
+  warning: string;
+}
+
+export interface GraphDiffRecord {
+  summary: string[];
+  node_changes: GraphNodeChangeRecord[];
+  edge_changes: GraphEdgeChangeRecord[];
+  warning_changes: GraphWarningChangeRecord[];
+}
+
+export interface RevisionProposalRecord {
+  id: string;
+  goal_id: string;
+  source_map_id: string;
+  checkin_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  rationale: string;
+  diff: GraphDiffRecord;
+  proposed_graph_bundle: GraphBundle;
+  accepted_map_id: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
