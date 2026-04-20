@@ -117,15 +117,17 @@ def _create_map(client: TestClient, goal_id: str) -> str:
 
 def _create_checkin(client: TestClient, goal_id: str, map_id: str) -> str:
     response = client.post(
-        f'/goals/{goal_id}/checkins',
+        f'/goals/{goal_id}/state-updates',
         json={
-            'map_id': map_id,
+            'pathway_id': map_id,
             'actual_time_spent': 3,
             'actual_money_spent': 0,
             'mood': 'mixed',
             'progress_summary': '문법에서 흥미가 떨어졌지만 짧은 말하기는 괜찮았다.',
             'blockers': '평일 저녁 집중력이 낮다.',
             'next_adjustment': '주말 speaking drill을 추가하고 평일은 짧게 간다.',
+            'resource_deltas': {'energy_pattern': 'weekday dip'},
+            'learned_items': ['짧은 말하기는 괜찮았다'],
         },
     )
     assert response.status_code == 201
@@ -172,7 +174,7 @@ def test_revision_proposal_can_be_accepted_into_new_snapshot(client: TestClient)
     client.app.dependency_overrides[get_llm_provider] = lambda: provider
 
     proposal_response = client.post(
-        f'/maps/{map_id}/revision-proposals',
+        f'/pathways/{map_id}/revision-previews',
         json={'checkin_id': checkin_id},
     )
 
@@ -182,7 +184,7 @@ def test_revision_proposal_can_be_accepted_into_new_snapshot(client: TestClient)
     assert proposal['diff']['node_changes'][0]['change_type'] in {'updated', 'status_changed'}
 
     accept_response = client.post(
-        f"/revision-proposals/{proposal['id']}/accept",
+        f"/revision-previews/{proposal['id']}/accept",
         json={'note': 'accept test'},
     )
     assert accept_response.status_code == 200
@@ -191,7 +193,7 @@ def test_revision_proposal_can_be_accepted_into_new_snapshot(client: TestClient)
     assert accepted_map['id'] != map_id
     assert accepted_map['graph_bundle']['nodes'][1]['status'] == 'at_risk'
 
-    proposal_fetch = client.get(f"/revision-proposals/{proposal['id']}")
+    proposal_fetch = client.get(f"/revision-previews/{proposal['id']}")
     assert proposal_fetch.status_code == 200
     assert proposal_fetch.json()['status'] == 'accepted'
     assert proposal_fetch.json()['accepted_map_id'] == accepted_map['id']
@@ -210,13 +212,13 @@ def test_revision_proposal_can_be_rejected(client: TestClient) -> None:
     client.app.dependency_overrides[get_llm_provider] = lambda: provider
 
     proposal_response = client.post(
-        f'/maps/{map_id}/revision-proposals',
+        f'/pathways/{map_id}/revision-previews',
         json={'checkin_id': checkin_id},
     )
     proposal_id = proposal_response.json()['id']
 
     reject_response = client.post(
-        f'/revision-proposals/{proposal_id}/reject',
+        f'/revision-previews/{proposal_id}/reject',
         json={'note': 'reject test'},
     )
 

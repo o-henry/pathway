@@ -2,12 +2,15 @@
 
 ## Status
 
-Phase 8 quality, export, and packaging preparation is complete, and a first workspace history browser is now landed on top.
+Phase 8 quality, export, and packaging preparation remains complete.
+On top of that baseline, the first `Pathway` v-next foundation pass is now landed: goal analysis, current-state snapshots, append-only state updates, route selection, and revision-preview flows are implemented end-to-end.
+The main workspace has now been pushed further into a desktop-style graph shell: darker app chrome, tighter panel language, a larger central graph board, and generic English copy replacing the earlier decorative and locale-biased examples.
 
 ## Last completed phase
 
 Phase 8 — Quality, Export, and Packaging.
 Post-phase addition — Workspace History Browser.
+Current additive objective — Pathway VNext Foundation.
 
 ## Known decisions
 
@@ -22,12 +25,12 @@ Post-phase addition — Workspace History Browser.
 
 ## Next task
 
-Choose the next product direction rather than the next infrastructure phase. The highest-value options are:
+The highest-value follow-up options are now:
 
-1. Complete real URL ingestion beyond preview-only policy checks.
-2. Improve graph engine bundle splitting and runtime performance.
-3. Decide desktop packaging flow (`Tauri` sidecar route).
-4. Expand the history browser into a full multi-goal workspace with filtering/search.
+1. Add desktop-grade interaction polish to the graph workspace: keyboard shortcuts, resizable panes, and clearer selected-route / warning affordances.
+2. Replace deterministic goal analysis bootstrapping with a bounded research-backed intake/orchestration loop.
+3. Complete real URL ingestion beyond preview-only policy checks.
+4. Improve graph engine bundle splitting and runtime performance.
 
 ## Commands run
 
@@ -47,19 +50,64 @@ Choose the next product direction rather than the next infrastructure phase. The
 - `pnpm --filter web build`
 - `pnpm playwright:install`
 - `pnpm test:web:e2e`
+- `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_api_crud.py apps/api/tests/test_revisions.py apps/api/tests/test_repositories.py`
+- `pnpm --filter web check`
+- `pnpm --filter web check`
+- `pnpm --filter web check`
 
 ## Known gaps
 
 - No remote URL content fetcher yet; only policy preview exists.
+- Goal analysis currently uses deterministic bootstrap logic rather than full model-assisted multi-agent intake.
+- The main workspace is materially more graph-first now, but it still lacks desktop-grade interactions such as pane resizing, keyboard shortcuts, and richer focus states.
+- Legacy `maps` / `checkins` terminology still exists internally and on compatibility routes.
+- Playwright e2e execution is blocked in this environment because Chromium launch is denied by the sandbox.
 - The graph engine client chunk is still large.
 - Frontend runtime schema validation is still deferred; backend remains the source of truth for bundle validation.
-- The workspace history browser exists, but it is still anchored to the landing page rather than a dedicated multi-pane workspace.
+- Some unused or secondary components still contain older locale-specific copy and should be cleaned up in a later pass.
 - Production deployment/runtime adapter for SvelteKit is still undecided.
 - Tauri packaging is documented but not implemented.
 - Automated crawling rate limiting is not implemented because remote fetching itself is intentionally deferred.
 
 ## Changed files
 
+- New Pathway foundation work:
+  - `apps/api/lifemap_api/api/dependencies.py`
+  - `apps/api/lifemap_api/api/routes_goals.py`
+  - `apps/api/lifemap_api/api/routes_pathways.py`
+  - `apps/api/lifemap_api/api/routes_revisions.py`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/application/state.py`
+  - `apps/api/lifemap_api/domain/models.py`
+  - `apps/api/lifemap_api/domain/ports.py`
+  - `apps/api/lifemap_api/infrastructure/db_models.py`
+  - `apps/api/lifemap_api/infrastructure/repositories.py`
+  - `apps/api/lifemap_api/main.py`
+  - `apps/api/tests/test_api_crud.py`
+  - `apps/api/tests/test_revisions.py`
+  - `apps/web/e2e/smoke.spec.ts`
+  - `apps/web/src/lib/api/client.ts`
+  - `apps/web/src/lib/components/CheckInRevisionPanel.svelte`
+  - `apps/web/src/lib/components/GenerateMapPanel.svelte`
+  - `apps/web/src/lib/components/SourceLibraryPanel.svelte`
+  - `apps/web/src/lib/components/WorkspaceHistoryPanel.svelte`
+  - `apps/web/src/lib/components/WorkspaceDataPanel.svelte`
+  - `apps/web/src/lib/components/lifemap/MindMapEdge.svelte`
+  - `apps/web/src/lib/components/lifemap/GenericMindMapNode.svelte`
+  - `apps/web/src/lib/components/lifemap/NodeDetailDrawer.svelte`
+  - `apps/web/src/lib/components/lifemap/StaticLifeMap.svelte`
+  - `apps/web/src/lib/fixtures/exampleGraphBundle.ts`
+  - `apps/web/src/lib/graph/format.ts`
+  - `apps/web/src/lib/graph/types.ts`
+  - `apps/web/src/lib/graph/style.ts`
+  - `apps/web/src/routes/+page.svelte`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/IMPLEMENTATION_PLAN.md`
+  - `docs/state/EXECPLAN_PATHWAY_VNEXT_FOUNDATION.md`
+  - `docs/state/CURRENT_STATE.md`
 - Root workspace/config:
   - `package.json`
   - `pnpm-workspace.yaml`

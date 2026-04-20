@@ -26,6 +26,8 @@ Contains pure concepts:
 
 - `Profile`
 - `Goal`
+- `GoalAnalysis`
+- `ResourceDimension`
 - `SourceDocument`
 - `SourceChunk`
 - `GraphBundle`
@@ -33,7 +35,9 @@ Contains pure concepts:
 - `GraphNode`
 - `GraphEdge`
 - `EvidenceItem`
-- `CheckIn`
+- `CurrentStateSnapshot`
+- `StateUpdate`
+- `RouteSelection`
 - `Decision`
 - `RevisionProposal`
 - `ResearchRun`
@@ -49,12 +53,15 @@ Use cases:
 - analyze goal
 - infer required resource dimensions
 - create goal
+- create/update current state snapshot
+- append state update
+- select active route
 - create map from manual input
 - generate map with LLM
 - ingest source
 - retrieve evidence
 - generate RAG-grounded map
-- create check-in
+- create state update
 - propose map revision
 - accept/reject revision
 
@@ -144,6 +151,11 @@ POST   /goals
 GET    /goals/{goal_id}
 PATCH  /goals/{goal_id}
 DELETE /goals/{goal_id}
+POST   /goals/{goal_id}/analysis
+GET    /goals/{goal_id}/current-state
+PUT    /goals/{goal_id}/current-state
+GET    /goals/{goal_id}/state-updates
+POST   /goals/{goal_id}/state-updates
 
 POST   /goals/intake/analyze
 POST   /goals/intake/questions
@@ -151,7 +163,11 @@ POST   /goals/intake/questions
 GET    /maps/{map_id}
 POST   /maps
 POST   /goals/{goal_id}/maps/generate
+POST   /goals/{goal_id}/pathways/generate
 POST   /maps/{map_id}/layout
+GET    /pathways/{pathway_id}
+GET    /pathways/{pathway_id}/route-selection
+PUT    /pathways/{pathway_id}/route-selection
 
 GET    /sources
 POST   /sources/manual
@@ -163,9 +179,14 @@ POST   /sources/search
 POST   /goals/{goal_id}/checkins
 GET    /goals/{goal_id}/checkins
 POST   /maps/{map_id}/revise-from-checkin
+POST   /pathways/{pathway_id}/revision-previews
+GET    /revision-previews/{proposal_id}
+POST   /revision-previews/{proposal_id}/accept
+POST   /revision-previews/{proposal_id}/reject
 ```
 
 The `intake` endpoints may initially be stubs or a phased feature, but the architecture should reserve space for them.
+Legacy `/maps`, `/checkins`, and revision-proposal routes may continue to exist during transition; newer UI flows should prefer the Pathway/state terminology.
 
 ## 5. Database model
 

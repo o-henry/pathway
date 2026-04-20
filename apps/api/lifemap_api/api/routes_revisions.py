@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from lifemap_api.api.dependencies import (
-    get_checkin_repository,
+    get_current_state_snapshot_repository,
     get_embedding_provider,
     get_goal_repository,
     get_lifemap_repository,
     get_llm_provider,
     get_profile_repository,
     get_revision_proposal_repository,
+    get_route_selection_repository,
+    get_state_update_repository,
     get_source_search_index,
 )
 from lifemap_api.application.errors import (
@@ -31,11 +33,13 @@ from lifemap_api.domain.models import (
 )
 from lifemap_api.domain.ports import EmbeddingProvider, LLMProvider, SourceSearchIndex
 from lifemap_api.infrastructure.repositories import (
-    SqliteCheckInRepository,
+    SqliteCurrentStateSnapshotRepository,
     SqliteGoalRepository,
     SqliteLifeMapRepository,
     SqliteProfileRepository,
     SqliteRevisionProposalRepository,
+    SqliteRouteSelectionRepository,
+    SqliteStateUpdateRepository,
 )
 
 router = APIRouter(tags=["revisions"])
@@ -52,7 +56,11 @@ def post_revision_proposal(
     map_repo: SqliteLifeMapRepository = Depends(get_lifemap_repository),
     goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
     profile_repo: SqliteProfileRepository = Depends(get_profile_repository),
-    checkin_repo: SqliteCheckInRepository = Depends(get_checkin_repository),
+    state_update_repo: SqliteStateUpdateRepository = Depends(get_state_update_repository),
+    current_state_repo: SqliteCurrentStateSnapshotRepository = Depends(
+        get_current_state_snapshot_repository
+    ),
+    route_selection_repo: SqliteRouteSelectionRepository = Depends(get_route_selection_repository),
     proposal_repo: SqliteRevisionProposalRepository = Depends(get_revision_proposal_repository),
     llm_provider: LLMProvider = Depends(get_llm_provider),
     embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
@@ -66,7 +74,9 @@ def post_revision_proposal(
             map_repo=map_repo,
             goal_repo=goal_repo,
             profile_repo=profile_repo,
-            checkin_repo=checkin_repo,
+            state_update_repo=state_update_repo,
+            current_state_repo=current_state_repo,
+            route_selection_repo=route_selection_repo,
             proposal_repo=proposal_repo,
             llm_provider=llm_provider,
             embedding_provider=embedding_provider,
@@ -106,6 +116,14 @@ def read_revision_proposal(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
+@router.get("/revision-previews/{proposal_id}", response_model=RevisionProposal)
+def read_revision_preview(
+    proposal_id: str,
+    proposal_repo: SqliteRevisionProposalRepository = Depends(get_revision_proposal_repository),
+) -> RevisionProposal:
+    return read_revision_proposal(proposal_id, proposal_repo)
+
+
 @router.post("/revision-proposals/{proposal_id}/accept", response_model=LifeMap)
 def post_accept_revision_proposal(
     proposal_id: str,
@@ -128,6 +146,16 @@ def post_accept_revision_proposal(
         ) from exc
 
 
+@router.post("/revision-previews/{proposal_id}/accept", response_model=LifeMap)
+def post_accept_revision_preview(
+    proposal_id: str,
+    payload: RevisionProposalDecision,
+    proposal_repo: SqliteRevisionProposalRepository = Depends(get_revision_proposal_repository),
+    map_repo: SqliteLifeMapRepository = Depends(get_lifemap_repository),
+) -> LifeMap:
+    return post_accept_revision_proposal(proposal_id, payload, proposal_repo, map_repo)
+
+
 @router.post("/revision-proposals/{proposal_id}/reject", response_model=RevisionProposal)
 def post_reject_revision_proposal(
     proposal_id: str,
@@ -146,3 +174,12 @@ def post_reject_revision_proposal(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+
+
+@router.post("/revision-previews/{proposal_id}/reject", response_model=RevisionProposal)
+def post_reject_revision_preview(
+    proposal_id: str,
+    payload: RevisionProposalDecision,
+    proposal_repo: SqliteRevisionProposalRepository = Depends(get_revision_proposal_repository),
+) -> RevisionProposal:
+    return post_reject_revision_proposal(proposal_id, payload, proposal_repo)

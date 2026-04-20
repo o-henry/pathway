@@ -27,7 +27,7 @@ export interface GoalRecord {
   updated_at: string;
 }
 
-export interface GeneratedMapResponse {
+export interface PathwayRecord {
   id: string;
   title: string;
   goal_id: string;
@@ -36,12 +36,32 @@ export interface GeneratedMapResponse {
   updated_at: string;
 }
 
+export type GeneratedMapResponse = PathwayRecord;
+
 export interface MapExportEnvelope {
   format_version: string;
   exported_at: string;
   profile: ProfileRecord | null;
   goal: GoalRecord;
   map: GeneratedMapResponse;
+}
+
+export interface StateUpdateRecord {
+  id: string;
+  goal_id: string;
+  pathway_id: string | null;
+  legacy_checkin_id: string | null;
+  update_date: string;
+  actual_time_spent: number | null;
+  actual_money_spent: number | null;
+  mood: string | null;
+  progress_summary: string;
+  blockers: string;
+  next_adjustment: string;
+  resource_deltas: Record<string, unknown>;
+  learned_items: string[];
+  source_refs: string[];
+  created_at: string;
 }
 
 export interface CheckInResponse {
@@ -56,6 +76,28 @@ export interface CheckInResponse {
   blockers: string;
   next_adjustment: string;
   created_at: string;
+}
+
+export interface CurrentStateSnapshot {
+  id: string;
+  goal_id: string;
+  interview_answers: Record<string, unknown>;
+  resource_values: Record<string, unknown>;
+  active_constraints: string[];
+  state_summary: string;
+  derived_from_update_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RouteSelectionRecord {
+  id: string;
+  goal_id: string;
+  pathway_id: string;
+  selected_node_id: string;
+  rationale: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GraphNodeChange {
@@ -89,7 +131,7 @@ export interface GraphDiff {
   warning_changes: GraphWarningChange[];
 }
 
-export interface RevisionProposalResponse {
+export interface RevisionPreviewResponse {
   id: string;
   goal_id: string;
   source_map_id: string;
@@ -101,6 +143,24 @@ export interface RevisionProposalResponse {
   accepted_map_id: string | null;
   created_at: string;
   resolved_at: string | null;
+}
+
+export type RevisionProposalResponse = RevisionPreviewResponse;
+
+export interface ResourceDimension {
+  id: string;
+  label: string;
+  kind: string;
+  value_type: string;
+  question: string;
+  relevance_reason: string;
+}
+
+export interface GoalAnalysisRecord {
+  goal_id: string;
+  analysis_summary: string;
+  resource_dimensions: ResourceDimension[];
+  research_questions: string[];
 }
 
 const apiBaseUrl =

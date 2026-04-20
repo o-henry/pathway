@@ -8,10 +8,14 @@ from lifemap_api.infrastructure.embeddings import OllamaEmbeddingProvider
 from lifemap_api.infrastructure.llm_providers import build_llm_provider
 from lifemap_api.infrastructure.repositories import (
     SqliteCheckInRepository,
+    SqliteCurrentStateSnapshotRepository,
     SqliteGoalRepository,
+    SqliteGoalAnalysisRepository,
     SqliteLifeMapRepository,
     SqliteProfileRepository,
     SqliteRevisionProposalRepository,
+    SqliteRouteSelectionRepository,
+    SqliteStateUpdateRepository,
     SqliteSourceChunkRepository,
     SqliteSourceRepository,
 )
@@ -24,6 +28,12 @@ def get_profile_repository(session: Session = Depends(get_session)) -> SqlitePro
 
 def get_goal_repository(session: Session = Depends(get_session)) -> SqliteGoalRepository:
     return SqliteGoalRepository(session)
+
+
+def get_goal_analysis_repository(
+    session: Session = Depends(get_session),
+) -> SqliteGoalAnalysisRepository:
+    return SqliteGoalAnalysisRepository(session)
 
 
 def get_lifemap_repository(session: Session = Depends(get_session)) -> SqliteLifeMapRepository:
@@ -42,6 +52,24 @@ def get_source_chunk_repository(
 
 def get_checkin_repository(session: Session = Depends(get_session)) -> SqliteCheckInRepository:
     return SqliteCheckInRepository(session)
+
+
+def get_current_state_snapshot_repository(
+    session: Session = Depends(get_session),
+) -> SqliteCurrentStateSnapshotRepository:
+    return SqliteCurrentStateSnapshotRepository(session)
+
+
+def get_state_update_repository(
+    session: Session = Depends(get_session),
+) -> SqliteStateUpdateRepository:
+    return SqliteStateUpdateRepository(session)
+
+
+def get_route_selection_repository(
+    session: Session = Depends(get_session),
+) -> SqliteRouteSelectionRepository:
+    return SqliteRouteSelectionRepository(session)
 
 
 def get_revision_proposal_repository(

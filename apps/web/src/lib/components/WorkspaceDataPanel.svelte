@@ -28,7 +28,7 @@
   function buildFileStem(map: GeneratedMapResponse): string {
     const compactTitle = map.title
       .toLowerCase()
-      .replaceAll(/[^a-z0-9가-힣]+/g, '-')
+      .replaceAll(/[^a-z0-9]+/g, '-')
       .replaceAll(/^-+|-+$/g, '')
       .slice(0, 48);
 
@@ -50,7 +50,7 @@
       );
       const content = JSON.stringify(payload, null, 2);
       downloadTextFile(`${buildFileStem(currentMap)}.json`, content, 'application/json');
-      exportMessage = '현재 Pathway snapshot을 JSON으로 내려받았습니다.';
+      exportMessage = 'Downloaded the current pathway snapshot as JSON.';
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'JSON export failed';
     } finally {
@@ -70,7 +70,7 @@
     try {
       const markdown = await readText(await fetch(`${apiBaseUrl}/maps/${currentMap.id}/export/markdown`));
       downloadTextFile(`${buildFileStem(currentMap)}.md`, markdown, 'text/markdown');
-      exportMessage = '현재 Pathway snapshot을 Markdown으로 내려받았습니다.';
+      exportMessage = 'Downloaded the current pathway snapshot as Markdown.';
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Markdown export failed';
     } finally {
@@ -102,7 +102,7 @@
         })
       );
 
-      importMessage = `${importedMap.title} snapshot을 새 로컬 Pathway 레코드로 복원했습니다.`;
+      importMessage = `Restored ${importedMap.title} as a new local pathway record.`;
       onImported?.(importedMap);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Import failed';
@@ -116,10 +116,10 @@
   <div class="section-header">
     <div>
       <p class="eyebrow">Snapshot controls</p>
-      <h2>현재 Pathway를 꺼내고, 보관하고, 되살립니다</h2>
+      <h2>Export, archive, and restore branches</h2>
       <p class="copy">
-        그래프는 계속 변합니다. 그래서 지금 이 순간의 Pathway를 별도 snapshot으로 남기고, 과거
-        snapshot을 다시 가져와 비교 가능한 상태로 유지하는 것이 중요합니다.
+        The board should stay mutable, but snapshots keep key moments recoverable. Export the active
+        branch, store it offline, and rehydrate it later as a new local record.
       </p>
     </div>
   </div>
@@ -138,15 +138,15 @@
           </button>
         </div>
       {:else}
-        <p class="muted">먼저 Pathway를 생성해야 snapshot export가 가능합니다.</p>
+        <p class="muted">Generate a pathway before exporting a snapshot.</p>
       {/if}
     </article>
 
     <article class="card">
       <h3>Rehydrate a prior branch</h3>
       <p class="muted">
-        예전에 내보낸 `.json` snapshot을 다시 불러오면, 현재 워크스페이스에 새 Pathway 레코드로
-        추가됩니다.
+        Importing a prior `.json` snapshot adds it back into the workspace as a fresh pathway
+        record.
       </p>
       <label class="file-input">
         <span>{#if isImporting}Importing...{:else}Choose exported snapshot{/if}</span>
@@ -157,12 +157,12 @@
     <article class="card">
       <h3>Local durability</h3>
       <p class="muted">
-        이 앱은 로컬 우선입니다. 전체 상태를 보존하려면 아래 세 위치를 함께 백업해야 합니다.
+        This app is local-first. To preserve the full workspace, back up all of the paths below.
       </p>
       <ul>
-        <li>`data/local.db`: profiles, goals, pathways, check-ins, revision proposals</li>
+        <li>`data/local.db`: profiles, goals, pathways, state updates, route selections, revision previews</li>
         <li>`data/lancedb/`: evidence chunks and retrieval index</li>
-        <li>`data/uploads/`: 이후 파일 ingest를 붙일 때 원본 보관 위치</li>
+        <li>`data/uploads/`: source files captured through future ingest flows</li>
       </ul>
     </article>
   </div>

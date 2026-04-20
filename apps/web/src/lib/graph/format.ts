@@ -8,13 +8,13 @@ import type {
 
 export function formatFieldValue(field: GraphFieldDefinition, value: unknown): string {
   if (value == null) {
-    return '정보 없음';
+    return 'No data';
   }
 
   if (field.value_type === 'duration_range' && typeof value === 'object') {
     const range = value as { min_hours_per_week?: number; max_hours_per_week?: number };
     if (range.min_hours_per_week != null && range.max_hours_per_week != null) {
-      return `주 ${range.min_hours_per_week}~${range.max_hours_per_week}시간`;
+      return `${range.min_hours_per_week}-${range.max_hours_per_week} hrs/week`;
     }
   }
 

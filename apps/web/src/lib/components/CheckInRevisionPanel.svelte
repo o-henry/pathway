@@ -1,24 +1,29 @@
 <script lang="ts">
   import { getApiBaseUrl, readJson } from '$lib/api/client';
   import type {
-    CheckInResponse,
+    RouteSelectionRecord,
     GeneratedMapResponse,
-    RevisionProposalResponse
+    RevisionPreviewResponse,
+    StateUpdateRecord
   } from '$lib/api/client';
 
   let {
     currentMap,
-    onAccepted
+    onAccepted,
+    onPreview,
+    onRouteSelection
   }: {
     currentMap: GeneratedMapResponse | null;
     onAccepted?: (map: GeneratedMapResponse) => void;
+    onPreview?: (preview: RevisionPreviewResponse | null) => void;
+    onRouteSelection?: (selection: RouteSelectionRecord | null) => void;
   } = $props();
 
   const apiBaseUrl = getApiBaseUrl();
 
-  let progressSummary = $state('문자 복습은 유지되지만 평일 피로 때문에 문법 진입 속도가 크게 떨어지고 있다.');
-  let blockers = $state('퇴근 후에는 길게 몰입하기 어려워 speaking이나 drill이 빠지기 쉽다.');
-  let nextAdjustment = $state('평일은 10분짜리 micro loop로 줄이고, 주말에 speaking drill을 명시적으로 넣는다.');
+  let progressSummary = $state('Execution is still moving, but the available focus window is shorter than expected and the work is drifting toward maintenance.');
+  let blockers = $state('Long work blocks are hard to sustain, and weak external feedback is making prioritization less stable.');
+  let nextAdjustment = $state('Reduce the weekday loop, then protect one focused review block for evidence and route correction.');
   let actualTimeSpent = $state('3');
   let actualMoneySpent = $state('0');
   let mood = $state('mixed');
@@ -27,26 +32,59 @@
   let isSubmitting = $state(false);
   let isAccepting = $state(false);
   let isRejecting = $state(false);
-  let checkins = $state<CheckInResponse[]>([]);
-  let proposal = $state<RevisionProposalResponse | null>(null);
+  let stateUpdates = $state<StateUpdateRecord[]>([]);
+  let preview = $state<RevisionPreviewResponse | null>(null);
+  let routeSelection = $state<RouteSelectionRecord | null>(null);
+  let selectedRouteNodeId = $state('');
+  let routeRationale = $state('This is the route that still looks realistic under the current constraints.');
 
-  async function refreshCheckins(goalId: string) {
-    checkins = await readJson<CheckInResponse[]>(await fetch(`${apiBaseUrl}/goals/${goalId}/checkins`));
+  async function refreshState(goalId: string, pathwayId: string) {
+    const [updates, selection] = await Promise.all([
+      readJson<StateUpdateRecord[]>(await fetch(`${apiBaseUrl}/goals/${goalId}/state-updates`)),
+      readJson<RouteSelectionRecord | null>(
+        await fetch(`${apiBaseUrl}/pathways/${pathwayId}/route-selection`)
+      )
+    ]);
+    stateUpdates = updates;
+    routeSelection = selection;
+    onRouteSelection?.(selection);
+    selectedRouteNodeId =
+      selection?.selected_node_id ?? currentMap?.graph_bundle.nodes[0]?.id ?? '';
   }
 
   $effect(() => {
     if (!currentMap) {
-      checkins = [];
-      proposal = null;
+      stateUpdates = [];
+      preview = null;
+      routeSelection = null;
       successMessage = '';
       errorMessage = '';
+      onPreview?.(null);
       return;
     }
 
-    void refreshCheckins(currentMap.goal_id).catch((error) => {
-      errorMessage = error instanceof Error ? error.message : 'Failed to load check-ins';
+    void refreshState(currentMap.goal_id, currentMap.id).catch((error) => {
+      errorMessage = error instanceof Error ? error.message : 'Failed to load state updates';
     });
   });
+
+  async function persistRouteSelection() {
+    if (!currentMap || !selectedRouteNodeId) {
+      return;
+    }
+
+    routeSelection = await readJson<RouteSelectionRecord>(
+      await fetch(`${apiBaseUrl}/pathways/${currentMap.id}/route-selection`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selected_node_id: selectedRouteNodeId,
+          rationale: routeRationale
+        })
+      })
+    );
+    onRouteSelection?.(routeSelection);
+  }
 
   async function handleCreateCheckinAndProposal() {
     if (!currentMap) {
@@ -58,41 +96,50 @@
     successMessage = '';
 
     try {
-      const createdCheckin = await readJson<CheckInResponse>(
-        await fetch(`${apiBaseUrl}/goals/${currentMap.goal_id}/checkins`, {
+      await persistRouteSelection();
+
+      const createdUpdate = await readJson<StateUpdateRecord>(
+        await fetch(`${apiBaseUrl}/goals/${currentMap.goal_id}/state-updates`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            map_id: currentMap.id,
+            pathway_id: currentMap.id,
             actual_time_spent: Number(actualTimeSpent),
             actual_money_spent: Number(actualMoneySpent),
             mood,
             progress_summary: progressSummary,
             blockers,
-            next_adjustment: nextAdjustment
+            next_adjustment: nextAdjustment,
+            resource_deltas: {
+              energy_pattern: mood,
+              recent_time_spent_hours: Number(actualTimeSpent)
+            },
+            learned_items: [progressSummary],
+            source_refs: []
           })
         })
       );
-      await refreshCheckins(currentMap.goal_id);
+      await refreshState(currentMap.goal_id, currentMap.id);
 
-      proposal = await readJson<RevisionProposalResponse>(
-        await fetch(`${apiBaseUrl}/maps/${currentMap.id}/revision-proposals`, {
+      preview = await readJson<RevisionPreviewResponse>(
+        await fetch(`${apiBaseUrl}/pathways/${currentMap.id}/revision-previews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ checkin_id: createdCheckin.id })
+          body: JSON.stringify({ checkin_id: createdUpdate.id })
         })
       );
-      successMessage = '현실 기록을 저장했고, 현재 조건에 맞춘 Pathway revision proposal을 만들었습니다.';
+      onPreview?.(preview);
+      successMessage = 'Saved the update and generated a revision preview for the current conditions.';
     } catch (error) {
       errorMessage =
-        error instanceof Error ? error.message : 'Unknown check-in or revision failure';
+        error instanceof Error ? error.message : 'Unknown state update or revision failure';
     } finally {
       isSubmitting = false;
     }
   }
 
   async function handleAccept() {
-    if (!proposal) {
+    if (!preview) {
       return;
     }
     isAccepting = true;
@@ -100,14 +147,15 @@
 
     try {
       const acceptedMap = await readJson<GeneratedMapResponse>(
-        await fetch(`${apiBaseUrl}/revision-proposals/${proposal.id}/accept`, {
+        await fetch(`${apiBaseUrl}/revision-previews/${preview.id}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ note: 'accepted from UI' })
         })
       );
-      proposal = null;
-      successMessage = 'Revision proposal을 수락했고 새 Pathway snapshot을 만들었습니다.';
+      preview = null;
+      onPreview?.(null);
+      successMessage = 'Accepted the revision preview and created a new pathway snapshot.';
       onAccepted?.(acceptedMap);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown accept failure';
@@ -117,21 +165,22 @@
   }
 
   async function handleReject() {
-    if (!proposal) {
+    if (!preview) {
       return;
     }
     isRejecting = true;
     errorMessage = '';
 
     try {
-      proposal = await readJson<RevisionProposalResponse>(
-        await fetch(`${apiBaseUrl}/revision-proposals/${proposal.id}/reject`, {
+      preview = await readJson<RevisionPreviewResponse>(
+        await fetch(`${apiBaseUrl}/revision-previews/${preview.id}/reject`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ note: 'rejected from UI' })
         })
       );
-      successMessage = 'Revision proposal을 보류했습니다.';
+      onPreview?.(null);
+      successMessage = 'Held the revision preview without replacing the current snapshot.';
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown reject failure';
     } finally {
@@ -144,21 +193,33 @@
   <div class="section-header">
     <div>
       <p class="eyebrow">Reality revision loop</p>
-      <h2>현재가 바뀌면 Pathway도 다시 그려져야 합니다</h2>
+      <h2>When reality changes, the graph should change too</h2>
       <p class="copy">
-        이 서비스의 핵심은 계획이 아니라 수정입니다. 실제 시간, 돈, 감정, 실패 패턴을 기록하면
-        그래프는 그 현실을 반영해 다시 갈라져야 합니다.
+        The product is not a static plan. Log what actually happened, record the new constraints,
+        and inspect how the route map should branch again.
       </p>
     </div>
   </div>
 
   {#if !currentMap}
-    <p class="empty">먼저 Pathway를 생성하면 reality check-in과 revision loop가 활성화됩니다.</p>
+    <p class="empty">Generate a pathway first to activate updates and revision previews.</p>
   {:else}
     <div class="grid">
       <article class="card">
         <h3>Record what actually happened</h3>
-        <p class="muted">Current snapshot: {currentMap.title}</p>
+        <p class="muted">Current pathway: {currentMap.title}</p>
+        <label>
+          <span>Current trunk / route</span>
+          <select bind:value={selectedRouteNodeId}>
+            {#each currentMap.graph_bundle.nodes as node (node.id)}
+              <option value={node.id}>{node.label}</option>
+            {/each}
+          </select>
+        </label>
+        <label>
+          <span>Why this is your current route</span>
+          <textarea bind:value={routeRationale} rows="2"></textarea>
+        </label>
         <label>
           <span>What changed in reality</span>
           <textarea bind:value={progressSummary} rows="3"></textarea>
@@ -186,22 +247,25 @@
           </label>
         </div>
         <button type="button" onclick={handleCreateCheckinAndProposal} disabled={isSubmitting}>
-          {#if isSubmitting}Submitting...{:else}Generate revision proposal{/if}
+          {#if isSubmitting}Submitting...{:else}Generate revision preview{/if}
         </button>
       </article>
 
       <article class="card">
-        <h3>Recent reality checks</h3>
-        {#if checkins.length === 0}
-          <p class="empty">아직 기록된 reality check가 없습니다.</p>
+        <h3>Recent state updates</h3>
+        {#if routeSelection}
+          <p class="muted">Current route: {routeSelection.selected_node_id}</p>
+        {/if}
+        {#if stateUpdates.length === 0}
+          <p class="empty">No state updates recorded yet.</p>
         {:else}
           <ul class="stack-list">
-            {#each checkins as checkin (checkin.id)}
+            {#each stateUpdates as update (update.id)}
               <li>
-                <strong>{checkin.checkin_date}</strong>
-                <p>{checkin.progress_summary}</p>
-                {#if checkin.blockers}
-                  <small>Blockers: {checkin.blockers}</small>
+                <strong>{update.update_date}</strong>
+                <p>{update.progress_summary}</p>
+                {#if update.blockers}
+                  <small>Blockers: {update.blockers}</small>
                 {/if}
               </li>
             {/each}
@@ -212,12 +276,12 @@
 
     <article class="card proposal-card">
       <h3>What this revision would reshape</h3>
-      {#if proposal}
-        <p class="muted">{proposal.rationale}</p>
+      {#if preview}
+        <p class="muted">{preview.rationale}</p>
 
-        {#if proposal.diff.summary.length > 0}
+        {#if preview.diff.summary.length > 0}
           <div class="pill-row">
-            {#each proposal.diff.summary as item (item)}
+            {#each preview.diff.summary as item (item)}
               <span class="pill">{item}</span>
             {/each}
           </div>
@@ -226,11 +290,11 @@
         <div class="diff-grid">
           <section>
             <h4>Node changes</h4>
-            {#if proposal.diff.node_changes.length === 0}
-              <p class="empty">Node changes 없음</p>
+            {#if preview.diff.node_changes.length === 0}
+              <p class="empty">No node changes.</p>
             {:else}
               <ul class="stack-list">
-                {#each proposal.diff.node_changes as change (`${change.change_type}-${change.node_id}`)}
+                {#each preview.diff.node_changes as change (`${change.change_type}-${change.node_id}`)}
                   <li>
                     <strong>{change.change_type} · {change.label}</strong>
                     <p>{change.reason}</p>
@@ -249,22 +313,22 @@
           <section>
             <h4>Edges, warnings, and pressure</h4>
             <ul class="stack-list">
-              {#each proposal.diff.edge_changes as change (`edge-${change.change_type}-${change.edge_id}`)}
+              {#each preview.diff.edge_changes as change (`edge-${change.change_type}-${change.edge_id}`)}
                 <li>
                   <strong>{change.change_type} · {change.edge_id}</strong>
                   <p>{change.source} → {change.target}</p>
                   <small>{change.reason}</small>
                 </li>
               {/each}
-              {#each proposal.diff.warning_changes as change (`warning-${change.change_type}-${change.warning}`)}
+              {#each preview.diff.warning_changes as change (`warning-${change.change_type}-${change.warning}`)}
                 <li>
                   <strong>{change.change_type} warning</strong>
                   <p>{change.warning}</p>
                 </li>
               {/each}
-              {#if proposal.diff.edge_changes.length === 0 && proposal.diff.warning_changes.length === 0}
+              {#if preview.diff.edge_changes.length === 0 && preview.diff.warning_changes.length === 0}
                 <li>
-                  <p class="empty">Edge/warning changes 없음</p>
+                  <p class="empty">No edge or warning changes.</p>
                 </li>
               {/if}
             </ul>
@@ -280,7 +344,7 @@
           </button>
         </div>
       {:else}
-        <p class="empty">새 reality check를 저장하면 여기에서 Pathway diff를 검토할 수 있습니다.</p>
+        <p class="empty">Save a fresh state update to inspect the next pathway diff here.</p>
       {/if}
     </article>
   {/if}
@@ -365,7 +429,8 @@
   }
 
   input,
-  textarea {
+  textarea,
+  select {
     border: 1px solid var(--pathway-line);
     border-radius: var(--pathway-card-radius);
     background: rgba(255, 255, 255, 0.62);

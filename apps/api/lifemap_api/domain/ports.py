@@ -6,7 +6,10 @@ from typing import Protocol
 from lifemap_api.domain.models import (
     CheckIn,
     CheckInCreate,
+    CurrentStateSnapshot,
+    CurrentStateSnapshotUpsert,
     Goal,
+    GoalAnalysis,
     GoalCreate,
     GoalUpdate,
     LifeMap,
@@ -15,6 +18,10 @@ from lifemap_api.domain.models import (
     ProfileUpsert,
     RevisionProposal,
     RevisionProposalCreate,
+    RouteSelection,
+    RouteSelectionUpsert,
+    StateUpdate,
+    StateUpdateCreate,
     SourceChunk,
     SourceChunkCreate,
     SourceDocument,
@@ -53,6 +60,12 @@ class GoalRepository(Protocol):
     def update(self, goal_id: str, payload: GoalUpdate) -> Goal | None: ...
 
     def delete(self, goal_id: str) -> bool: ...
+
+
+class GoalAnalysisRepository(Protocol):
+    def get(self, goal_id: str) -> GoalAnalysis | None: ...
+
+    def upsert(self, analysis: GoalAnalysis) -> GoalAnalysis: ...
 
 
 class LifeMapRepository(Protocol):
@@ -97,6 +110,32 @@ class CheckInRepository(Protocol):
     def list_for_goal(self, goal_id: str) -> list[CheckIn]: ...
 
     def create(self, goal_id: str, payload: CheckInCreate) -> CheckIn: ...
+
+
+class CurrentStateSnapshotRepository(Protocol):
+    def get_for_goal(self, goal_id: str) -> CurrentStateSnapshot | None: ...
+
+    def upsert_for_goal(
+        self, goal_id: str, payload: CurrentStateSnapshotUpsert
+    ) -> CurrentStateSnapshot: ...
+
+
+class StateUpdateRepository(Protocol):
+    def list_for_goal(self, goal_id: str) -> list[StateUpdate]: ...
+
+    def create(self, goal_id: str, payload: StateUpdateCreate) -> StateUpdate: ...
+
+
+class RouteSelectionRepository(Protocol):
+    def get_for_pathway(self, pathway_id: str) -> RouteSelection | None: ...
+
+    def upsert_for_pathway(
+        self,
+        *,
+        goal_id: str,
+        pathway_id: str,
+        payload: RouteSelectionUpsert,
+    ) -> RouteSelection: ...
 
 
 class RevisionProposalRepository(Protocol):

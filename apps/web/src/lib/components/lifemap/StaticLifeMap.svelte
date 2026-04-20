@@ -28,7 +28,21 @@
   type FlowNode = Node<MindMapNodeData>;
   type FlowEdge = Edge<MindMapEdgeData>;
 
-  let { bundle = exampleGraphBundle }: { bundle?: GraphBundle } = $props();
+  interface DiffOverlay {
+    node_changes?: Array<{ node_id: string; change_type: string }>;
+  }
+
+  let {
+    bundle = exampleGraphBundle,
+    selectedRouteNodeId = null,
+    diffOverlay = null,
+    overlayMode = false
+  }: {
+    bundle?: GraphBundle;
+    selectedRouteNodeId?: string | null;
+    diffOverlay?: DiffOverlay | null;
+    overlayMode?: boolean;
+  } = $props();
   const backgroundVariant = BackgroundVariant.Dots;
 
   let flowNodes = $state.raw<FlowNode[]>([]);
@@ -49,6 +63,12 @@
   const evidenceLinkedNodeCount = $derived(
     bundle.nodes.filter((node) => node.evidence_refs.length > 0).length
   );
+  const changedNodeIds = $derived(
+    new Set((diffOverlay?.node_changes ?? []).map((change) => change.node_id))
+  );
+  const selectedRoutePathNodeIds = $derived(
+    selectedRouteNodeId ? getProgressionPathNodeIds(bundle, selectedRouteNodeId) : new Set<string>()
+  );
 
   $effect(() => {
     const pass = ++layoutPass;
@@ -62,7 +82,15 @@
       if (pass !== layoutPass) {
         return;
       }
-      flowNodes = layoutResult.nodes;
+      flowNodes = layoutResult.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          selectedRoute: selectedRoutePathNodeIds.has(node.id),
+          changedInPreview: changedNodeIds.has(node.id),
+          overlayMode
+        }
+      }));
       flowEdges = layoutResult.edges;
       syncEdgeState();
     });
@@ -117,17 +145,20 @@
 <div class="workspace">
   <section class="map-panel">
     <header class="map-header">
-      <div>
-        <p class="eyebrow">Live pathway graph</p>
-        <h2>{bundle.map.title}</h2>
-        <p class="summary">{bundle.map.summary}</p>
-      </div>
+      <div class="header-strip">
+        <div class="header-copy">
+          <p class="eyebrow">Pathway board</p>
+          <h2>{bundle.map.title}</h2>
+        </div>
 
-      <div class="pill-list">
-        <span>{bundle.nodes.length} nodes</span>
-        <span>{progressionEdgeCount} progression edges</span>
-        <span>{riskNodeCount} pressure points</span>
-        <span>{evidenceLinkedNodeCount} evidence-linked nodes</span>
+        <div class="strip-metrics">
+          <span>{bundle.nodes.length} nodes</span>
+          <span>{progressionEdgeCount} routes</span>
+          <span>{riskNodeCount} pressure points</span>
+          {#if overlayMode}
+            <span class="overlay-flag">Preview mode</span>
+          {/if}
+        </div>
       </div>
     </header>
 
@@ -159,38 +190,18 @@
         <MiniMap pannable zoomable />
         <Controls showLock={false} />
         <Panel position="top-left">
-          <div class="legend">
-            Node를 클릭하면 dynamic fields, evidence, assumptions, revision meta가 오른쪽 dossier에 열립니다.
-          </div>
+          <div class="legend">Select a node to inspect evidence, assumptions, and revision changes.</div>
         </Panel>
       </SvelteFlow>
     </div>
 
-    <section class="node-browser" aria-labelledby="node-browser-title">
-      <div class="node-browser-header">
-        <h3 id="node-browser-title">Node index</h3>
-        <p>그래프에서 눈에 띄는 갈래를 빠르게 다시 집는 용도의 keyboard-friendly index입니다.</p>
-      </div>
-
-      <div class="node-button-grid">
-        {#each bundle.nodes as node (node.id)}
-          <button
-            type="button"
-            class:selected={selectedNodeId === node.id}
-            onclick={() => selectNodeById(node.id)}
-          >
-            <strong>{node.label}</strong>
-            <span>{node.type}</span>
-          </button>
+    {#if bundle.warnings.length > 0}
+      <section class="warning-strip">
+        {#each bundle.warnings as warning (warning)}
+          <article>{warning}</article>
         {/each}
-      </div>
-    </section>
-
-    <section class="warning-strip">
-      {#each bundle.warnings as warning (warning)}
-        <article>{warning}</article>
-      {/each}
-    </section>
+      </section>
+    {/if}
   </section>
 
   <NodeDetailDrawer {bundle} node={selectedNode} onClose={clearSelection} />
@@ -204,15 +215,12 @@
 
   .map-panel {
     display: grid;
-    gap: 1rem;
+    gap: 0.7rem;
   }
 
   .map-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
+    display: grid;
+    gap: 0.65rem;
   }
 
   .eyebrow,
@@ -223,149 +231,127 @@
 
   .eyebrow {
     color: var(--pathway-accent-strong);
-    font-size: 0.76rem;
-    font-weight: 800;
+    font-size: 0.68rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 0.25rem;
   }
 
   h2 {
-    font-size: clamp(1.45rem, 2.3vw, 2.2rem);
-    line-height: 1.04;
+    font-size: clamp(1rem, 1.5vw, 1.18rem);
+    line-height: 1.2;
+    margin-top: 0.18rem;
   }
 
-  .summary {
-    color: var(--pathway-muted);
-    margin-top: 0.35rem;
-    max-width: 60ch;
-    line-height: 1.55;
+  .header-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border: 1px solid var(--pathway-line-strong);
+    background: rgba(15, 20, 26, 0.72);
+    padding: 0.72rem 0.82rem;
   }
 
-  .pill-list {
+  .header-copy {
+    display: grid;
+    gap: 0.08rem;
+  }
+
+  .strip-metrics {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem;
+    justify-content: flex-end;
+    gap: 0.42rem;
   }
 
-  .pill-list span,
+  .strip-metrics span,
   .legend {
     border: 1px solid var(--pathway-line);
-    border-radius: var(--pathway-chip-radius);
-    background: rgba(248, 245, 238, 0.92);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.04);
     color: var(--pathway-muted);
-    font-size: 0.74rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    padding: 0.38rem 0.62rem;
+    letter-spacing: 0.05em;
+    padding: 0.32rem 0.46rem;
+    text-transform: uppercase;
+  }
+
+  .overlay-flag {
+    color: #ffd3b0;
+    background: rgba(198, 150, 98, 0.16);
   }
 
   .flow-shell {
-    height: min(78vh, 900px);
-    min-height: 700px;
+    height: min(76vh, 880px);
+    min-height: 520px;
     border: 1px solid var(--pathway-line-strong);
     border-radius: var(--pathway-panel-radius);
     background:
-      linear-gradient(var(--pathway-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--pathway-line) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(252, 249, 242, 0.92), rgba(244, 238, 227, 0.96));
-    background-size:
-      24px 24px,
-      24px 24px,
-      cover;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 18px 42px rgba(35, 30, 24, 0.08);
+      linear-gradient(rgba(154, 166, 181, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(154, 166, 181, 0.08) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(236, 240, 245, 0.98), rgba(224, 231, 238, 0.98));
+    background-size: 24px 24px, 24px 24px, auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      0 18px 42px rgba(9, 14, 20, 0.22);
     overflow: hidden;
   }
 
   .warning-strip {
-    display: grid;
-    gap: 0.8rem;
-  }
-
-  .node-browser {
-    display: grid;
-    gap: 0.8rem;
-    border: 1px solid var(--pathway-line);
-    border-radius: var(--pathway-card-radius);
-    background: rgba(255, 255, 255, 0.42);
-    padding: 0.95rem;
-  }
-
-  .node-browser-header {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .node-browser-header h3 {
-    font-size: 0.98rem;
-  }
-
-  .node-browser-header p {
-    color: var(--pathway-muted);
-    line-height: 1.5;
-  }
-
-  .node-button-grid {
-    display: grid;
-    gap: 0.7rem;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-
-  .node-button-grid button {
-    display: grid;
-    gap: 0.25rem;
-    align-content: start;
-    border: 1px solid var(--pathway-line);
-    border-radius: var(--pathway-card-radius);
-    background: rgba(255, 255, 255, 0.58);
-    color: var(--pathway-ink);
-    cursor: pointer;
-    font: inherit;
-    padding: 0.9rem;
-    text-align: left;
-  }
-
-  .node-button-grid button.selected {
-    border-color: rgba(23, 68, 77, 0.42);
-    box-shadow: inset 0 0 0 1px rgba(23, 68, 77, 0.2);
-    background: rgba(226, 238, 239, 0.72);
-  }
-
-  .node-button-grid button strong {
-    font-size: 0.95rem;
-  }
-
-  .node-button-grid button span {
-    color: var(--pathway-muted);
-    font-size: 0.76rem;
-    text-transform: uppercase;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
   }
 
   .warning-strip article {
-    border-left: 3px solid var(--pathway-warm);
-    background: rgba(245, 235, 223, 0.9);
-    color: #624534;
-    padding: 0.82rem 0.92rem;
+    border: 1px solid rgba(198, 150, 98, 0.28);
+    background: rgba(198, 150, 98, 0.12);
+    color: #ffdcb8;
+    font-size: 0.74rem;
+    padding: 0.5rem 0.65rem;
   }
 
   :global(.svelte-flow__attribution) {
-    background: rgba(248, 245, 238, 0.92);
-    border-radius: var(--pathway-chip-radius);
+    background: rgba(236, 240, 245, 0.94);
+    border-radius: 0;
   }
 
   :global(.svelte-flow__controls) {
-    border-radius: var(--pathway-card-radius);
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(35, 30, 24, 0.1);
+    box-shadow: 0 12px 24px rgba(13, 18, 25, 0.18);
   }
 
   :global(.svelte-flow__background) {
-    opacity: 0.6;
+    opacity: 0.35;
+  }
+
+  :global(.svelte-flow__minimap) {
+    background: rgba(255, 255, 255, 0.82);
+    border-radius: 0;
+  }
+
+  :global(.svelte-flow__panel) {
+    margin: 0.7rem;
   }
 
   @media (min-width: 1180px) {
     .workspace {
       grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.82fr);
       align-items: start;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .header-strip {
+      flex-direction: column;
+      align-items: start;
+    }
+
+    .strip-metrics {
+      justify-content: flex-start;
     }
   }
 </style>

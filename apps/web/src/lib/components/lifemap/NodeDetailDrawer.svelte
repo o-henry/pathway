@@ -83,7 +83,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="empty">연결된 근거가 아직 없습니다.</p>
+        <p class="empty">No linked evidence yet.</p>
       {/if}
     </section>
 
@@ -99,7 +99,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="empty">이 노드에 연결된 가정이 없습니다.</p>
+        <p class="empty">No linked assumptions for this node.</p>
       {/if}
     </section>
 
@@ -127,8 +127,8 @@
     display: none;
     border: 1px solid var(--pathway-line-strong);
     border-radius: var(--pathway-panel-radius);
-    background: rgba(247, 243, 235, 0.96);
-    box-shadow: 0 18px 38px rgba(35, 30, 24, 0.12);
+    background: rgba(20, 26, 32, 0.9);
+    box-shadow: 0 18px 38px rgba(9, 14, 20, 0.24);
     padding: 1rem;
   }
 
@@ -142,7 +142,7 @@
     align-items: start;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 1px solid rgba(23, 20, 17, 0.12);
+    border-bottom: 1px solid var(--pathway-line);
     padding-bottom: 0.8rem;
   }
 
@@ -186,8 +186,8 @@
 
   .close-button {
     border: 1px solid var(--pathway-line-strong);
-    border-radius: var(--pathway-chip-radius);
-    background: rgba(255, 255, 255, 0.58);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.04);
     color: var(--pathway-ink);
     cursor: pointer;
     font-weight: 700;
@@ -215,8 +215,8 @@
   .field-list div,
   .stack-list li,
   .score-list li {
-    border-left: 3px solid rgba(23, 20, 17, 0.12);
-    background: rgba(255, 255, 255, 0.56);
+    border-left: 3px solid rgba(186, 210, 255, 0.18);
+    background: rgba(255, 255, 255, 0.04);
     padding: 0.78rem 0.84rem;
   }
 

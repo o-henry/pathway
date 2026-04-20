@@ -119,6 +119,9 @@ export interface MindMapNodeData {
   assumptionCount: number;
   fieldPreview: FieldPreview[];
   riskLevel: number | null;
+  selectedRoute?: boolean;
+  changedInPreview?: boolean;
+  overlayMode?: boolean;
 }
 
 export interface MindMapEdgeData {

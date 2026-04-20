@@ -192,7 +192,7 @@ Do not implement graph generation yet.
 ### Phase 1 — Backend domain model and SQLite persistence
 
 Goal:
-Implement local persistence for profile, goals, map bundles, sources, and check-ins.
+Implement local persistence for profile, goals, map bundles, sources, and state history primitives.
 
 Deliverables:
 
@@ -202,6 +202,11 @@ Deliverables:
 - CRUD endpoints.
 - Pydantic request/response DTOs.
 - Unit tests for model validation.
+- Additive support for:
+  - goal analysis
+  - current state snapshots
+  - append-only state updates
+  - route selection
 
 ### Phase 2 — Static Pathway UI
 
@@ -295,6 +300,15 @@ Deliverables:
 - Diff between old and revised graph.
 - User accepts/rejects suggested changes.
 - Actual route tracking.
+
+Post-phase additive direction:
+
+- explicit `goal analysis` step after goal creation
+- latest `current state snapshot` plus append-only `state updates`
+- persisted `route selection` per pathway
+- `revision preview` wording and alias routes at the product edge
+- graph highlighting for selected routes and preview deltas
+- backward-compatible transition without destructive data migration
 
 ### Phase 8 — Quality, export, local packaging
 

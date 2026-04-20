@@ -13,8 +13,9 @@ from lifemap_api.application.generation_grounding import (
     validate_bundle_grounding,
 )
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
-from lifemap_api.domain.models import Goal, LifeMap, LifeMapCreate, Profile
+from lifemap_api.domain.models import CurrentStateSnapshot, Goal, LifeMap, LifeMapCreate, Profile
 from lifemap_api.domain.ports import (
+    CurrentStateSnapshotRepository,
     EmbeddingProvider,
     GoalRepository,
     LifeMapRepository,
@@ -37,6 +38,12 @@ def _serialize_profile(profile: Profile | None) -> str:
 
 def _serialize_goal(goal: Goal) -> str:
     return json.dumps(goal.model_dump(mode="json"), ensure_ascii=False, indent=2)
+
+
+def _serialize_current_state(snapshot: CurrentStateSnapshot | None) -> str:
+    if snapshot is None:
+        return "No current state snapshot exists yet. Keep assumptions explicit and lightweight."
+    return json.dumps(snapshot.model_dump(mode="json"), ensure_ascii=False, indent=2)
 
 
 def _build_system_prompt() -> str:
@@ -69,6 +76,7 @@ def _build_system_prompt() -> str:
 def _build_user_prompt(
     goal: Goal,
     profile: Profile | None,
+    current_state: CurrentStateSnapshot | None,
     schema: dict,
     grounding_packet: GroundingPacket,
 ) -> str:
@@ -81,6 +89,9 @@ def _build_user_prompt(
 
         Default profile:
         {_serialize_profile(profile)}
+
+        Current state snapshot:
+        {_serialize_current_state(current_state)}
 
         Retrieved evidence packet:
         {serialize_grounding_packet(grounding_packet)}
@@ -155,6 +166,7 @@ def _attempt_generation(
     search_index: SourceSearchIndex,
     goal: Goal,
     profile: Profile | None,
+    current_state: CurrentStateSnapshot | None,
     query_limit: int,
     hits_per_query: int,
     evidence_limit: int,
@@ -174,7 +186,7 @@ def _attempt_generation(
         {"role": "system", "content": _build_system_prompt()},
         {
             "role": "user",
-            "content": _build_user_prompt(goal, profile, schema, grounding_packet),
+            "content": _build_user_prompt(goal, profile, current_state, schema, grounding_packet),
         },
     ]
     last_error = "Unknown generation failure"
@@ -196,7 +208,13 @@ def _attempt_generation(
                 {"role": "system", "content": _build_system_prompt()},
                 {
                     "role": "user",
-                    "content": _build_user_prompt(goal, profile, schema, grounding_packet),
+                    "content": _build_user_prompt(
+                        goal,
+                        profile,
+                        current_state,
+                        schema,
+                        grounding_packet,
+                    ),
                 },
                 {"role": "assistant", "content": raw_output},
                 {
@@ -228,6 +246,7 @@ def generate_map_for_goal(
     goal_id: str,
     goal_repo: GoalRepository,
     profile_repo: ProfileRepository,
+    current_state_repo: CurrentStateSnapshotRepository,
     map_repo: LifeMapRepository,
     llm_provider: LLMProvider,
     embedding_provider: EmbeddingProvider,
@@ -242,12 +261,14 @@ def generate_map_for_goal(
         raise EntityNotFoundError("Goal", goal_id)
 
     profile = profile_repo.get_default()
+    current_state = current_state_repo.get_for_goal(goal_id)
     graph_bundle = _attempt_generation(
         provider=llm_provider,
         embedding_provider=embedding_provider,
         search_index=search_index,
         goal=goal,
         profile=profile,
+        current_state=current_state,
         query_limit=query_limit,
         hits_per_query=hits_per_query,
         evidence_limit=evidence_limit,

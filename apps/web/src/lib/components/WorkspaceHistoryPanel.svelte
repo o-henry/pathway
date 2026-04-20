@@ -1,11 +1,11 @@
 <script lang="ts">
   import { getApiBaseUrl, readJson } from '$lib/api/client';
-  import type { CheckInResponse, GeneratedMapResponse, GoalRecord } from '$lib/api/client';
+  import type { GeneratedMapResponse, GoalRecord, StateUpdateRecord } from '$lib/api/client';
 
   interface GoalWorkspaceRecord {
     goal: GoalRecord;
     maps: GeneratedMapResponse[];
-    checkins: CheckInResponse[];
+    stateUpdates: StateUpdateRecord[];
   }
 
   let {
@@ -32,15 +32,15 @@
       const goals = await readJson<GoalRecord[]>(await fetch(`${apiBaseUrl}/goals`));
       const items = await Promise.all(
         goals.map(async (goal) => {
-          const [maps, checkins] = await Promise.all([
+          const [maps, stateUpdates] = await Promise.all([
             readJson<GeneratedMapResponse[]>(await fetch(`${apiBaseUrl}/goals/${goal.id}/maps`)),
-            readJson<CheckInResponse[]>(await fetch(`${apiBaseUrl}/goals/${goal.id}/checkins`))
+            readJson<StateUpdateRecord[]>(await fetch(`${apiBaseUrl}/goals/${goal.id}/state-updates`))
           ]);
 
           return {
             goal,
             maps,
-            checkins
+            stateUpdates
           } satisfies GoalWorkspaceRecord;
         })
       );
@@ -64,10 +64,10 @@
   <div class="section-header">
     <div>
       <p class="eyebrow">Branch history</p>
-      <h2>이전에 열렸던 Pathway들을 잃지 않습니다</h2>
+      <h2>Keep prior branches visible</h2>
       <p class="copy">
-        하나의 목표 아래에서도 snapshot은 여러 번 갈라집니다. 여기서는 goal, past pathway, recent
-        reality checks를 한 번에 보며 원하는 시점을 다시 현재 작업 그래프로 불러올 수 있습니다.
+        A single goal can split into many saved maps over time. Re-open older snapshots and compare
+        them against recent state changes without losing the current board.
       </p>
     </div>
     <button type="button" class="refresh-button" onclick={loadWorkspaceHistory} disabled={isLoading}>
@@ -80,7 +80,7 @@
   {/if}
 
   {#if historyItems.length === 0 && !isLoading}
-    <p class="empty">아직 기록된 goal이 없습니다. 먼저 목표를 만들거나 Pathway를 생성해보세요.</p>
+    <p class="empty">No goals are stored yet. Generate a pathway to start a branch history.</p>
   {/if}
 
   <div class="history-grid">
@@ -96,14 +96,14 @@
 
         <div class="meta-row">
           <span>{item.maps.length} pathways</span>
-          <span>{item.checkins.length} reality checks</span>
+          <span>{item.stateUpdates.length} state updates</span>
           <span>{item.goal.category}</span>
         </div>
 
         <section class="subsection">
           <h4>Snapshots</h4>
           {#if item.maps.length === 0}
-            <p class="empty">저장된 Pathway snapshot이 없습니다.</p>
+            <p class="empty">No saved pathway snapshots.</p>
           {:else}
             <div class="snapshot-list">
               {#each item.maps as map (map.id)}
@@ -124,15 +124,15 @@
         </section>
 
         <section class="subsection">
-          <h4>Recent reality checks</h4>
-          {#if item.checkins.length === 0}
-            <p class="empty">아직 check-in이 없습니다.</p>
+          <h4>Recent state updates</h4>
+          {#if item.stateUpdates.length === 0}
+            <p class="empty">No state updates recorded yet.</p>
           {:else}
             <ul>
-              {#each item.checkins.slice(0, 3) as checkin (checkin.id)}
+              {#each item.stateUpdates.slice(0, 3) as update (update.id)}
                 <li>
-                  <strong>{checkin.checkin_date}</strong>
-                  <p>{checkin.progress_summary}</p>
+                  <strong>{update.update_date}</strong>
+                  <p>{update.progress_summary}</p>
                 </li>
               {/each}
             </ul>

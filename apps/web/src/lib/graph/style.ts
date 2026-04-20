@@ -82,7 +82,7 @@ export function normalizeTone(token?: string): ToneToken {
 }
 
 export function normalizeShape(shape?: string): NodeShape {
-  if (shape === 'pill' || shape === 'circle') {
+  if (shape === 'circle') {
     return shape;
   }
 

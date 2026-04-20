@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from lifemap_api.api.routes_checkins import router as checkins_router
 from lifemap_api.api.routes_goals import router as goals_router
 from lifemap_api.api.routes_maps import router as maps_router
+from lifemap_api.api.routes_pathways import router as pathways_router
 from lifemap_api.api.routes_profiles import router as profiles_router
 from lifemap_api.api.routes_revisions import router as revisions_router
 from lifemap_api.api.routes_sources import router as sources_router
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(profiles_router)
     app.include_router(goals_router)
     app.include_router(maps_router)
+    app.include_router(pathways_router)
     app.include_router(sources_router)
     app.include_router(checkins_router)
     app.include_router(revisions_router)

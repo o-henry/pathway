@@ -111,7 +111,7 @@ const acceptedBundle = {
 };
 
 test('user can generate a map, create a check-in, and accept a revision', async ({ page }) => {
-  const checkins: Array<Record<string, unknown>> = [];
+  const stateUpdates: Array<Record<string, unknown>> = [];
 
   await page.route('http://127.0.0.1:8000/**', async (route) => {
     const request = route.request();
@@ -148,9 +148,47 @@ test('user can generate a map, create a check-in, and accept a revision', async 
       return;
     }
 
-    if (request.method() === 'POST' && pathname === '/goals/goal-1/maps/generate') {
+    if (request.method() === 'POST' && pathname === '/goals/goal-1/analysis') {
       await route.fulfill({
         status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          goal_id: 'goal-1',
+          analysis_summary: 'Time, money, and practice environment matter first.',
+          resource_dimensions: [
+            {
+              id: 'time_budget',
+              label: 'Time budget',
+              kind: 'time',
+              value_type: 'hours_per_week',
+              question: 'How much time do you have?',
+              relevance_reason: 'Needed for route viability.'
+            }
+          ],
+          research_questions: ['What route structures usually work for this goal?']
+        })
+      });
+      return;
+    }
+
+    if (request.method() === 'PUT' && pathname === '/goals/goal-1/current-state') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'state-1',
+          goal_id: 'goal-1',
+          ...jsonBody,
+          created_at: '2026-04-20T00:00:00Z',
+          updated_at: '2026-04-20T00:00:00Z'
+        })
+      });
+      return;
+    }
+
+    if (request.method() === 'POST' && pathname === '/goals/goal-1/pathways/generate') {
+      await route.fulfill({
+        status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 'map-1',
@@ -164,40 +202,70 @@ test('user can generate a map, create a check-in, and accept a revision', async 
       return;
     }
 
-    if (request.method() === 'GET' && pathname === '/goals/goal-1/checkins') {
+    if (request.method() === 'GET' && pathname === '/goals/goal-1/state-updates') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(checkins)
+        body: JSON.stringify(stateUpdates)
       });
       return;
     }
 
-    if (request.method() === 'POST' && pathname === '/goals/goal-1/checkins') {
-      const checkin = {
+    if (request.method() === 'GET' && pathname === '/pathways/map-1/route-selection') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: 'null'
+      });
+      return;
+    }
+
+    if (request.method() === 'PUT' && pathname === '/pathways/map-1/route-selection') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'route-selection-1',
+          goal_id: 'goal-1',
+          pathway_id: 'map-1',
+          selected_node_id: jsonBody.selected_node_id,
+          rationale: jsonBody.rationale,
+          created_at: '2026-04-20T00:00:00Z',
+          updated_at: '2026-04-20T00:00:00Z'
+        })
+      });
+      return;
+    }
+
+    if (request.method() === 'POST' && pathname === '/goals/goal-1/state-updates') {
+      const stateUpdate = {
         id: 'checkin-1',
         goal_id: 'goal-1',
-        map_id: 'map-1',
-        checkin_date: '2026-04-20',
+        pathway_id: 'map-1',
+        legacy_checkin_id: null,
+        update_date: '2026-04-20',
         actual_time_spent: jsonBody.actual_time_spent,
         actual_money_spent: jsonBody.actual_money_spent,
         mood: jsonBody.mood,
         progress_summary: jsonBody.progress_summary,
         blockers: jsonBody.blockers,
         next_adjustment: jsonBody.next_adjustment,
+        resource_deltas: jsonBody.resource_deltas ?? {},
+        learned_items: jsonBody.learned_items ?? [],
+        source_refs: jsonBody.source_refs ?? [],
         created_at: '2026-04-20T00:00:00Z'
       };
-      checkins.unshift(checkin);
+      stateUpdates.unshift(stateUpdate);
 
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify(checkin)
+        body: JSON.stringify(stateUpdate)
       });
       return;
     }
 
-    if (request.method() === 'POST' && pathname === '/maps/map-1/revision-proposals') {
+    if (request.method() === 'POST' && pathname === '/pathways/map-1/revision-previews') {
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -233,7 +301,7 @@ test('user can generate a map, create a check-in, and accept a revision', async 
       return;
     }
 
-    if (request.method() === 'POST' && pathname === '/revision-proposals/proposal-1/accept') {
+    if (request.method() === 'POST' && pathname === '/revision-previews/proposal-1/accept') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

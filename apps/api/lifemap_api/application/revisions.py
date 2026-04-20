@@ -15,22 +15,26 @@ from lifemap_api.application.generation_grounding import (
 from lifemap_api.application.graph_diff import build_graph_diff
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
 from lifemap_api.domain.models import (
-    CheckIn,
+    CurrentStateSnapshot,
     LifeMap,
     LifeMapCreate,
     Profile,
     RevisionProposal,
     RevisionProposalCreate,
+    RouteSelection,
+    StateUpdate,
 )
 from lifemap_api.domain.ports import (
-    CheckInRepository,
+    CurrentStateSnapshotRepository,
     EmbeddingProvider,
     GoalRepository,
     LifeMapRepository,
     LLMProvider,
     ProfileRepository,
+    RouteSelectionRepository,
     RevisionProposalRepository,
     SourceSearchIndex,
+    StateUpdateRepository,
 )
 
 
@@ -38,14 +42,26 @@ def _serialize_map(life_map: LifeMap) -> str:
     return json.dumps(life_map.graph_bundle.model_dump(mode="json"), ensure_ascii=False, indent=2)
 
 
-def _serialize_checkins(checkins: list[CheckIn]) -> str:
-    if not checkins:
+def _serialize_state_updates(state_updates: list[StateUpdate]) -> str:
+    if not state_updates:
         return "[]"
     return json.dumps(
-        [checkin.model_dump(mode="json") for checkin in checkins],
+        [update.model_dump(mode="json") for update in state_updates],
         ensure_ascii=False,
         indent=2,
     )
+
+
+def _serialize_current_state(snapshot: CurrentStateSnapshot | None) -> str:
+    if snapshot is None:
+        return "No current state snapshot exists yet."
+    return json.dumps(snapshot.model_dump(mode="json"), ensure_ascii=False, indent=2)
+
+
+def _serialize_route_selection(selection: RouteSelection | None) -> str:
+    if selection is None:
+        return "No explicit current route has been selected yet."
+    return json.dumps(selection.model_dump(mode="json"), ensure_ascii=False, indent=2)
 
 
 def _build_revision_system_prompt() -> str:
@@ -74,7 +90,9 @@ def _build_revision_user_prompt(
     goal_json: str,
     profile_json: str,
     current_map_json: str,
-    checkins_json: str,
+    state_updates_json: str,
+    current_state_json: str,
+    route_selection_json: str,
     grounding_packet_json: str,
     schema_json: str,
     goal_id: str,
@@ -93,8 +111,14 @@ def _build_revision_user_prompt(
         Current graph bundle:
         {current_map_json}
 
-        Recent check-ins:
-        {checkins_json}
+        Recent state updates:
+        {state_updates_json}
+
+        Current state snapshot:
+        {current_state_json}
+
+        Explicit current route:
+        {route_selection_json}
 
         Retrieved evidence packet:
         {grounding_packet_json}
@@ -162,7 +186,9 @@ def _attempt_revision_generation(
     goal,
     profile: Profile | None,
     source_map: LifeMap,
-    checkins: list[CheckIn],
+    state_updates: list[StateUpdate],
+    current_state: CurrentStateSnapshot | None,
+    route_selection: RouteSelection | None,
     checkin_id: str,
     query_limit: int,
     hits_per_query: int,
@@ -182,7 +208,9 @@ def _attempt_revision_generation(
     goal_json = _serialize_goal(goal)
     profile_json = _serialize_profile(profile)
     current_map_json = _serialize_map(source_map)
-    checkins_json = _serialize_checkins(checkins)
+    state_updates_json = _serialize_state_updates(state_updates)
+    current_state_json = _serialize_current_state(current_state)
+    route_selection_json = _serialize_route_selection(route_selection)
     grounding_json = serialize_grounding_packet(grounding_packet)
     schema_json = json.dumps(schema, ensure_ascii=False, indent=2)
 
@@ -194,7 +222,9 @@ def _attempt_revision_generation(
                 goal_json=goal_json,
                 profile_json=profile_json,
                 current_map_json=current_map_json,
-                checkins_json=checkins_json,
+                state_updates_json=state_updates_json,
+                current_state_json=current_state_json,
+                route_selection_json=route_selection_json,
                 grounding_packet_json=grounding_json,
                 schema_json=schema_json,
                 goal_id=goal.id,
@@ -230,7 +260,9 @@ def _attempt_revision_generation(
                         goal_json=goal_json,
                         profile_json=profile_json,
                         current_map_json=current_map_json,
-                        checkins_json=checkins_json,
+                        state_updates_json=state_updates_json,
+                        current_state_json=current_state_json,
+                        route_selection_json=route_selection_json,
                         grounding_packet_json=grounding_json,
                         schema_json=schema_json,
                         goal_id=goal.id,
@@ -262,7 +294,9 @@ def create_revision_proposal(
     map_repo: LifeMapRepository,
     goal_repo: GoalRepository,
     profile_repo: ProfileRepository,
-    checkin_repo: CheckInRepository,
+    state_update_repo: StateUpdateRepository,
+    current_state_repo: CurrentStateSnapshotRepository,
+    route_selection_repo: RouteSelectionRepository,
     proposal_repo: RevisionProposalRepository,
     llm_provider: LLMProvider,
     embedding_provider: EmbeddingProvider,
@@ -280,12 +314,14 @@ def create_revision_proposal(
     if goal is None:
         raise EntityNotFoundError("Goal", source_map.goal_id)
 
-    checkins = checkin_repo.list_for_goal(goal.id)
-    target_checkin = next((item for item in checkins if item.id == checkin_id), None)
-    if target_checkin is None:
-        raise EntityNotFoundError("CheckIn", checkin_id)
+    state_updates = state_update_repo.list_for_goal(goal.id)
+    target_update = next((item for item in state_updates if item.id == checkin_id), None)
+    if target_update is None:
+        raise EntityNotFoundError("StateUpdate", checkin_id)
 
     profile = profile_repo.get_default()
+    current_state = current_state_repo.get_for_goal(goal.id)
+    route_selection = route_selection_repo.get_for_pathway(map_id)
     revised_bundle = _attempt_revision_generation(
         provider=llm_provider,
         embedding_provider=embedding_provider,
@@ -293,7 +329,9 @@ def create_revision_proposal(
         goal=goal,
         profile=profile,
         source_map=source_map,
-        checkins=checkins[:5],
+        state_updates=state_updates[:5],
+        current_state=current_state,
+        route_selection=route_selection,
         checkin_id=checkin_id,
         query_limit=query_limit,
         hits_per_query=hits_per_query,
@@ -303,8 +341,8 @@ def create_revision_proposal(
 
     diff = build_graph_diff(source_map.graph_bundle, revised_bundle)
     rationale = (
-        f"Revision proposal based on check-in {target_checkin.checkin_date.isoformat()} "
-        f"and progress update: {target_checkin.progress_summary}"
+        f"Revision proposal based on state update {target_update.update_date.isoformat()} "
+        f"and progress update: {target_update.progress_summary}"
     )
     return proposal_repo.create(
         RevisionProposalCreate(

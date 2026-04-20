@@ -46,6 +46,21 @@ class GoalRecord(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class GoalAnalysisRecord(SQLModel, table=True):
+    __tablename__ = "goal_analyses"
+
+    goal_id: str = Field(primary_key=True)
+    analysis_summary: str = Field(sa_column=Column(Text, nullable=False))
+    resource_dimensions_json: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    research_questions_json: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class LifeMapRecord(SQLModel, table=True):
     __tablename__ = "life_maps"
 
@@ -104,6 +119,65 @@ class CheckInRecord(SQLModel, table=True):
     blockers: str = Field(default="", sa_column=Column(Text, nullable=False))
     next_adjustment: str = Field(default="", sa_column=Column(Text, nullable=False))
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class CurrentStateSnapshotRecord(SQLModel, table=True):
+    __tablename__ = "current_state_snapshots"
+
+    id: str = Field(primary_key=True)
+    goal_id: str = Field(index=True, unique=True)
+    interview_answers_json: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    resource_values_json: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    active_constraints_json: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    state_summary: str = Field(sa_column=Column(Text, nullable=False))
+    derived_from_update_ids_json: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class StateUpdateRecord(SQLModel, table=True):
+    __tablename__ = "state_updates"
+
+    id: str = Field(primary_key=True)
+    goal_id: str = Field(index=True)
+    pathway_id: str | None = Field(default=None, index=True)
+    update_date: date
+    actual_time_spent: float | None = None
+    actual_money_spent: float | None = None
+    mood: str | None = None
+    progress_summary: str = Field(sa_column=Column(Text, nullable=False))
+    blockers: str = Field(default="", sa_column=Column(Text, nullable=False))
+    next_adjustment: str = Field(default="", sa_column=Column(Text, nullable=False))
+    resource_deltas_json: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    learned_items_json: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    source_refs_json: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class RouteSelectionRecord(SQLModel, table=True):
+    __tablename__ = "route_selections"
+
+    id: str = Field(primary_key=True)
+    goal_id: str = Field(index=True)
+    pathway_id: str = Field(index=True, unique=True)
+    selected_node_id: str
+    rationale: str = Field(default="", sa_column=Column(Text, nullable=False))
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class RevisionProposalRecord(SQLModel, table=True):

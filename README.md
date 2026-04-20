@@ -4,17 +4,21 @@ Pathway는 로컬 우선 방식으로 동작하는 개인용 decision graph work
 사용자의 목표를 먼저 받고, 그 목표에 필요한 리소스 차원을 분석한 뒤,
 시간/돈/거리/에너지/지속성 같은 현재 조건을 반영해 가능한 선택 경로를 그래프로 펼쳐 보여주는 구조를 목표로 합니다.
 
-현재 저장소는 `Phase 8`까지 구현되어 있고, 이제 `Pathway` 리프레임과 그래프 중심 워크스페이스 리디자인을 진행하는 중입니다.
+현재 저장소는 `Phase 8` 기반 위에, `Pathway` 리프레임의 첫 번째 foundation 단계가 올라간 상태입니다.
+이 단계에서는 정적 `check-in` 흐름을 넘어서, `goal analysis -> current state -> state updates -> route selection -> revision preview` 흐름을 제품 표면에 추가했습니다.
 
 ## What works now
 
 - 기본 프로필 저장
 - 목표 생성 / 조회 / 수정 / 삭제
+- goal analysis 생성
+- current state snapshot 저장 / 조회
 - 동적 ontology 기반 Pathway graph 저장
 - source library 수동 저장 + 로컬 retrieval
 - grounded map generation
-- check-in 작성
-- revision proposal 생성 / 수락 / 거절
+- state update 작성
+- route selection 저장
+- revision preview 생성 / 수락 / 거절
 - workspace history browser
 - map JSON export / import
 - map Markdown export
@@ -98,7 +102,7 @@ pnpm secret-scan
 Pathway는 서버가 아니라 로컬 파일에 상태를 저장합니다.
 
 - `data/local.db`
-  - profiles, goals, maps, check-ins, revision proposals
+  - profiles, goals, pathways, goal analyses, current-state snapshots, state updates, route selections, revision previews
 - `data/lancedb/`
   - source chunks와 retrieval index
 - `data/uploads/`
@@ -129,13 +133,16 @@ cp -R /path/to/backup/lancedb data/lancedb
 - 기본 그래프 스키마는 고정 enum이 아니라 per-map ontology를 갖는 `GraphBundle`입니다.
 - 백엔드가 graph bundle validation의 source of truth입니다.
 - retrieval은 manual ingest 중심이며, 허용된 URL ingestion은 아직 preview/policy 판정 단계입니다.
+- 목표 생성 직후 `goal analysis`를 만들어, 어떤 리소스 차원을 추적해야 하는지 명시적으로 남길 수 있습니다.
+- `current state snapshot`은 최신 사용자 상태를 나타내고, `state updates`는 append-only 기록으로 누적됩니다.
+- `route selection`과 `revision preview`를 통해, 현재 선택한 경로와 그래프 변경 후보를 분리해서 다룰 수 있습니다.
 - 프론트의 graph engine chunk는 아직 큽니다. lazy loading은 적용했지만 추가 chunk split 최적화는 후속 과제입니다.
 - SvelteKit production adapter는 아직 `adapter-auto` 상태입니다.
-- 현재 제품은 Pathway 리프레임 직전 상태이며, 그래프 중심 워크스페이스와 goal-first intake는 다음 주요 리디자인 과제입니다.
+- 현재 제품은 Pathway 리프레임 foundation 상태이며, 다음 주요 과제는 그래프 중심 워크스페이스 자체를 더 강하게 밀어붙이는 UI 리디자인입니다.
 
 ## Phase status
 
-Phase 8 completes:
+Completed baseline:
 
 - export/import
 - markdown export
@@ -144,4 +151,14 @@ Phase 8 completes:
 - accessibility pass for node selection
 - security checklist refresh
 
-후속 작업은 `docs/state/CURRENT_STATE.md`를 기준으로 이어가면 됩니다.
+Latest additive foundation:
+
+- goal analysis API + client flow
+- current-state snapshot persistence
+- append-only state update flow
+- route selection persistence
+- pathway alias endpoints
+- revision preview naming at the UI edge
+- selected-route / changed-node graph highlighting
+
+후속 작업은 `docs/state/CURRENT_STATE.md`와 `docs/state/EXECPLAN_PATHWAY_VNEXT_FOUNDATION.md`를 기준으로 이어가면 됩니다.

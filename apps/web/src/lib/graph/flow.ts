@@ -15,7 +15,7 @@ export function buildFlow(bundle: GraphBundle): {
     const nodeType = nodeTypeLookup.get(node.type);
     const style = resolveNodeStyle(nodeType);
     const fieldPreview =
-      nodeType?.fields.slice(0, 3).flatMap((field) => {
+      nodeType?.fields.slice(0, 1).flatMap((field) => {
         const value = node.data[field.key];
         if (value == null) {
           return [];

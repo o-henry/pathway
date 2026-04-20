@@ -31,12 +31,12 @@
 
   const apiBaseUrl = getApiBaseUrl();
 
-  let sourceTitle = $state('직장인 일본어 루프 메모');
+  let sourceTitle = $state('Field observation note');
   let sourceBody = $state(
-    '주 5시간 이하일 때는 문법만 밀어붙이기보다 speaking drill과 짧은 복습을 섞는 편이 이탈이 적었다.'
+    'Short feedback loops tend to stay usable longer than large plans when the available time budget is inconsistent.'
   );
-  let searchQuery = $state('speaking boredom');
-  let previewUrl = $state('https://example.com/japanese-study-note');
+  let searchQuery = $state('feedback loop retention');
+  let previewUrl = $state('https://example.com/product-research-note');
   let saveMessage = $state('');
   let errorMessage = $state('');
   let searchResults = $state<SourceSearchHit[]>([]);
@@ -65,7 +65,7 @@
         })
       );
       lastSource = source;
-      saveMessage = `${source.title} 자료를 evidence desk에 저장했습니다.`;
+      saveMessage = `Stored ${source.title} in the evidence desk.`;
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Unknown source ingestion failure';
     } finally {
@@ -114,15 +114,41 @@
   <div class="section-header">
     <div>
       <p class="eyebrow">Evidence desk</p>
-      <h2>에이전트 리서치가 사용할 근거층을 쌓습니다</h2>
+      <h2>Build the evidence layer behind the graph</h2>
       <p class="copy">
-        현재는 수동 노트와 로컬 검색이 중심이지만, 여기서 축적된 자료가 이후 research swarm과
-        Pathway revision의 바닥 데이터가 됩니다.
+        Manual notes, local search hits, and allowed URL previews all feed the research layer that
+        later revisions can cite.
       </p>
     </div>
   </div>
 
   <div class="grid">
+    <article class="card">
+      <h3>Query the evidence base</h3>
+      <label>
+        <span>Query</span>
+        <input bind:value={searchQuery} />
+      </label>
+      <button type="button" onclick={handleSearch} disabled={isSearching}>
+        {#if isSearching}Searching...{:else}Search stored evidence{/if}
+      </button>
+      <div class="results">
+        {#if searchResults.length === 0}
+          <p class="muted">No search results yet.</p>
+        {:else}
+          {#each searchResults as result (result.chunk_id)}
+            <div class="result-card">
+              <strong>{result.title}</strong>
+              <p>{result.snippet}</p>
+              <small>
+                similarity {result.similarity_score.toFixed(3)} · {result.reliability}
+              </small>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </article>
+
     <article class="card">
       <h3>Capture a note</h3>
       <label>
@@ -142,32 +168,6 @@
       {#if lastSource}
         <p class="muted">Latest source id: {lastSource.id}</p>
       {/if}
-    </article>
-
-    <article class="card">
-      <h3>Query the evidence base</h3>
-      <label>
-        <span>Query</span>
-        <input bind:value={searchQuery} />
-      </label>
-      <button type="button" onclick={handleSearch} disabled={isSearching}>
-        {#if isSearching}Searching...{:else}Search stored evidence{/if}
-      </button>
-      <div class="results">
-        {#if searchResults.length === 0}
-          <p class="muted">아직 검색 결과가 없습니다.</p>
-        {:else}
-          {#each searchResults as result (result.chunk_id)}
-            <div class="result-card">
-              <strong>{result.title}</strong>
-              <p>{result.snippet}</p>
-              <small>
-                similarity {result.similarity_score.toFixed(3)} · {result.reliability}
-              </small>
-            </div>
-          {/each}
-        {/if}
-      </div>
     </article>
 
     <article class="card">

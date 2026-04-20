@@ -30,13 +30,7 @@
   const strokeWidth = $derived(
     edgeData.active ? 2.8 : edgeData.role === 'reference' ? 1.5 : 2
   );
-  const dash = $derived(
-    edgeData.role === 'reference'
-      ? '4 8'
-      : edgeData.accent === 'sketch_arrow'
-        ? '10 6'
-        : undefined
-  );
+  const dash = $derived(edgeData.role === 'reference' ? '4 8' : undefined);
   const labelText = $derived(edgeData.edge.condition ?? edgeData.edge.label ?? '');
   const edgeStyle = $derived(
     `stroke:${stroke};stroke-width:${strokeWidth};opacity:${edgeData.hovered || edgeData.active ? 1 : 0.78};${dash ? `stroke-dasharray:${dash};` : ''}`

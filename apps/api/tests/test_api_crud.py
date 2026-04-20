@@ -58,6 +58,22 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
     assert goal_response.status_code == 201
     goal_id = goal_response.json()["id"]
 
+    analysis_response = client.post(f"/goals/{goal_id}/analysis")
+    assert analysis_response.status_code == 200
+    assert len(analysis_response.json()["resource_dimensions"]) >= 1
+
+    current_state_response = client.put(
+        f"/goals/{goal_id}/current-state",
+        json={
+            "interview_answers": {"time_budget": "6", "money_budget": "50000"},
+            "resource_values": {"time_budget": 6, "money_budget": 50000},
+            "active_constraints": ["tight budget", "weekday fatigue"],
+            "state_summary": "Current state is constrained but viable.",
+            "derived_from_update_ids": [],
+        },
+    )
+    assert current_state_response.status_code == 200
+
     map_response = client.post(
         "/maps",
         json={
@@ -79,6 +95,9 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
     )
     assert source_response.status_code == 201
 
+    generated_pathway_response = client.post(f"/goals/{goal_id}/pathways/generate")
+    assert generated_pathway_response.status_code in {201, 503, 502, 422}
+
     checkin_response = client.post(
         f"/goals/{goal_id}/checkins",
         json={
@@ -90,11 +109,35 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
     )
     assert checkin_response.status_code == 201
 
+    state_update_response = client.post(
+        f"/goals/{goal_id}/state-updates",
+        json={
+            "pathway_id": map_id,
+            "progress_summary": "Finished basic greetings.",
+            "blockers": "Motivation dips on weekdays.",
+            "next_adjustment": "Add a short weekend speaking session.",
+            "resource_deltas": {"energy_pattern": "weekday dip"},
+            "learned_items": ["basic greetings"],
+        },
+    )
+    assert state_update_response.status_code == 201
+
+    route_selection_response = client.put(
+        f"/pathways/{map_id}/route-selection",
+        json={
+            "selected_node_id": clone_bundle()["nodes"][0]["id"],
+            "rationale": "This is the current trunk.",
+        },
+    )
+    assert route_selection_response.status_code == 200
+
     assert client.get("/goals").status_code == 200
     assert client.get(f"/goals/{goal_id}").status_code == 200
     assert client.get(f"/maps/{map_id}").status_code == 200
+    assert client.get(f"/pathways/{map_id}").status_code == 200
     assert client.get("/sources").status_code == 200
     assert client.get(f"/goals/{goal_id}/checkins").status_code == 200
+    assert client.get(f"/goals/{goal_id}/state-updates").status_code == 200
 
     patch_response = client.patch(
         f"/goals/{goal_id}",

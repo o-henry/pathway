@@ -9,6 +9,28 @@ from lifemap_api.domain.graph_bundle import GraphBundle
 
 GoalStatus = Literal["draft", "active", "paused", "completed", "archived"]
 RevisionProposalStatus = Literal["pending", "accepted", "rejected"]
+ResourceDimensionKind = Literal[
+    "time",
+    "money",
+    "energy",
+    "motivation",
+    "skill",
+    "environment",
+    "schedule",
+    "support",
+    "location",
+    "tooling",
+    "practice",
+]
+RevisionChangeKind = Literal[
+    "unchanged",
+    "added",
+    "strengthened",
+    "weakened",
+    "invalidated",
+    "reactivated",
+    "removed",
+]
 SourcePolicyState = Literal[
     "manual_note",
     "user_uploaded_file",
@@ -77,6 +99,41 @@ class Goal(GoalBase):
     updated_at: datetime
 
 
+class ResourceDimension(DomainModel):
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=120)
+    kind: ResourceDimensionKind
+    value_type: str = Field(min_length=1, max_length=80)
+    question: str = Field(min_length=1)
+    relevance_reason: str = Field(min_length=1)
+
+
+class GoalAnalysis(DomainModel):
+    goal_id: str = Field(min_length=1, max_length=200)
+    analysis_summary: str = Field(min_length=1)
+    resource_dimensions: list[ResourceDimension] = Field(default_factory=list)
+    research_questions: list[str] = Field(default_factory=list)
+
+
+class CurrentStateBase(DomainModel):
+    interview_answers: dict[str, Any] = Field(default_factory=dict)
+    resource_values: dict[str, Any] = Field(default_factory=dict)
+    active_constraints: list[str] = Field(default_factory=list)
+    state_summary: str = Field(min_length=1)
+    derived_from_update_ids: list[str] = Field(default_factory=list)
+
+
+class CurrentStateSnapshotUpsert(CurrentStateBase):
+    pass
+
+
+class CurrentStateSnapshot(CurrentStateBase):
+    id: str
+    goal_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class LifeMapCreate(DomainModel):
     goal_id: str
     title: str = Field(min_length=1, max_length=200)
@@ -106,6 +163,10 @@ class MapImportEnvelope(DomainModel):
     profile: Profile | None = None
     goal: Goal
     map: LifeMap
+
+
+class PathwayRecord(LifeMap):
+    pass
 
 
 class SourceDocumentCreate(DomainModel):
@@ -198,6 +259,53 @@ class CheckIn(DomainModel):
     created_at: datetime
 
 
+class StateUpdateCreate(DomainModel):
+    pathway_id: str | None = None
+    update_date: date = Field(default_factory=date.today)
+    actual_time_spent: float | None = Field(default=None, ge=0)
+    actual_money_spent: float | None = Field(default=None, ge=0)
+    mood: str | None = Field(default=None, max_length=60)
+    progress_summary: str = Field(min_length=1)
+    blockers: str = ""
+    next_adjustment: str = ""
+    resource_deltas: dict[str, Any] = Field(default_factory=dict)
+    learned_items: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+
+
+class StateUpdate(DomainModel):
+    id: str
+    goal_id: str
+    pathway_id: str | None = None
+    legacy_checkin_id: str | None = None
+    update_date: date
+    actual_time_spent: float | None = None
+    actual_money_spent: float | None = None
+    mood: str | None = None
+    progress_summary: str
+    blockers: str
+    next_adjustment: str
+    resource_deltas: dict[str, Any] = Field(default_factory=dict)
+    learned_items: list[str] = Field(default_factory=list)
+    source_refs: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class RouteSelectionUpsert(DomainModel):
+    selected_node_id: str = Field(min_length=1, max_length=200)
+    rationale: str = ""
+
+
+class RouteSelection(DomainModel):
+    id: str
+    goal_id: str
+    pathway_id: str
+    selected_node_id: str
+    rationale: str = ""
+    created_at: datetime
+    updated_at: datetime
+
+
 class GraphNodeChange(DomainModel):
     node_id: str = Field(min_length=1, max_length=120)
     change_type: Literal["added", "removed", "updated", "status_changed"]
@@ -258,6 +366,10 @@ class RevisionProposal(DomainModel):
     accepted_map_id: str | None = None
     created_at: datetime
     resolved_at: datetime | None = None
+
+
+class PathwayRevisionPreview(RevisionProposal):
+    selected_route_node_id: str | None = None
 
 
 class Decision(DomainModel):

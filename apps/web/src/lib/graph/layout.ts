@@ -1,12 +1,12 @@
-import { Position, type Edge, type Node } from '@xyflow/svelte';
+import { type Edge, type Node } from '@xyflow/svelte';
 
 import type { MindMapEdgeData, MindMapNodeData } from './types';
 
-const ROOT_CENTER = { x: 760, y: 540 };
-const FIRST_RING_RADIUS = 330;
-const RING_GAP = 255;
-const ROOT_SPAN_DEGREES = 320;
-const ROOT_START_DEGREES = -160;
+const ROOT_X = 72;
+const ROOT_Y = 72;
+const COLUMN_GAP = 240;
+const ROW_GAP = 34;
+const FALLBACK_SECTION_GAP = 120;
 
 type PositionedNode = Node<MindMapNodeData>;
 type PositionedEdge = Edge<MindMapEdgeData>;
@@ -33,11 +33,11 @@ export async function layoutFlow(
   for (const edge of progressionEdges) {
     const nextOutgoing = outgoing.get(edge.source) ?? [];
     nextOutgoing.push(edge.target);
-    outgoing.set(edge.source, nextOutgoing);
+    outgoing.set(edge.source, dedupe(nextOutgoing));
 
     const nextIncoming = incoming.get(edge.target) ?? [];
     nextIncoming.push(edge.source);
-    incoming.set(edge.target, nextIncoming);
+    incoming.set(edge.target, dedupe(nextIncoming));
   }
 
   const rootId =
@@ -49,118 +49,98 @@ export async function layoutFlow(
     return { nodes, edges };
   }
 
-  const positions = new Map<string, { x: number; y: number }>();
+  const positioned = new Map<string, { x: number; y: number }>();
   const visited = new Set<string>();
-  const directChildren = dedupe(outgoing.get(rootId) ?? []);
 
-  positions.set(rootId, ROOT_CENTER);
-  visited.add(rootId);
+  const subtreeMemo = new Map<string, number>();
+  const subtreeHeight = (nodeId: string): number => {
+    if (subtreeMemo.has(nodeId)) {
+      return subtreeMemo.get(nodeId) ?? 0;
+    }
 
-  const rootAngles = distributeAngles(directChildren.length, ROOT_START_DEGREES, ROOT_SPAN_DEGREES);
+    const node = nodeLookup.get(nodeId);
+    const ownHeight = node ? getNodeHeight(node) : 132;
+    const children = dedupe(outgoing.get(nodeId) ?? []).filter((childId) => childId !== nodeId);
 
-  directChildren.forEach((childId, index) => {
-    placeSubtree({
-      nodeId: childId,
-      angle: rootAngles[index] ?? 0,
-      radius: FIRST_RING_RADIUS,
-      spread: 96,
-      positions,
-      visited,
-      outgoing
+    if (children.length === 0) {
+      subtreeMemo.set(nodeId, ownHeight);
+      return ownHeight;
+    }
+
+    const stackedHeight = children.reduce((sum, childId, index) => {
+      return sum + subtreeHeight(childId) + (index > 0 ? ROW_GAP : 0);
+    }, 0);
+
+    const value = Math.max(ownHeight, stackedHeight);
+    subtreeMemo.set(nodeId, value);
+    return value;
+  };
+
+  function placeTree(nodeId: string, depth: number, top: number) {
+    if (visited.has(nodeId)) {
+      return;
+    }
+
+    const node = nodeLookup.get(nodeId);
+    if (!node) {
+      return;
+    }
+
+    const ownWidth = getNodeWidth(node);
+    const ownHeight = getNodeHeight(node);
+    const children = dedupe(outgoing.get(nodeId) ?? []).filter((childId) => childId !== nodeId);
+    const blockHeight = subtreeHeight(nodeId);
+    const centerY = top + blockHeight / 2;
+
+    positioned.set(nodeId, {
+      x: ROOT_X + depth * COLUMN_GAP,
+      y: centerY - ownHeight / 2
     });
-  });
+    visited.add(nodeId);
+
+    if (children.length === 0) {
+      return;
+    }
+
+    let childTop = top;
+    for (const childId of children) {
+      const childBlockHeight = subtreeHeight(childId);
+      placeTree(childId, depth + 1, childTop);
+      childTop += childBlockHeight + ROW_GAP;
+    }
+
+    void ownWidth;
+  }
+
+  placeTree(rootId, 0, ROOT_Y);
 
   const remainingIds = nodes.map((node) => node.id).filter((nodeId) => !visited.has(nodeId));
   if (remainingIds.length > 0) {
-    const fallbackAngles = distributeAngles(remainingIds.length, -120, 240);
-    remainingIds.forEach((nodeId, index) => {
-      positions.set(nodeId, polarToPoint(ROOT_CENTER, FIRST_RING_RADIUS + RING_GAP * 1.75, fallbackAngles[index] ?? 0));
+    let fallbackTop = ROOT_Y + subtreeHeight(rootId) + FALLBACK_SECTION_GAP;
+    for (const nodeId of remainingIds) {
+      const node = nodeLookup.get(nodeId);
+      if (!node) {
+        continue;
+      }
+
+      positioned.set(nodeId, { x: ROOT_X, y: fallbackTop });
       visited.add(nodeId);
-    });
+      fallbackTop += getNodeHeight(node) + ROW_GAP;
+    }
   }
 
-  const laidOutNodes = normalizePositions(nodes, positions);
-  const laidOutEdges = assignHandles(edges, laidOutNodes);
+  const laidOutNodes = nodes.map((node) => ({
+    ...node,
+    width: getNodeWidth(node),
+    height: getNodeHeight(node),
+    position: positioned.get(node.id) ?? node.position
+  }));
 
+  const laidOutEdges = assignHandles(edges, laidOutNodes);
   return { nodes: laidOutNodes, edges: laidOutEdges };
 }
 
-function placeSubtree({
-  nodeId,
-  angle,
-  radius,
-  spread,
-  positions,
-  visited,
-  outgoing
-}: {
-  nodeId: string;
-  angle: number;
-  radius: number;
-  spread: number;
-  positions: Map<string, { x: number; y: number }>;
-  visited: Set<string>;
-  outgoing: Map<string, string[]>;
-}) {
-  if (visited.has(nodeId)) {
-    return;
-  }
-
-  positions.set(nodeId, polarToPoint(ROOT_CENTER, radius, angle));
-  visited.add(nodeId);
-
-  const children = dedupe(outgoing.get(nodeId) ?? []).filter((childId) => !visited.has(childId));
-  if (children.length === 0) {
-    return;
-  }
-
-  const nextSpread = clamp(spread * 0.72, 34, 90);
-  const childAngles = distributeAngles(children.length, angle - spread / 2, spread);
-
-  children.forEach((childId, index) => {
-    placeSubtree({
-      nodeId: childId,
-      angle: childAngles[index] ?? angle,
-      radius: radius + RING_GAP,
-      spread: nextSpread,
-      positions,
-      visited,
-      outgoing
-    });
-  });
-}
-
-function normalizePositions(
-  nodes: PositionedNode[],
-  positions: Map<string, { x: number; y: number }>
-): PositionedNode[] {
-  const sizedNodes = nodes.map((node) => ({
-    node,
-    width: getNodeWidth(node),
-    height: getNodeHeight(node),
-    position: positions.get(node.id) ?? node.position
-  }));
-
-  const minX = Math.min(...sizedNodes.map((item) => item.position.x - item.width / 2));
-  const minY = Math.min(...sizedNodes.map((item) => item.position.y - item.height / 2));
-  const shiftX = minX < 140 ? 140 - minX : 0;
-  const shiftY = minY < 140 ? 140 - minY : 0;
-
-  return sizedNodes.map(({ node, width, height, position }) => ({
-    ...node,
-    width,
-    height,
-    position: {
-      x: position.x - width / 2 + shiftX,
-      y: position.y - height / 2 + shiftY
-    }
-  }));
-}
-
-function assignHandles(
-  edges: PositionedEdge[],
-  nodes: PositionedNode[]
-): PositionedEdge[] {
+function assignHandles(edges: PositionedEdge[], nodes: PositionedNode[]): PositionedEdge[] {
   const nodeLookup = new Map(
     nodes.map((node) => [
       node.id,
@@ -179,21 +159,15 @@ function assignHandles(
       return edge;
     }
 
-    const sourceHandle = handleId(pickHandle(source, target), 'source');
-    const targetHandle = handleId(pickHandle(target, source), 'target');
-
     return {
       ...edge,
-      sourceHandle,
-      targetHandle
+      sourceHandle: handleId(pickHandle(source, target), 'source'),
+      targetHandle: handleId(pickHandle(target, source), 'target')
     };
   });
 }
 
-function handleId(
-  position: 'top' | 'right' | 'bottom' | 'left',
-  kind: 'source' | 'target'
-) {
+function handleId(position: 'top' | 'right' | 'bottom' | 'left', kind: 'source' | 'target') {
   return `${kind}-${position}`;
 }
 
@@ -211,51 +185,22 @@ function pickHandle(
   return dy >= 0 ? 'bottom' : 'top';
 }
 
-function distributeAngles(count: number, start: number, span: number): number[] {
-  if (count <= 0) {
-    return [];
-  }
-
-  if (count === 1) {
-    return [start + span / 2];
-  }
-
-  const step = span / (count - 1);
-  return Array.from({ length: count }, (_, index) => start + step * index);
-}
-
-function polarToPoint(
-  center: { x: number; y: number },
-  radius: number,
-  angleInDegrees: number
-) {
-  const radians = (angleInDegrees * Math.PI) / 180;
-  return {
-    x: center.x + Math.cos(radians) * radius,
-    y: center.y + Math.sin(radians) * radius
-  };
-}
-
 function getNodeWidth(node: PositionedNode): number {
   if (node.data.shape === 'circle') {
-    return 210;
+    return 220;
   }
 
-  return node.data.shape === 'pill' ? 190 : 230;
+  return 236;
 }
 
 function getNodeHeight(node: PositionedNode): number {
   if (node.data.shape === 'circle') {
-    return 210;
+    return 220;
   }
 
-  return node.data.shape === 'pill' ? 88 : 132;
+  return 112;
 }
 
 function dedupe(values: string[]) {
   return [...new Set(values)];
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }
