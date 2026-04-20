@@ -168,6 +168,13 @@
   backdrop-filter: blur(10px);
 }
 
+.pathway-rail-canvas .pathway-canvas-stat-badge-status {
+  max-width: min(360px, 34vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-controls {
   gap: 8px;
 }

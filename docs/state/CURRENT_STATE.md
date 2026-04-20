@@ -19,6 +19,7 @@ The newest workflow control pass removes the remaining text-button toolbar from 
 That same pass also replaces the broken placeholder icon downloads with real SVG assets sourced from SVGrepo, so the overlay controls no longer depend on fake or malformed files.
 The latest node polish pass also hardens the graph card styling: pathway node chips now use a `2px` corner radius, and the root goal node no longer forces white text on a pale surface.
 The latest security hygiene pass also confirmed that no real API keys or bearer tokens are tracked in the repo, ran the configured gitleaks hook successfully, and tightened local cleanup by ignoring ad-hoc `pathway-*.png` screenshot artifacts.
+The latest safe-preview pass now makes first-run inspection workable again: the Tauri shell reserves actual breathing room under the hidden titlebar, the workflow tab falls back to a visible demo graph instead of a blank empty panel, and the local API defaults to deterministic stub generation/revision plus deterministic local embeddings so Ollama is no longer required for the default dev path.
 
 ## Last completed phase
 
@@ -30,7 +31,7 @@ Current additive objective — RAIL UI Pivot for Pathway Desktop.
 
 - Frontend: SvelteKit + Svelte Flow + Rough.js + ELK.js.
 - Backend: FastAPI + SQLite + LanceDB.
-- Local AI default: Ollama.
+- Local AI default: deterministic stub provider until a real Codex CLI path lands.
 - External OpenAI provider: optional through environment variables only.
 - Graph schema: dynamic `GraphBundle` with per-map ontology.
 - Source ingestion: manual first; permitted crawling only.
@@ -47,6 +48,7 @@ The highest-value follow-up options are now:
 4. Continue graph interaction polish: improve the new per-node branch collapse UX, add richer node evidence affordances, route compare states, and clearer struck/disabled branch visuals when reality invalidates prior paths.
 5. Deepen the revision-preview UX so the request lane can compare multiple proposals, show route-level before/after detail, and surface preview rationale without crowding the canvas.
 6. Verify the current Korean-first workflow presentation in a live Tauri run and keep trimming any remaining English copy that still leaks through the Pathway-specific surface.
+7. Replace the deterministic stub provider with the intended Codex CLI orchestration path once that contract is defined.
 
 ## Commands run
 
@@ -121,6 +123,9 @@ The highest-value follow-up options are now:
 - `pnpm --filter desktop exec tsc --noEmit`
 - `pnpm --filter desktop build`
 - `cargo check --manifest-path src-tauri/Cargo.toml`
+- `pnpm --filter desktop build`
+- `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py apps/api/tests/test_api_crud.py`
+- `UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
 
 ## Known gaps
 
@@ -150,6 +155,8 @@ The highest-value follow-up options are now:
 - Automated crawling rate limiting is not implemented because remote fetching itself is intentionally deferred.
 - The latest concept-map node skin and clustered left-to-right layout are still deterministic; deeper semantic grouping, revision-aware reflow, and richer edge semantics remain future polish work.
 - The latest workflow cleanup removed more client-side placeholders, but the workflow empty state still wants a more deliberately designed pre-graph surface instead of a simple empty card treatment.
+- The workflow tab now shows a demo graph when no live map exists, but the actual Codex CLI-backed generation path is still pending; generation and revision use deterministic local stubs by default for now.
+- The titlebar collision is now handled with a fixed safe offset, but a future native safe-area measurement pass would be more robust than the current token-based spacing.
 - Repository-wide TypeScript validation is still blocked by the existing desktop toolchain / tsconfig mismatch, so current verification relies on targeted code inspection and runtime checks instead of a clean full typecheck.
 - Korean is now forced as the default desktop locale on startup, which matches the current product direction but intentionally ignores a previously saved non-Korean locale until a later locale-preference pass revisits that behavior.
 
@@ -226,6 +233,10 @@ The highest-value follow-up options are now:
 - `apps/desktop/src/lib/types.ts`
 - `apps/desktop/src/lib/exampleGraphBundle.ts`
 - `apps/desktop/src/app/MainAppImpl.tsx`
+- `apps/desktop/src/styles/layout/shell/app-shell.css`
+- `apps/desktop/src/styles/tokens/theme.css`
+- `.env.example`
+- `docs/state/EXECPLAN_WORKFLOW_SAFE_PREVIEW.md`
 - `src-tauri/tauri.conf.json`
 - `src-tauri/icons/pathway.icns`
 - `apps/desktop/pathway_snapshot/*`

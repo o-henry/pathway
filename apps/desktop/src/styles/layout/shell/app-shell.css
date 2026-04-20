@@ -6,7 +6,7 @@
   overflow: hidden;
   height: 100vh;
   min-height: 0;
-  padding: calc(8px + var(--titlebar-overlay-height)) 8px 8px;
+  padding: calc(14px + var(--titlebar-overlay-height)) 8px 8px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 0;
@@ -19,7 +19,7 @@
   top: 0;
   left: 0;
   right: 0;
-  height: calc(var(--titlebar-overlay-height) + 8px);
+  height: calc(var(--titlebar-overlay-height) + 14px);
   z-index: 2;
   background: transparent;
 }
@@ -63,7 +63,7 @@
 
 .app-shell.canvas-fullscreen-mode {
   grid-template-columns: 1fr;
-  padding: calc(8px + var(--titlebar-overlay-height)) 8px 8px;
+  padding: calc(14px + var(--titlebar-overlay-height)) 8px 8px;
 }
 
 .app-shell.canvas-fullscreen-mode .left-nav {

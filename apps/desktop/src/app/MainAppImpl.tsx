@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import AppNav from '../components/AppNav';
 import {
@@ -19,6 +19,7 @@ import {
   rejectRevisionPreview,
   updateRouteSelection
 } from '../lib/api';
+import { buildExampleGraphBundle } from '../lib/exampleGraphBundle';
 import PathwayRailCanvas from './PathwayRailCanvas';
 import type {
   CurrentStateSnapshot,
@@ -161,7 +162,7 @@ export default function MainApp() {
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<GoalRecord | null>(null);
   const [goalAnalysis, setGoalAnalysis] = useState<GoalAnalysisRecord | null>(null);
-  const [maps, setMaps] = useState<LifeMap[]>([]);
+  const [, setMaps] = useState<LifeMap[]>([]);
   const [activeMapId, setActiveMapId] = useState<string | null>(null);
   const [activeMap, setActiveMap] = useState<LifeMap | null>(null);
   const [currentState, setCurrentState] = useState<CurrentStateSnapshot | null>(null);
@@ -189,12 +190,18 @@ export default function MainApp() {
   });
 
   const activeBundle = activeMap?.graph_bundle ?? null;
+  const demoBundle = useMemo(
+    () => buildExampleGraphBundle(activeGoal?.title || goalForm.title || undefined),
+    [activeGoal?.title, goalForm.title]
+  );
   const visibleBundle = activeBundle && revisionPreview
     ? mergePreviewBundle(activeBundle, revisionPreview)
     : activeBundle;
-  const selectedNode = findSelectedNode(visibleBundle, selectedNodeId);
-  const selectedEvidence = selectedNode && visibleBundle ? getEvidenceForNode(visibleBundle, selectedNode.id) : [];
-  const selectedAssumptions = selectedNode && visibleBundle ? getAssumptionsForNode(visibleBundle, selectedNode.id) : [];
+  const displayBundle = visibleBundle ?? demoBundle;
+  const effectiveSelectedNodeId = selectedNodeId ?? displayBundle.nodes[0]?.id ?? null;
+  const selectedNode = findSelectedNode(displayBundle, effectiveSelectedNodeId);
+  const selectedEvidence = selectedNode ? getEvidenceForNode(displayBundle, selectedNode.id) : [];
+  const selectedAssumptions = selectedNode ? getAssumptionsForNode(displayBundle, selectedNode.id) : [];
   const selectedNodePreviewChange =
     selectedNode && revisionPreview
       ? revisionPreview.diff.node_changes.find((item) => item.node_id === selectedNode.id) ?? null
@@ -369,6 +376,7 @@ export default function MainApp() {
       return;
     }
     if (!activeMap) {
+      setStatusMessage('데모 그래프를 탐색 중입니다. 목표를 만들고 루트 생성 버튼을 누르면 실제 그래프로 교체됩니다.');
       return;
     }
     try {
@@ -467,16 +475,20 @@ export default function MainApp() {
   }
 
   function renderWorkflowTab() {
-    const hasGraph = Boolean(visibleBundle);
+    const hasLiveGraph = Boolean(visibleBundle);
+    const hasGraph = Boolean(displayBundle);
     const shouldShowInspector = showWorkflowInspector && Boolean(selectedNode);
     const previewNodeChanges = revisionPreview?.diff.node_changes ?? [];
     const previewEdgeChanges = revisionPreview?.diff.edge_changes ?? [];
     const workflowCanvasStats = hasGraph ? (
       <div className="pathway-canvas-status-strip" aria-label="그래프 상태">
-        <span className="pathway-canvas-status-label">그래프</span>
-        <span className="pathway-canvas-stat-badge">노드 {activeBundle.nodes.length}</span>
-        <span className="pathway-canvas-stat-badge">루트 {activeBundle.edges.length}</span>
-        <span className="pathway-canvas-stat-badge">근거 {activeBundle.evidence.length}</span>
+        <span className="pathway-canvas-status-label">{hasLiveGraph ? '활성 그래프' : '데모 그래프'}</span>
+        <span className="pathway-canvas-stat-badge">노드 {displayBundle.nodes.length}</span>
+        <span className="pathway-canvas-stat-badge">루트 {displayBundle.edges.length}</span>
+        <span className="pathway-canvas-stat-badge">근거 {displayBundle.evidence.length}</span>
+        <span className="pathway-canvas-stat-badge pathway-canvas-stat-badge-status" title={statusMessage}>
+          {statusMessage}
+        </span>
       </div>
     ) : null;
     const workflowCanvasActions = (
@@ -553,7 +565,7 @@ export default function MainApp() {
             ) : null}
 
             <div className="pathway-workflow-main">
-              {visibleBundle ? (
+              {hasGraph ? (
                 <section className="pathway-workflow-canvas-panel">
                   {revisionPreview ? (
                     <div className="pathway-preview-banner">
@@ -582,16 +594,18 @@ export default function MainApp() {
                     <div className="pathway-canvas-cue">
                       {revisionPreview
                         ? '노드 또는 연결선을 확인해 어떤 루트가 추가되고, 약해지고, 막히는지 먼저 검토하세요.'
-                        : '그래프 노드를 선택하면 루트 정보, 근거, 가정을 바로 확인할 수 있습니다.'}
+                        : hasLiveGraph
+                          ? '그래프 노드를 선택하면 루트 정보, 근거, 가정을 바로 확인할 수 있습니다.'
+                          : '실제 데이터가 아직 없어서 데모 그래프를 먼저 보여주고 있습니다. 목표를 만들고 루트 생성 버튼을 누르면 이 캔버스가 실제 경로로 교체됩니다.'}
                     </div>
                   ) : null}
                   <PathwayRailCanvas
-                    bundle={visibleBundle}
+                    bundle={displayBundle}
                     baseBundle={activeBundle ?? undefined}
                     overlayActions={workflowCanvasActions}
                     overlayStats={workflowCanvasStats}
                     revisionPreview={revisionPreview}
-                    selectedNodeId={selectedNodeId}
+                    selectedNodeId={effectiveSelectedNodeId}
                     selectedRouteId={routeSelection?.selected_node_id ?? null}
                     onSelectNode={handleSelectNode}
                   />

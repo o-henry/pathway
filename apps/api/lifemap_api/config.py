@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development", alias="APP_ENV")
     data_dir: Path = Field(default=Path("./data"), alias="LIFEMAP_DATA_DIR")
     sqlite_url: str = Field(default="sqlite:///./data/local.db", alias="LIFEMAP_SQLITE_URL")
-    llm_provider: str = Field(default="ollama", alias="LIFEMAP_LLM_PROVIDER")
+    llm_provider: str = Field(default="stub", alias="LIFEMAP_LLM_PROVIDER")
     llm_request_timeout_seconds: float = Field(
         default=60.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
     )

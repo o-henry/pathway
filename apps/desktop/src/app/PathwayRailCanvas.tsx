@@ -450,19 +450,19 @@ export default function PathwayRailCanvas({
         const targetDepth = targetLayout?.depth ?? sourceDepth + 1;
         if (targetDepth > sourceDepth) {
           return {
-            from: { nodeId: edge.source, port: "out", side: "right" as const },
-            to: { nodeId: edge.target, port: "in", side: "left" as const },
+            from: { nodeId: edge.source, port: "out" as const, side: "right" as const },
+            to: { nodeId: edge.target, port: "in" as const, side: "left" as const },
           };
         }
         if ((targetLayout?.y ?? 0) >= (sourceLayout?.y ?? 0)) {
           return {
-            from: { nodeId: edge.source, port: "out", side: "bottom" as const },
-            to: { nodeId: edge.target, port: "in", side: "top" as const },
+            from: { nodeId: edge.source, port: "out" as const, side: "bottom" as const },
+            to: { nodeId: edge.target, port: "in" as const, side: "top" as const },
           };
         }
         return {
-          from: { nodeId: edge.source, port: "out", side: "top" as const },
-          to: { nodeId: edge.target, port: "in", side: "bottom" as const },
+          from: { nodeId: edge.source, port: "out" as const, side: "top" as const },
+          to: { nodeId: edge.target, port: "in" as const, side: "bottom" as const },
         };
       });
     const graph: GraphData = {
@@ -486,6 +486,11 @@ export default function PathwayRailCanvas({
 
   const [graphData, setGraphData] = useState<GraphData>(adapted.graph);
 
+  const hiddenNodeIds = useMemo(
+    () => buildCollapsedDescendantSet(bundle, collapsedBranchNodeIds),
+    [bundle, collapsedBranchNodeIds],
+  );
+
   useEffect(() => {
     const visibleNodes = adapted.graph.nodes.filter((node) => !hiddenNodeIds.has(node.id));
     const visibleNodeIdSet = new Set(visibleNodes.map((node) => node.id));
@@ -505,11 +510,6 @@ export default function PathwayRailCanvas({
   useEffect(() => {
     setCollapsedBranchNodeIds(new Set());
   }, [bundle.bundle_id]);
-
-  const hiddenNodeIds = useMemo(
-    () => buildCollapsedDescendantSet(bundle, collapsedBranchNodeIds),
-    [bundle, collapsedBranchNodeIds],
-  );
 
   useEffect(() => {
     const canvas = graphCanvasRef.current;
