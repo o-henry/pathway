@@ -1,0 +1,26 @@
+/* shell layout styles */
+@import "./shell/app-shell.css";
+@import "./shell/workspace-panels.css";
+@import "./shell/canvas-surface.css";
+@import "./shell/graph-nodes-base.css";
+@import "./shell/graph-nodes-meta.css";
+@import "./shell/canvas-controls.css";
+@import "./shell/inspector-forms.css";
+@import "./shell/settings-hub.css";
+@import "./shell/feed-panel.css";
+@import "./shell/feed-stream.css";
+@import "./shell/feed-cards.css";
+@import "./shell/feed-documents.css";
+@import "./shell/feed-actions.css";
+@import "./shell/settings-view.css";
+@import "./shell/dashboard-overview.css";
+@import "./shell/dashboard-detail.css";
+@import "./shell/agents-setup.css";
+@import "./shell/agents-workspace.css";
+@import "./shell/agents-composer.css";
+@import "./shell/tasks-workspace.css";
+@import "./shell/shell-workspace.css";
+@import "./shell/childviews.css";
+@import "./shell/modals.css";
+@import "./shell/bridge.css";
+@import "./shell/theme-overrides.css";

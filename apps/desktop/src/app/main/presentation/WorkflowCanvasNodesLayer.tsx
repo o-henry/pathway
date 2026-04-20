@@ -1,0 +1,428 @@
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useI18n } from "../../../i18n";
+import { resolvePmPlanningMode, resolvePmPlanningModeLabel, type PmPlanningMode } from "../../../features/studio/pmPlanningMode";
+import { toStudioRoleId } from "../../../features/studio/roleUtils";
+import type { GraphNode, NodeAnchorSide, NodeExecutionStatus } from "../../../features/workflow/types";
+import { getTurnExecutor, getWebProviderFromExecutor, type TurnConfig } from "../../../features/workflow/domain";
+import type { MarqueeSelection, NodeRunState } from "../types";
+import type { WorkflowGraphViewMode } from "../../../features/workflow/viaGraph";
+import { viaNodeIconSrc, viaNodeIconText, viaNodeLabel } from "../../../features/workflow/viaCatalog";
+import { getRoleNodeInlineActionsMeta } from "./roleNodeInlineActions";
+
+type WorkflowCanvasNodesLayerProps = {
+  canvasNodes: GraphNode[];
+  graphNodes: GraphNode[];
+  graphViewMode: WorkflowGraphViewMode;
+  nodeStates: Record<string, NodeRunState>;
+  selectedNodeIds: string[];
+  draggingNodeIds: string[];
+  isConnectingDrag: boolean;
+  selectedEdgeNodeIdSet: Set<string>;
+  questionDirectInputNodeIds: Set<string>;
+  setNodeSelection: (nodeIds: string[], focusedNodeId?: string) => void;
+  setSelectedEdgeKey: (edgeKey: string) => void;
+  isNodeDragAllowedTarget: (target: EventTarget | null) => boolean;
+  onNodeDragStart: (event: ReactMouseEvent<HTMLDivElement>, nodeId: string) => void;
+  nodeAnchorSides: readonly NodeAnchorSide[];
+  onNodeAnchorDragStart: (event: ReactMouseEvent<HTMLButtonElement>, nodeId: string, side: NodeAnchorSide) => void;
+  onNodeAnchorDrop: (event: ReactMouseEvent<HTMLButtonElement>, nodeId: string, side: NodeAnchorSide) => void;
+  selectedEdgeKey: string;
+  onAssignSelectedEdgeAnchor: (nodeId: string, side: NodeAnchorSide) => boolean;
+  nodeCardSummary: (node: GraphNode) => string;
+  turnModelLabel: (node: GraphNode) => string;
+  turnRoleLabel: (node: GraphNode) => string;
+  nodeTypeLabel: (type: GraphNode["type"]) => string;
+  deleteNode: (nodeId: string) => void;
+  nodeStatusLabel: (status: NodeExecutionStatus) => string;
+  formatNodeElapsedTime: (state: NodeRunState | undefined, nowMs: number) => string;
+  runtimeNowMs: number;
+  onOpenFeedFromNode: (nodeId: string) => void;
+  onOpenWebInputForNode: (nodeId: string) => void;
+  openTerminalNodeId: string;
+  onToggleNodeTerminal: (nodeId: string) => void;
+  onSetPmPlanningMode: (nodeId: string, mode: PmPlanningMode) => void;
+  expandedRoleNodeIds: string[];
+  onToggleRoleInternalExpanded: (nodeId: string) => void;
+  onAddRolePerspectivePass: (nodeId: string) => void;
+  onAddRoleReviewPass: (nodeId: string) => void;
+  marqueeSelection: MarqueeSelection | null;
+};
+
+export default function WorkflowCanvasNodesLayer({
+  canvasNodes,
+  graphNodes,
+  graphViewMode,
+  nodeStates,
+  selectedNodeIds,
+  draggingNodeIds,
+  isConnectingDrag,
+  selectedEdgeNodeIdSet,
+  questionDirectInputNodeIds,
+  setNodeSelection,
+  setSelectedEdgeKey,
+  isNodeDragAllowedTarget,
+  onNodeDragStart,
+  nodeAnchorSides,
+  onNodeAnchorDragStart,
+  onNodeAnchorDrop,
+  selectedEdgeKey,
+  onAssignSelectedEdgeAnchor,
+  nodeCardSummary,
+  turnModelLabel,
+  turnRoleLabel,
+  nodeTypeLabel,
+  deleteNode,
+  nodeStatusLabel,
+  formatNodeElapsedTime,
+  runtimeNowMs,
+  onOpenFeedFromNode,
+  onOpenWebInputForNode,
+  openTerminalNodeId,
+  onToggleNodeTerminal,
+  onSetPmPlanningMode,
+  expandedRoleNodeIds,
+  onToggleRoleInternalExpanded,
+  onAddRolePerspectivePass,
+  onAddRoleReviewPass,
+  marqueeSelection,
+}: WorkflowCanvasNodesLayerProps) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {canvasNodes.map((node) => {
+        const runState = nodeStates[node.id];
+        const nodeStatus = runState?.status ?? "idle";
+        const nodeSummary = nodeCardSummary(node);
+        const isNodeSelected = selectedNodeIds.includes(node.id);
+        const isNodeDragging = draggingNodeIds.includes(node.id);
+        const showNodeAnchors = isNodeSelected || isConnectingDrag || selectedEdgeNodeIdSet.has(node.id);
+        const receivesQuestionDirectly = questionDirectInputNodeIds.has(node.id);
+        const sourceKind = String((node.config as Record<string, unknown>)?.sourceKind ?? "").trim().toLowerCase();
+        const canToggleTerminal = node.type === "turn" && sourceKind === "handoff";
+        const isTerminalOpen = canToggleTerminal && openTerminalNodeId === node.id;
+        const viaNodeType = String((node.config as Record<string, unknown>)?.viaNodeType ?? "").trim();
+        const turnExecutor = node.type === "turn" ? getTurnExecutor(node.config as TurnConfig) : null;
+        const webProvider = turnExecutor ? getWebProviderFromExecutor(turnExecutor) : null;
+        const isWebTurnNode = Boolean(webProvider);
+        const ragNodeLabel = viaNodeLabel(viaNodeType);
+        const ragNodeTypeLabel = ragNodeLabel.replace(/\s*\(미\/일\/중\/한\)\s*/g, "").trim();
+        const ragNodeIconText = viaNodeIconText(viaNodeType);
+        const ragNodeIconSrc = viaNodeIconSrc(viaNodeType);
+        const handoffRoleId = String((node.config as Record<string, unknown>)?.handoffRoleId ?? "")
+          .trim()
+          .toLowerCase();
+        const parsedHandoffRoleId = toStudioRoleId(handoffRoleId);
+        const pmPlanningMode = resolvePmPlanningMode(parsedHandoffRoleId, (node.config as Record<string, unknown>)?.pmPlanningMode);
+        const internalChildCount = graphNodes.filter((candidate) => {
+          const candidateConfig = candidate.config as Record<string, unknown>;
+          return String(candidateConfig.internalParentNodeId ?? "").trim() === node.id;
+        }).length;
+        const inlineActionMeta = getRoleNodeInlineActionsMeta({
+          sourceKind,
+          handoffRoleId: parsedHandoffRoleId ?? handoffRoleId,
+          pmPlanningMode,
+          roleMode: (node.config as Record<string, unknown>)?.roleMode,
+          internalChildCount,
+        });
+        const hasInlineRoleActions =
+          inlineActionMeta.showInternalToggle ||
+          inlineActionMeta.showPerspective ||
+          inlineActionMeta.showReview ||
+          inlineActionMeta.showModeButtons;
+        const inlineActionCount =
+          (inlineActionMeta.showInternalToggle ? 1 : 0) +
+          (inlineActionMeta.showPerspective ? 1 : 0) +
+          (inlineActionMeta.showReview ? 1 : 0) +
+          (inlineActionMeta.showModeButtons ? inlineActionMeta.modeOptions.length : 0);
+        const isInternalExpanded = expandedRoleNodeIds.includes(node.id);
+        const handoffRoleToken = handoffRoleId.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        const handoffRoleClass = handoffRoleToken ? `handoff-role-${handoffRoleToken}` : "";
+        const isDataPipelineNode =
+          node.type === "turn" && sourceKind === "data_pipeline";
+        const isDataResearchNode = node.type === "turn" && sourceKind === "data_research";
+        const internalParentNodeId = String((node.config as Record<string, unknown>)?.internalParentNodeId ?? "").trim();
+        const internalNodeKind = String((node.config as Record<string, unknown>)?.internalNodeKind ?? "").trim();
+        const internalKindLabel =
+          internalNodeKind === "research"
+            ? "조사"
+            : internalNodeKind === "synthesis"
+              ? "종합"
+              : internalNodeKind === "verification"
+                ? "검증"
+                : "내부";
+        const isInternalRoleNode = Boolean(internalParentNodeId);
+        const isRagModeNode = graphViewMode === "rag";
+        const isRagNodeRunning = isRagModeNode && nodeStatus === "running";
+        const pathwayTone = String((node.config as Record<string, unknown>)?.pathwayTone ?? "").trim().toLowerCase();
+        const pathwayFamily = String((node.config as Record<string, unknown>)?.pathwayFamily ?? "").trim().toLowerCase();
+        const isPathwayNode = sourceKind === "pathway";
+        const pathwayTitle = String((node.config as Record<string, unknown>)?.model ?? node.id).trim();
+        const pathwayKicker = String((node.config as Record<string, unknown>)?.role ?? pathwayFamily).trim();
+        const pathwayDepth = Number((node.config as Record<string, unknown>)?.pathwayDepth ?? -1);
+        const pathwayChildCount = Number((node.config as Record<string, unknown>)?.pathwayChildCount ?? 0);
+        const isPathwayLeaf = pathwayChildCount <= 0;
+        const pathwayNodeType = String((node.config as Record<string, unknown>)?.pathwayNodeType ?? "").trim().toLowerCase();
+        const pathwayVisualWidth = Number((node.config as Record<string, unknown>)?.pathwayVisualWidth ?? 176);
+        const pathwayVisualHeight = Number((node.config as Record<string, unknown>)?.pathwayVisualHeight ?? 36);
+        return (
+          <div
+            className={`graph-node node-${node.type} ${isRagModeNode ? "is-rag-mode-node" : ""} ${isRagNodeRunning ? "is-rag-running" : ""} ${isDataPipelineNode ? "is-data-pipeline-node" : ""} ${isDataResearchNode ? "is-data-research-node" : ""} ${isInternalRoleNode ? "is-internal-role-node" : ""} ${handoffRoleClass} ${isNodeSelected ? "selected" : ""} ${isNodeDragging ? "is-dragging" : ""}`.trim()}
+            data-node-id={node.id}
+            data-source-kind={sourceKind || undefined}
+            data-pathway-family={pathwayFamily || undefined}
+            data-pathway-depth={isPathwayNode && pathwayDepth >= 0 ? String(pathwayDepth) : undefined}
+            data-pathway-leaf={isPathwayNode ? String(isPathwayLeaf) : undefined}
+            data-pathway-node-type={pathwayNodeType || undefined}
+            data-pathway-tone={pathwayTone || undefined}
+            key={node.id}
+            onClick={(event) => {
+              if (event.shiftKey) {
+                const toggled = selectedNodeIds.includes(node.id)
+                  ? selectedNodeIds.filter((id) => id !== node.id)
+                  : [...selectedNodeIds, node.id];
+                setNodeSelection(toggled, node.id);
+              } else {
+                setNodeSelection([node.id], node.id);
+              }
+              setSelectedEdgeKey("");
+            }}
+            onMouseDown={(event) => {
+              if (!isNodeDragAllowedTarget(event.target)) return;
+              if (event.button !== 0 || isConnectingDrag) return;
+              onNodeDragStart(event, node.id);
+            }}
+            style={{
+              ...(isPathwayNode
+                ? ({
+                    "--pathway-node-width": `${pathwayVisualWidth}px`,
+                    "--pathway-node-height": `${pathwayVisualHeight}px`,
+                  } as CSSProperties)
+                : null),
+              left: node.position.x,
+              top: node.position.y,
+              transition: isNodeDragging
+                ? "none"
+                : "left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            {isRagModeNode ? (
+              <>
+                <div className="rag-node-shell">
+                  <div className={`rag-node-icon${isRagNodeRunning ? " is-loading" : ""}`}>
+                    {ragNodeIconSrc ? (
+                      <img alt="" aria-hidden="true" src={ragNodeIconSrc} />
+                    ) : (
+                      ragNodeIconText
+                    )}
+                  </div>
+                </div>
+                <span className="rag-node-type">{ragNodeTypeLabel || viaNodeType || turnRoleLabel(node)}</span>
+              </>
+            ) : (
+              <>
+                {isPathwayNode ? (
+                  <div className="pathway-branch-chip">
+                    <span className="pathway-branch-dot" aria-hidden="true" />
+                    <span className="pathway-branch-label" title={pathwayTitle}>
+                      {pathwayTitle}
+                    </span>
+                    {pathwayDepth === 0 ? (
+                      <span className="pathway-branch-kicker" title={pathwayKicker}>
+                        {pathwayKicker}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <>
+                    <div className="node-head">
+                      <div className="node-head-main">
+                        {node.type === "turn" ? (
+                          <>
+                            <div className="node-head-title-row">
+                              <strong>{turnModelLabel(node)}</strong>
+                            </div>
+                            <span className="node-head-subtitle">{turnRoleLabel(node)}</span>
+                          </>
+                        ) : (
+                          <div className="node-head-title-row">
+                            <strong className={node.type === "gate" ? "gate-node-title" : undefined}>{nodeTypeLabel(node.type)}</strong>
+                          </div>
+                        )}
+                      </div>
+                      <div className="node-head-actions">
+                        {isInternalRoleNode ? (
+                          <span className="node-type-badge internal node-head-action-badge">
+                            {`내부 ${internalKindLabel}`}
+                          </span>
+                        ) : null}
+                        {isDataPipelineNode ? <span className="node-type-badge data node-head-action-badge">DATA</span> : null}
+                        {isDataResearchNode ? <span className="node-type-badge research node-head-action-badge">RAG</span> : null}
+                        {canToggleTerminal ? (
+                          <button
+                            aria-label={isTerminalOpen ? "에이전트 터미널 닫기" : "에이전트 터미널 열기"}
+                            className={`node-head-icon-button${isTerminalOpen ? " is-active" : ""}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setNodeSelection([node.id], node.id);
+                              setSelectedEdgeKey("");
+                              onToggleNodeTerminal(node.id);
+                            }}
+                            title={isTerminalOpen ? "에이전트 터미널 닫기" : "에이전트 터미널 열기"}
+                            type="button"
+                          >
+                            <img
+                              alt=""
+                              aria-hidden="true"
+                              className="node-head-icon-image"
+                              src={isTerminalOpen ? "/terminal-open.svg" : "/terminal-close.svg"}
+                            />
+                          </button>
+                        ) : null}
+                        <button className="node-head-delete-button" onClick={() => deleteNode(node.id)} type="button">
+                          {t("common.delete")}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="node-body">
+                      {nodeSummary ? <div className="node-summary-row"><div>{nodeSummary}</div></div> : null}
+                      <div className="node-runtime-meta">
+                        <div>
+                          {t("workflow.node.completion")}: {" "}
+                          {nodeStatus === "done"
+                            ? t("label.status.done")
+                            : nodeStatus === "low_quality"
+                              ? t("label.status.low_quality")
+                              : nodeStatus === "failed"
+                                ? t("label.status.failed")
+                                : nodeStatus === "cancelled"
+                                  ? t("label.status.cancelled")
+                                  : t("label.status.idle")}
+                        </div>
+                        <div>{t("workflow.node.elapsed")}: {formatNodeElapsedTime(runState, runtimeNowMs)}</div>
+                      </div>
+                      <button className="node-feed-link" onClick={() => onOpenFeedFromNode(node.id)} type="button">{t("workflow.node.outputInFeed")}</button>
+                    </div>
+                    <div className="node-wait-slot">
+                      <span className={`status-pill status-${nodeStatus}`}>{nodeStatusLabel(nodeStatus)}</span>
+                      <div className="node-wait-actions">
+                        {receivesQuestionDirectly && (
+                          <span className="node-input-chip">
+                            <span className="node-input-chip-text">{t("workflow.node.inputDirect")}</span>
+                          </span>
+                        )}
+                        {isWebTurnNode && (
+                          <button
+                            className="node-wait-action-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenWebInputForNode(node.id);
+                            }}
+                            type="button"
+                          >
+                            수동입력
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {hasInlineRoleActions && (
+                      <div
+                        className="node-inline-action-rail"
+                        style={{ "--node-inline-action-count": String(Math.max(1, inlineActionCount)) } as CSSProperties}
+                      >
+                        {inlineActionMeta.showInternalToggle && (
+                          <button
+                            className={`node-inline-action-button${isInternalExpanded ? " is-active" : ""}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onToggleRoleInternalExpanded(node.id);
+                            }}
+                            type="button"
+                          >
+                            내부작업
+                          </button>
+                        )}
+                        {inlineActionMeta.showPerspective && (
+                          <button
+                            className="node-inline-action-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onAddRolePerspectivePass(node.id);
+                            }}
+                            type="button"
+                          >
+                            추가시각
+                          </button>
+                        )}
+                        {inlineActionMeta.showReview && (
+                          <button
+                            className="node-inline-action-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onAddRoleReviewPass(node.id);
+                            }}
+                            type="button"
+                          >
+                            재검토
+                          </button>
+                        )}
+                        {inlineActionMeta.showModeButtons && inlineActionMeta.pmMode && inlineActionMeta.modeOptions.map((mode) => (
+                          <button
+                            className={`node-inline-action-button${inlineActionMeta.pmMode === mode ? " is-active" : ""}`}
+                            key={`${node.id}-${mode}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSetPmPlanningMode(node.id, mode);
+                            }}
+                            type="button"
+                          >
+                            {resolvePmPlanningModeLabel(mode)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            {showNodeAnchors && (
+              <div className="node-anchors">
+                {nodeAnchorSides.map((side) => (
+                  <button
+                    aria-label={`${t("workflow.node.connection")} ${side}`}
+                    className={`node-anchor node-anchor-${side}`}
+                    key={`${node.id}-${side}`}
+                    onMouseDown={(e) => {
+                      if (!isConnectingDrag && selectedEdgeKey) {
+                        const applied = onAssignSelectedEdgeAnchor(node.id, side);
+                        if (applied) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          return;
+                        }
+                      }
+                      onNodeAnchorDragStart(e, node.id, side);
+                    }}
+                    onMouseUp={(e) => onNodeAnchorDrop(e, node.id, side)}
+                    type="button"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {marqueeSelection && (
+        <div
+          className="marquee-selection"
+          style={{
+            left: Math.min(marqueeSelection.start.x, marqueeSelection.current.x),
+            top: Math.min(marqueeSelection.start.y, marqueeSelection.current.y),
+            width: Math.abs(marqueeSelection.current.x - marqueeSelection.start.x),
+            height: Math.abs(marqueeSelection.current.y - marqueeSelection.start.y),
+          }}
+        />
+      )}
+    </>
+  );
+}

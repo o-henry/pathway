@@ -3,6 +3,7 @@
 Pathway는 로컬 우선 방식으로 동작하는 개인용 decision graph workspace입니다.
 사용자의 목표를 먼저 받고, 그 목표에 필요한 리소스 차원을 분석한 뒤,
 시간/돈/거리/에너지/지속성 같은 현재 조건을 반영해 가능한 선택 경로를 그래프로 펼쳐 보여주는 구조를 목표로 합니다.
+이제 기본 실행 타깃은 `apps/desktop` + `src-tauri` 기반 데스크톱 워크스페이스입니다.
 
 현재 저장소는 `Phase 8` 기반 위에, `Pathway` 리프레임의 첫 번째 foundation 단계가 올라간 상태입니다.
 이 단계에서는 정적 `check-in` 흐름을 넘어서, `goal analysis -> current state -> state updates -> route selection -> revision preview` 흐름을 제품 표면에 추가했습니다.
@@ -27,8 +28,10 @@ Pathway는 로컬 우선 방식으로 동작하는 개인용 decision graph work
 
 ## Workspace layout
 
-- `apps/web`: SvelteKit 기반 프론트엔드
+- `apps/desktop`: React + Vite 기반 데스크톱 UI
+- `apps/web`: 이전 SvelteKit UI 경로, 현재는 보조/legacy 상태
 - `apps/api`: FastAPI 기반 로컬 API
+- `src-tauri`: Tauri 데스크톱 셸
 - `docs/`: phased implementation plan, architecture, security, state docs
 - `assets/references/`: visual direction references
 - `data/`: local runtime data directory, git ignored except `.gitkeep`
@@ -49,6 +52,32 @@ pnpm install
 uv sync
 ```
 
+## Run desktop app
+
+```bash
+pnpm dev
+```
+
+이 명령은 `Tauri` 데스크톱 앱을 기본 실행 경로로 띄우고, 내부적으로 데스크톱 UI dev server(`1420`)와 로컬 API(`8000`)를 함께 기동합니다.
+이미 같은 포트를 쓰는 예전 dev 서버가 남아 있으면 시작 전에 자동으로 정리합니다.
+
+## Run desktop services only
+
+```bash
+pnpm dev:desktop:services
+```
+
+이 명령은 `Tauri` 창 없이 데스크톱 UI dev server(`1420`)와 API(`8000`)만 띄웁니다.
+
+## Run web + API together
+
+```bash
+pnpm dev:web:full
+```
+
+이 경로는 보조/legacy 검증용입니다. 웹 UI(`5173`)와 로컬 API(`8000`)를 함께 띄웁니다.
+이미 같은 포트를 쓰는 예전 dev 서버가 남아 있으면 시작 전에 자동으로 정리합니다.
+
 ## Run web
 
 ```bash
@@ -61,10 +90,24 @@ pnpm dev:web
 pnpm dev:api
 ```
 
-## Run all dev services
+## Run desktop app + API explicitly
 
 ```bash
-pnpm dev
+pnpm dev:desktop
+```
+
+또는:
+
+```bash
+pnpm dev:desktop:full
+```
+
+두 명령 모두 `Tauri` 데스크톱 앱을 띄우며, 내부적으로 데스크톱 UI와 API를 함께 기동합니다.
+
+## Build desktop app
+
+```bash
+pnpm build:desktop
 ```
 
 ## Verification commands
@@ -72,9 +115,10 @@ pnpm dev
 Frontend unit/type:
 
 ```bash
-pnpm test:web
+pnpm --filter desktop typecheck
 pnpm typecheck
-pnpm lint:web
+pnpm --filter desktop build
+pnpm check:desktop
 ```
 
 Backend:
@@ -132,13 +176,17 @@ cp -R /path/to/backup/lancedb data/lancedb
 
 - 기본 그래프 스키마는 고정 enum이 아니라 per-map ontology를 갖는 `GraphBundle`입니다.
 - 백엔드가 graph bundle validation의 source of truth입니다.
+- 데스크톱 앱 엔트리포인트는 `src-tauri/` 아래에 있습니다.
+- 현재 기본 UI 표면은 `apps/desktop` React/Tauri 워크스페이스입니다.
+- `apps/web` Svelte 경로는 보조/legacy 검증 경로로 유지되고 있습니다.
+- 현재 Tauri는 기존 FastAPI 아키텍처를 유지하는 sidecar-friendly 개발 경로를 먼저 가집니다.
+- 개발 모드에서는 Tauri가 필요한 경우 로컬 API(`127.0.0.1:8000`)를 자동 기동하려고 시도합니다.
 - retrieval은 manual ingest 중심이며, 허용된 URL ingestion은 아직 preview/policy 판정 단계입니다.
 - 목표 생성 직후 `goal analysis`를 만들어, 어떤 리소스 차원을 추적해야 하는지 명시적으로 남길 수 있습니다.
 - `current state snapshot`은 최신 사용자 상태를 나타내고, `state updates`는 append-only 기록으로 누적됩니다.
 - `route selection`과 `revision preview`를 통해, 현재 선택한 경로와 그래프 변경 후보를 분리해서 다룰 수 있습니다.
 - 프론트의 graph engine chunk는 아직 큽니다. lazy loading은 적용했지만 추가 chunk split 최적화는 후속 과제입니다.
-- SvelteKit production adapter는 아직 `adapter-auto` 상태입니다.
-- 현재 제품은 Pathway 리프레임 foundation 상태이며, 다음 주요 과제는 그래프 중심 워크스페이스 자체를 더 강하게 밀어붙이는 UI 리디자인입니다.
+- 현재 제품은 다시 데스크톱 우선 경로를 기준으로 다듬는 중이며, 다음 주요 과제는 Python 백엔드의 배포 경로와 그래프 상호작용 완성도를 올리는 것입니다.
 
 ## Phase status
 

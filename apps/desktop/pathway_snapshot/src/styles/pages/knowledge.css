@@ -1,0 +1,4 @@
+/* knowledge page styles */
+@import "./knowledge/layout.css";
+@import "./knowledge/detail.css";
+@import "./knowledge/external.css";

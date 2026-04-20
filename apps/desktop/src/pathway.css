@@ -1,0 +1,942 @@
+.pathway-error-screen {
+  min-height: 100vh;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+  background: #f6f6f6;
+  color: #182030;
+}
+
+.pathway-error-screen h2,
+.pathway-error-screen p,
+.pathway-error-screen pre {
+  margin: 0;
+}
+
+.pathway-error-screen pre {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #dbe2ea;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pathway-error-screen button {
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.pathway-rail-canvas {
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+.pathway-rail-canvas .canvas-pane-pathway {
+  gap: 0;
+}
+
+.pathway-rail-canvas .canvas-main-row {
+  min-height: 0;
+}
+
+.pathway-rail-canvas .graph-canvas-shell-pathway {
+  border-radius: 0;
+  box-shadow: none;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(239, 228, 255, 0.92), transparent 24%),
+    radial-gradient(circle at 76% 20%, rgba(238, 230, 255, 0.72), transparent 22%),
+    linear-gradient(180deg, #faf8f6 0%, #f6f3ef 100%);
+}
+
+.pathway-rail-canvas .graph-canvas-pathway {
+  border-radius: 0;
+  background-color: transparent;
+  background-image:
+    linear-gradient(to right, rgba(126, 116, 162, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(126, 116, 162, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.pathway-rail-canvas .canvas-overlay-pathway {
+  padding: 14px 18px;
+}
+
+.pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-controls {
+  gap: 8px;
+}
+
+.pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-group,
+.pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-single {
+  border: 1px solid rgba(131, 121, 170, 0.18);
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 10px 26px rgba(104, 95, 138, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.pathway-rail-canvas .edge-path {
+  stroke: #8d85bf !important;
+  stroke-width: 1.7 !important;
+  opacity: 0.96;
+}
+
+.pathway-rail-canvas .edge-path.selected {
+  stroke: #695cc7 !important;
+  stroke-width: 2.1 !important;
+}
+
+.pathway-rail-canvas .edge-arrow-handle,
+.pathway-rail-canvas .edge-path-hit {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] {
+  width: var(--pathway-node-width, 176px);
+  min-height: var(--pathway-node-height, 36px);
+  height: var(--pathway-node-height, 36px);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"]::before {
+  content: "";
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  width: 18px;
+  height: 1.5px;
+  background: rgba(141, 133, 191, 0.86);
+  transform: translate(-100%, -50%);
+  pointer-events: none;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"]::before {
+  display: none;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-chip {
+  --branch-bg: rgba(244, 240, 252, 0.95);
+  --branch-text: #5d587a;
+  --branch-dot-bg: rgba(250, 248, 255, 0.98);
+  --branch-dot-border: rgba(120, 112, 159, 0.62);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px 0 18px;
+  border-radius: 12px;
+  background: var(--branch-bg);
+  color: var(--branch-text);
+  box-shadow: 0 16px 34px rgba(111, 103, 145, 0.1);
+  overflow: hidden;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(250, 246, 255, 0.68) 0%, rgba(239, 231, 252, 0.42) 100%);
+  pointer-events: none;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"] {
+  --pathway-node-width: 220px;
+  --pathway-node-height: 56px;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"] .pathway-branch-chip {
+  --branch-bg: linear-gradient(90deg, #7a74b8 0%, #8680c6 100%);
+  --branch-text: #ffffff;
+  --branch-dot-bg: rgba(255, 255, 255, 0.2);
+  --branch-dot-border: rgba(255, 255, 255, 0.88);
+  justify-content: flex-start;
+  padding-right: 22px;
+  border-radius: 18px;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="decision"] .pathway-branch-chip {
+  --branch-bg: linear-gradient(90deg, rgba(232, 225, 250, 0.96) 0%, rgba(239, 234, 252, 0.96) 100%);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="route"] .pathway-branch-chip,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="resource"] .pathway-branch-chip {
+  --branch-bg: linear-gradient(90deg, rgba(245, 237, 252, 0.95) 0%, rgba(249, 245, 253, 0.98) 100%);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="constraint"] .pathway-branch-chip,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="risk"] .pathway-branch-chip,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="evidence"] .pathway-branch-chip {
+  --branch-bg: linear-gradient(90deg, rgba(248, 230, 244, 0.92) 0%, rgba(253, 246, 250, 0.98) 100%);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-dot {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--branch-dot-bg);
+  border: 1.5px solid var(--branch-dot-border);
+  flex: 0 0 auto;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-label,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-kicker {
+  position: relative;
+  z-index: 1;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-label {
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"] .pathway-branch-label {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-kicker {
+  margin-left: auto;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"].selected .pathway-branch-chip,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"]:hover .pathway-branch-chip {
+  box-shadow:
+    0 0 0 1px rgba(126, 116, 184, 0.22),
+    0 20px 40px rgba(111, 103, 145, 0.16);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"].selected[data-pathway-depth="0"] .pathway-branch-chip,
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"]:hover .pathway-branch-chip {
+  box-shadow:
+    0 0 0 1px rgba(122, 116, 184, 0.18),
+    0 14px 34px rgba(103, 97, 151, 0.22);
+}
+
+.workspace > .pathway-workspace-shell,
+.workspace > .pathway-grid-layout {
+  min-height: 0;
+  height: 100%;
+  width: auto;
+  padding: 0 14px 14px;
+}
+
+.workspace > .pathway-workflow-shell {
+  min-height: 0;
+  height: 100%;
+  width: auto;
+  padding: 0 14px 14px;
+}
+
+.pathway-status-chip {
+  max-width: min(420px, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pathway-workflow-shell {
+  min-height: 0;
+}
+
+.pathway-workflow-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  gap: 14px;
+  padding: 16px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 244, 238, 0.98)),
+    radial-gradient(circle at top left, rgba(125, 119, 192, 0.08), transparent 32%);
+  border: 1px solid rgba(207, 213, 222, 0.85);
+}
+
+.pathway-workflow-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pathway-workflow-titleblock {
+  max-width: 760px;
+}
+
+.pathway-workflow-titleblock strong {
+  display: block;
+  color: #1f2430;
+  font-size: 25px;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.pathway-workflow-titleblock p {
+  margin: 8px 0 0;
+  color: #697484;
+  font-size: 13px;
+  line-height: 1.58;
+  letter-spacing: -0.01em;
+}
+
+.pathway-workflow-header .pathway-panel-kicker {
+  color: #7d8795;
+}
+
+.pathway-workflow-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pathway-workflow-stat {
+  padding: 8px 10px;
+  border: 1px solid rgba(210, 216, 226, 0.88);
+  background: rgba(255, 255, 255, 0.82);
+  color: #66707f;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pathway-workflow-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.pathway-workflow-body.has-inspector {
+  grid-template-columns: 220px minmax(0, 1fr) 320px;
+}
+
+.pathway-workflow-rail {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.pathway-workflow-rail-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(213, 219, 229, 0.92);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.pathway-loop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.pathway-loop-list li {
+  display: grid;
+  gap: 2px;
+  padding-left: 14px;
+  position: relative;
+}
+
+.pathway-loop-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(166, 177, 197, 0.58);
+}
+
+.pathway-loop-list li.is-complete::before {
+  background: #8a81ff;
+  box-shadow: 0 0 0 4px rgba(138, 129, 255, 0.15);
+}
+
+.pathway-loop-list strong {
+  color: #1f2430;
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.pathway-loop-list span {
+  color: #707b8b;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.pathway-workflow-main {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.pathway-workflow-canvas-panel {
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid rgba(213, 219, 229, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.pathway-request-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(213, 219, 229, 0.92);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.pathway-request-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pathway-request-head strong {
+  display: block;
+  color: #1f2430;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.pathway-field {
+  display: grid;
+  gap: 6px;
+}
+
+.pathway-field > span {
+  color: #7b8695;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pathway-request-textarea {
+  min-height: 88px;
+}
+
+.pathway-request-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pathway-workflow-inspector {
+  position: static;
+  min-height: 0;
+  width: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: rgba(44, 48, 56, 0.94);
+  border: 1px solid rgba(94, 103, 120, 0.42);
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+}
+
+.pathway-workflow-inspector.is-open {
+  opacity: 1;
+}
+
+.pathway-workflow-inspector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pathway-workflow-inspector-head strong {
+  display: block;
+  color: #f4f7fb;
+  font-size: 19px;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.pathway-workflow-inspector-body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding-right: 4px;
+}
+
+.pathway-inspector-section {
+  display: grid;
+  gap: 8px;
+}
+
+.pathway-workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.7fr);
+  gap: 12px;
+}
+
+.pathway-grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 12px;
+}
+
+.pathway-board-column,
+.pathway-sidebar-column,
+.pathway-form-card,
+.pathway-list-card,
+.pathway-side-card {
+  min-height: 0;
+}
+
+.pathway-board-column,
+.pathway-form-card,
+.pathway-list-card,
+.pathway-side-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.pathway-sidebar-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.pathway-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pathway-panel-head strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.pathway-panel-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pathway-panel-copy {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.62;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.pathway-workflow-frame .pathway-panel-copy {
+  color: #6b7686;
+}
+
+.pathway-head-actions,
+.pathway-actions-row,
+.pathway-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pathway-primary-button {
+  background: #202631;
+  color: #ffffff;
+  border-color: #202631;
+}
+
+.pathway-input,
+.pathway-textarea {
+  width: 100%;
+  border: 1px solid var(--surface-strong);
+  background: #ffffff;
+  color: var(--text-main);
+  padding: 10px 12px;
+  resize: none;
+}
+
+.pathway-input:focus,
+.pathway-input:focus-visible,
+.pathway-textarea:focus,
+.pathway-textarea:focus-visible {
+  outline: none;
+  border-color: #5f88d7;
+  box-shadow: 0 0 0 1px rgba(95, 136, 215, 0.22);
+}
+
+.pathway-textarea {
+  min-height: 90px;
+}
+
+.pathway-textarea-large {
+  min-height: 128px;
+}
+
+.pathway-graph-surface {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--surface-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 248, 251, 0.96)),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 27px,
+      rgba(102, 113, 128, 0.06) 27px,
+      rgba(102, 113, 128, 0.06) 28px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 27px,
+      rgba(102, 113, 128, 0.05) 27px,
+      rgba(102, 113, 128, 0.05) 28px
+    );
+}
+
+.pathway-graph-scroll {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.pathway-graph-stage {
+  position: relative;
+}
+
+.pathway-edge-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pathway-edge-path {
+  fill: none;
+  stroke: rgba(76, 95, 123, 0.7);
+  stroke-width: 1.6;
+}
+
+.pathway-edge-path.is-active {
+  stroke: #2358a5;
+  stroke-width: 2.2;
+}
+
+.pathway-edge-label {
+  fill: #5d6878;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.pathway-node {
+  position: absolute;
+  width: 248px;
+  padding: 14px;
+  border: 1px solid #cdd7e2;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 28px rgba(20, 30, 39, 0.08);
+  cursor: pointer;
+}
+
+.pathway-node.selected,
+.pathway-node.is-route-selected {
+  border-color: #3b6fbe;
+  box-shadow: 0 14px 30px rgba(32, 74, 140, 0.14);
+}
+
+.pathway-node-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pathway-node-kicker {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pathway-node-head strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.pathway-node-badge,
+.pathway-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  background: #eef2f6;
+  color: #334155;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pathway-status-pill-warning {
+  background: #fff2db;
+  color: #8e5d10;
+}
+
+.pathway-node-summary {
+  margin: 10px 0 0;
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.pathway-node-meta-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.pathway-node-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e7edf4;
+}
+
+.pathway-node-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.pathway-node-field span {
+  color: var(--text-muted);
+}
+
+.pathway-node-field strong {
+  color: var(--text-main);
+  text-align: right;
+}
+
+.pathway-goal-list,
+.pathway-detail-list,
+.pathway-fact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.pathway-list-button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--surface-strong);
+  background: #ffffff;
+}
+
+.pathway-list-button.is-active {
+  border-color: #4d7ecd;
+  background: #eef4ff;
+}
+
+.pathway-list-button strong,
+.pathway-detail-list strong,
+.pathway-fact-list strong {
+  color: var(--text-main);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.pathway-list-button span,
+.pathway-detail-list span,
+.pathway-detail-list p,
+.pathway-fact-list span {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.58;
+  letter-spacing: -0.01em;
+}
+
+.pathway-detail-list li,
+.pathway-fact-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-strong);
+  background: #ffffff;
+}
+
+.pathway-workflow-inspector .pathway-detail-list li,
+.pathway-workflow-inspector .pathway-fact-list li {
+  border-color: rgba(118, 129, 151, 0.18);
+  background: rgba(20, 26, 34, 0.88);
+}
+
+.pathway-workflow-inspector .pathway-detail-list strong,
+.pathway-workflow-inspector .pathway-fact-list strong {
+  color: #f1f5fa;
+}
+
+.pathway-workflow-inspector .pathway-detail-list span,
+.pathway-workflow-inspector .pathway-detail-list p,
+.pathway-workflow-inspector .pathway-fact-list span {
+  color: rgba(217, 224, 237, 0.7);
+}
+
+@media (max-width: 1280px) {
+  .pathway-workflow-header {
+    flex-direction: column;
+  }
+
+  .pathway-workflow-body,
+  .pathway-workflow-body.has-inspector {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .pathway-workflow-inspector {
+    grid-column: 1 / -1;
+    max-height: 320px;
+  }
+
+  .pathway-request-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .pathway-workflow-body,
+  .pathway-workflow-body.has-inspector {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pathway-fact-list li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.pathway-fact-list strong {
+  text-align: right;
+}
+
+.pathway-knowledge-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.pathway-knowledge-stack section {
+  display: grid;
+  gap: 8px;
+}
+
+.pathway-knowledge-stack h3 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.pathway-empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 16px;
+  border: 1px dashed var(--surface-strong);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.pathway-empty-state strong {
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.pathway-empty-state p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.tone-slate {
+  border-top: 3px solid #7b8794;
+}
+
+.tone-cyan {
+  border-top: 3px solid #4f89d8;
+}
+
+.tone-amber {
+  border-top: 3px solid #d4933d;
+}
+
+.tone-emerald {
+  border-top: 3px solid #4b9c7b;
+}
+
+.tone-rose {
+  border-top: 3px solid #d26a7a;
+}
+
+@media (max-width: 1180px) {
+  .pathway-workspace-shell,
+  .pathway-grid-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pathway-board-column {
+    min-height: 560px;
+  }
+}

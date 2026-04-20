@@ -1,0 +1,50 @@
+import type { CSSProperties, ReactNode, RefObject } from "react";
+import type { VisualizeWidgetId } from "./visualizeWidgetLayout";
+
+type VisualizeWidgetFrameProps = {
+  widgetId: VisualizeWidgetId;
+  title: string;
+  style?: CSSProperties;
+  articleRef?: RefObject<HTMLElement | null>;
+  maximized?: boolean;
+  onToggleMaximize: (widgetId: VisualizeWidgetId) => void;
+  className?: string;
+  surfaceClassName?: string;
+  headerActions?: ReactNode;
+  children: ReactNode;
+};
+
+export function VisualizeWidgetFrame({
+  widgetId,
+  title,
+  style,
+  articleRef,
+  maximized = false,
+  onToggleMaximize,
+  className = "",
+  surfaceClassName = "",
+  headerActions,
+  children,
+}: VisualizeWidgetFrameProps) {
+  return (
+    <article
+      className={`visualize-monitor-widget ${className}${maximized ? " is-maximized" : ""}`.trim()}
+      ref={articleRef}
+      style={style}
+    >
+      <header
+        className="visualize-monitor-widget-head"
+        onDoubleClick={() => onToggleMaximize(widgetId)}
+        title="Double-click to expand"
+      >
+        <div className="visualize-monitor-widget-head-main">
+          <div className="visualize-monitor-widget-head-copy">
+            <strong>{title}</strong>
+          </div>
+        </div>
+        {headerActions ? <div className="visualize-monitor-widget-head-actions">{headerActions}</div> : null}
+      </header>
+      <div className={`visualize-monitor-widget-surface ${surfaceClassName}`.trim()}>{children}</div>
+    </article>
+  );
+}

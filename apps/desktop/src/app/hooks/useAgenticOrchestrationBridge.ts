@@ -1,0 +1,1271 @@
+import { useCallback, useEffect, type MutableRefObject } from "react";
+import type { DashboardTopicId } from "../../features/dashboard/intelligence";
+import type { AgenticAction, AgenticActionSubscriber } from "../../features/orchestration/agentic/actionBus";
+import {
+  createAgenticRunEnvelope,
+  createAgenticRunId,
+  patchRunStage,
+  patchRunStatus,
+  type AgenticRunEnvelope,
+  type AgenticRunEvent,
+} from "../../features/orchestration/agentic/runContract";
+import { toStudioRoleId } from "../../features/studio/roleUtils";
+import { resolveTaskAgentMetadata } from "../../features/studio/taskAgentMetadata";
+import type { PresetKind } from "../../features/workflow/domain";
+import type { WorkspaceTab } from "../mainAppGraphHelpers";
+import { runGraphWithCoordinator, runTopicWithCoordinator } from "../main/runtime/agenticCoordinator";
+import { persistAgenticRunEnvelope } from "../main/runtime/agenticRunStore";
+import { runRoleWithCoordinator } from "../main/runtime/agenticRoleCoordinator";
+import { extractTaskRoleCodexRunArtifactPaths, runTaskRoleWithCodex } from "../main/runtime/runTaskRoleWithCodex";
+import { buildTaskThreadContextSummary } from "../main/runtime/taskThreadContextSummary";
+import { runTaskCollaborationWithCodex } from "../main/runtime/runTaskCollaborationWithCodex";
+import { shouldSkipRecentTaskRoleRun } from "../main/runtime/taskRoleRunDeduper";
+import { shouldDeduplicateTaskRoleRun } from "../main/runtime/taskRoleRunDeduperPolicy";
+import type { AgenticQueue } from "../main/runtime/agenticQueue";
+import { recordTaskRoleLearningOutcome } from "../adaptation/taskRoleLearning";
+import {
+  bootstrapRoleKnowledgeProfile,
+  injectRoleKnowledgePrompt,
+  storeRoleKnowledgeProfile,
+} from "../main/runtime/roleKnowledgePipeline";
+
+type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+type AppendWorkspaceEvent = (params: {
+  source: string;
+  message: string;
+  actor?: "user" | "ai" | "system";
+  level?: "info" | "error";
+  runId?: string;
+  topic?: string;
+}) => void;
+
+type RunDashboardTopic = (
+  topic: DashboardTopicId,
+  followupInstruction?: string,
+  options?: {
+    runId?: string;
+    onProgress?: (stage: string, message: string) => void;
+  },
+) => Promise<unknown>;
+
+function presetForRole(roleId: string): PresetKind {
+  const normalized = String(roleId ?? "").toLowerCase();
+  if (normalized.includes("qa")) {
+    return "validation";
+  }
+  if (normalized.includes("build") || normalized.includes("release")) {
+    return "fullstack";
+  }
+  if (normalized.includes("art")) {
+    return "creative";
+  }
+  if (normalized.includes("planner") || normalized.includes("pm")) {
+    return "research";
+  }
+  if (normalized.includes("tooling") || normalized.includes("system")) {
+    return "expert";
+  }
+  return "development";
+}
+
+function sanitizeToken(raw: string): string {
+  const normalized = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || "role";
+}
+
+function toRoleShortToken(rawRoleId: string): string {
+  const roleId = String(rawRoleId ?? "").trim();
+  if (roleId === "pm_planner") {
+    return "pm";
+  }
+  if (roleId === "pm_creative_director") {
+    return "pm_idea";
+  }
+  if (roleId === "pm_feasibility_critic") {
+    return "pm_critic";
+  }
+  if (roleId === "client_programmer") {
+    return "client";
+  }
+  if (roleId === "system_programmer") {
+    return "system";
+  }
+  if (roleId === "tooling_engineer") {
+    return "tooling";
+  }
+  if (roleId === "art_pipeline") {
+    return "art";
+  }
+  if (roleId === "qa_engineer") {
+    return "qa";
+  }
+  if (roleId === "build_release") {
+    return "release";
+  }
+  if (roleId === "technical_writer") {
+    return "docs";
+  }
+  return sanitizeToken(roleId);
+}
+
+function toCompactTimestamp(date = new Date()): string {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+}
+
+function buildRoleArtifactJson(params: {
+  runId: string;
+  roleId: string;
+  taskId: string;
+  prompt?: string;
+  artifactPaths: string[];
+  internal?: boolean;
+}): string {
+  const metadata = resolveTaskAgentMetadata(params.roleId, Boolean(params.internal));
+  return `${JSON.stringify(
+    {
+      runId: String(params.runId ?? "").trim(),
+      roleId: String(params.roleId ?? "").trim(),
+      roleLabel: metadata.taskAgentLabel || metadata.studioRoleLabel || String(params.roleId ?? "").trim(),
+      studioRoleId: String(params.roleId ?? "").trim(),
+      studioRoleLabel: metadata.studioRoleLabel || null,
+      taskAgentId: metadata.taskAgentId || null,
+      taskAgentLabel: metadata.taskAgentLabel || null,
+      orchestratorAgentId: metadata.orchestratorAgentId || null,
+      orchestratorAgentLabel: metadata.orchestratorAgentLabel || null,
+      taskId: String(params.taskId ?? "").trim(),
+      createdAt: new Date().toISOString(),
+      prompt: String(params.prompt ?? "").trim(),
+      artifactPaths: params.artifactPaths,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function dispatchTasksRoleEvent(params: {
+  taskId: string;
+  sourceTab: "tasks" | "tasks-thread";
+  studioRoleId: string;
+  runId?: string;
+  type: string;
+  stage?: string | null;
+  message?: string;
+  internal?: boolean;
+  promptMode?: "direct" | "orchestrate" | "brief" | "critique" | "judge" | "verify" | "final";
+  payload?: Record<string, unknown>;
+}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent("rail:tasks-role-event", {
+    detail: {
+      sourceTab: params.sourceTab,
+      taskId: params.taskId,
+      studioRoleId: params.studioRoleId,
+      runId: params.runId,
+      type: params.type,
+      stage: params.stage ?? null,
+      message: params.message ?? "",
+      payload: {
+        ...(params.payload ?? {}),
+        internal: Boolean(params.internal),
+        promptMode: params.promptMode ?? null,
+      },
+      at: new Date().toISOString(),
+    },
+  }));
+}
+
+function dispatchTasksOrchestrationResolved(params: {
+  taskId: string;
+  sourceTab: "tasks" | "tasks-thread";
+  participantRoleIds: string[];
+  primaryRoleId: string;
+  criticRoleId?: string;
+  orchestrationSummary?: string;
+}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent("rail:tasks-orchestration-resolved", {
+    detail: {
+      sourceTab: params.sourceTab,
+      taskId: params.taskId,
+      participantRoleIds: params.participantRoleIds,
+      primaryRoleId: params.primaryRoleId,
+      criticRoleId: params.criticRoleId ?? "",
+      orchestrationSummary: params.orchestrationSummary ?? "",
+      at: new Date().toISOString(),
+    },
+  }));
+}
+
+function extractRunEnvelopeError(envelope: AgenticRunEnvelope | undefined): string {
+  if (!envelope) {
+    return "";
+  }
+  const stageError = [...envelope.stages]
+    .reverse()
+    .find((stage) => stage.status === "error" && String(stage.error || stage.message || "").trim());
+  return String(stageError?.error || stageError?.message || "").trim();
+}
+
+export function useAgenticOrchestrationBridge(params: {
+  cwd: string;
+  selectedGraphFileName?: string;
+  graphFileName: string;
+  queue: AgenticQueue;
+  invokeFn: InvokeFn;
+  appendWorkspaceEvent: AppendWorkspaceEvent;
+  triggerBatchByUserEvent: () => void;
+  runGraphCore: (skipWebConnectPreflight?: boolean, questionOverride?: string) => Promise<void>;
+  graphRunOverrideIdRef: MutableRefObject<string | null>;
+  publishAction: (action: AgenticAction) => void;
+  subscribeAction: (handler: AgenticActionSubscriber) => () => void;
+  loginCompleted: boolean;
+  setError: (message: string) => void;
+  setWorkspaceTab: (tab: WorkspaceTab) => void;
+  workspaceTab: WorkspaceTab;
+  runDashboardTopic: RunDashboardTopic;
+  refreshDashboardSnapshots: () => Promise<void>;
+  onSelectWorkspaceTab: (tab: WorkspaceTab) => void;
+  setNodeSelection: (nodeIds: string[], selectedNodeId?: string) => void;
+  setStatus: (message: string) => void;
+  applyPreset: (presetKind: PresetKind) => void;
+  onRoleRunCompleted?: (payload: {
+    runId: string;
+    roleId: string;
+    taskId: string;
+    prompt?: string;
+    requestPrompt?: string;
+    summary?: string;
+    internal?: boolean;
+    promptMode?: "direct" | "orchestrate" | "brief" | "critique" | "judge" | "verify" | "final";
+    intent?: string;
+    handoffToRole?: string;
+    handoffRequest?: string;
+    sourceTab: "agents" | "workflow" | "workbench" | "tasks" | "tasks-thread";
+    artifactPaths: string[];
+    runStatus: "done" | "error";
+    envelope?: AgenticRunEnvelope;
+  }) => void;
+}) {
+  const {
+    cwd,
+    selectedGraphFileName,
+    graphFileName,
+    queue,
+    invokeFn,
+    appendWorkspaceEvent,
+    triggerBatchByUserEvent,
+    runGraphCore,
+    graphRunOverrideIdRef,
+    publishAction,
+    subscribeAction,
+    workspaceTab,
+    runDashboardTopic,
+    refreshDashboardSnapshots,
+    onSelectWorkspaceTab,
+    setNodeSelection,
+    setStatus,
+    applyPreset,
+    onRoleRunCompleted,
+  } = params;
+
+  const runGraphWithAgenticCoordinator = useCallback(
+    async (skipWebConnectPreflight = false, questionOverride?: string) => {
+      await runGraphWithCoordinator({
+        cwd,
+        sourceTab: "workflow",
+        graphId: selectedGraphFileName || graphFileName || "default",
+        queue,
+        invokeFn,
+        execute: async ({ runId }) => {
+          graphRunOverrideIdRef.current = runId;
+          try {
+            triggerBatchByUserEvent();
+            await runGraphCore(skipWebConnectPreflight, questionOverride);
+          } finally {
+            graphRunOverrideIdRef.current = null;
+          }
+        },
+        appendWorkspaceEvent,
+      });
+    },
+    [appendWorkspaceEvent, cwd, graphFileName, graphRunOverrideIdRef, invokeFn, queue, runGraphCore, selectedGraphFileName, triggerBatchByUserEvent],
+  );
+
+  const onRunGraph = useCallback(
+    async (skipWebConnectPreflight = false) => {
+      if (skipWebConnectPreflight) {
+        await runGraphWithAgenticCoordinator(true);
+        return;
+      }
+      publishAction({
+        type: "run_graph",
+        payload: {
+          graphId: selectedGraphFileName || graphFileName || "default",
+        },
+      });
+    },
+    [graphFileName, publishAction, runGraphWithAgenticCoordinator, selectedGraphFileName],
+  );
+
+  const runDashboardTopicDirect = useCallback(
+    async (topic: DashboardTopicId, followupInstruction?: string, setId?: string) => {
+      await runTopicWithCoordinator({
+        cwd,
+        topic,
+        sourceTab: workspaceTab === "workflow" ? "workflow" : "agents",
+        followupInstruction,
+        setId,
+        queue,
+        invokeFn,
+        execute: async ({ runId, onProgress }) => {
+          const result = await runDashboardTopic(topic, followupInstruction, {
+            runId,
+            onProgress,
+          });
+          await refreshDashboardSnapshots();
+          if (!result) {
+            throw new Error("토픽 스냅샷 생성 실패");
+          }
+          return result as { snapshotPath?: string; rawPaths?: string[]; warnings?: string[] } | null;
+        },
+        appendWorkspaceEvent,
+      });
+    },
+    [appendWorkspaceEvent, cwd, invokeFn, queue, refreshDashboardSnapshots, runDashboardTopic, workspaceTab],
+  );
+
+  const finalizeTaskRoleRun = useCallback(async (params: {
+    runId: string;
+    roleId: string;
+    taskId: string;
+    prompt?: string;
+    requestPrompt?: string;
+    sourceTab: "tasks" | "tasks-thread";
+    summary?: string;
+    artifactPaths: string[];
+    envelope: AgenticRunEnvelope;
+    runStatus: "done" | "error";
+    internal?: boolean;
+    promptMode?: "direct" | "orchestrate" | "brief" | "critique" | "judge" | "verify" | "final";
+    intent?: string;
+    handoffToRole?: string;
+    handoffRequest?: string;
+  }) => {
+    const baseArtifactPaths = [
+      ...params.envelope.artifacts.map((row) => String(row.path ?? "").trim()).filter(Boolean),
+      ...params.artifactPaths,
+    ];
+    const summaryText = String(params.summary ?? "").trim();
+    const persistedRunPath = await persistAgenticRunEnvelope({
+      cwd,
+      invokeFn,
+      envelope: params.envelope,
+    }).catch(() => null);
+    let roleSummaryArtifactPath = "";
+    if (params.runStatus === "done" && summaryText) {
+      try {
+        const artifactDir = `${String(cwd ?? "").trim().replace(/[\\/]+$/, "")}/.rail/studio_runs/${params.runId}/artifacts`;
+        const roleToken = toRoleShortToken(params.roleId);
+        const fileName = `${toCompactTimestamp()}_${roleToken}.json`;
+        roleSummaryArtifactPath = await invokeFn<string>("workspace_write_text", {
+          cwd: artifactDir,
+          name: fileName,
+          content: buildRoleArtifactJson({
+            runId: params.runId,
+            roleId: params.roleId,
+            taskId: params.taskId,
+            prompt: params.prompt,
+            artifactPaths: baseArtifactPaths,
+            internal: params.internal,
+          }),
+        });
+      } catch {
+        roleSummaryArtifactPath = "";
+      }
+    }
+    const surfacedArtifactPaths = params.runStatus === "done"
+      ? [
+          roleSummaryArtifactPath,
+          ...baseArtifactPaths,
+          persistedRunPath || "",
+        ]
+      : baseArtifactPaths;
+    const dedupedArtifactPaths = [...new Set(surfacedArtifactPaths.map((row) => String(row ?? "").trim()).filter(Boolean))];
+    await recordTaskRoleLearningOutcome({
+      cwd,
+      invokeFn,
+      runId: params.runId,
+      roleId: params.roleId,
+      prompt: params.prompt,
+      summary: params.summary,
+      artifactPaths: dedupedArtifactPaths,
+      runStatus: params.runStatus,
+      failureReason: params.runStatus === "error" ? extractRunEnvelopeError(params.envelope) : "",
+      internal: params.internal,
+    });
+    if (!params.internal && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("rail:task-learning-updated", {
+        detail: { cwd },
+      }));
+    }
+    onRoleRunCompleted?.({
+      runId: params.runId,
+      roleId: params.roleId,
+      taskId: params.taskId,
+      prompt: params.prompt,
+      requestPrompt: params.requestPrompt,
+      summary: params.summary,
+      internal: params.internal,
+      promptMode: params.promptMode,
+      intent: params.intent,
+      handoffToRole: params.handoffToRole,
+      handoffRequest: params.handoffRequest,
+      sourceTab: params.sourceTab,
+      artifactPaths: dedupedArtifactPaths,
+      runStatus: params.runStatus,
+      envelope: params.envelope,
+    });
+  }, [cwd, invokeFn, onRoleRunCompleted]);
+
+  const executeTaskRoleRun = useCallback(async (params: {
+    runId?: string;
+    roleId: string;
+    taskId: string;
+    prompt?: string;
+    requestPrompt?: string;
+    sourceTab: "tasks" | "tasks-thread";
+    internal?: boolean;
+    intent?: string;
+    model?: string;
+    models?: string[];
+    reasoning?: string;
+    outputArtifactName?: string;
+    includeRoleKnowledge?: boolean;
+    handoffToRole?: string;
+    handoffRequest?: string;
+    promptMode?: "direct" | "orchestrate" | "brief" | "critique" | "judge" | "verify" | "final";
+  }) => {
+    const sourceTab = params.sourceTab;
+    const promptText = String(params.prompt ?? "").trim();
+    const requestPromptText = String(params.requestPrompt ?? params.prompt ?? "").trim();
+    const promptMode = params.promptMode ?? "direct";
+    const effectiveRoleId = toStudioRoleId(params.roleId) ?? params.roleId;
+    if (shouldDeduplicateTaskRoleRun({
+      mode: promptMode,
+      internal: params.internal,
+    }) && shouldSkipRecentTaskRoleRun({
+      taskId: params.taskId,
+      roleId: params.roleId,
+      prompt: promptText,
+      mode: promptMode,
+    })) {
+      dispatchTasksRoleEvent({
+        sourceTab,
+        taskId: params.taskId,
+        studioRoleId: effectiveRoleId,
+        type: "stage_done",
+        stage: "save",
+        message: "같은 역할 요청이 너무 가까워 중복 실행을 건너뛰었습니다.",
+      });
+      return null;
+    }
+
+    const normalizedRoleId = toStudioRoleId(params.roleId);
+    let taskCodexArtifactPaths: string[] = [];
+    let taskCodexSummary: string | undefined;
+    if (params.internal) {
+      const runId = String(params.runId ?? "").trim() || createAgenticRunId("role");
+      let inlineEnvelope = createAgenticRunEnvelope({
+        runId,
+        sourceTab,
+        queueKey: `inline:${promptMode}:${effectiveRoleId}:${params.taskId}`,
+        roleId: effectiveRoleId,
+        taskId: params.taskId,
+        approvalState: "pending",
+      });
+      inlineEnvelope = patchRunStatus(inlineEnvelope, "running");
+      dispatchTasksRoleEvent({
+        sourceTab,
+        taskId: params.taskId,
+        studioRoleId: effectiveRoleId,
+        runId,
+        type: "run_started",
+        message: "started",
+        internal: true,
+        promptMode,
+      });
+      dispatchTasksRoleEvent({
+        sourceTab,
+        taskId: params.taskId,
+        studioRoleId: effectiveRoleId,
+        runId,
+        type: "stage_started",
+        stage: "codex",
+        message: "역할 실행 시작",
+        internal: true,
+        promptMode,
+      });
+      try {
+        const codexTaskRun = await runTaskRoleWithCodex({
+          invokeFn,
+          storageCwd: cwd,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          prompt: promptText || undefined,
+          model: params.model,
+          models: params.models,
+          reasoning: params.reasoning,
+          outputArtifactName: params.outputArtifactName,
+          sourceTab,
+          runId,
+          intent: params.intent,
+          promptMode: params.promptMode,
+          onRuntimeSession: (runtime) => {
+            dispatchTasksRoleEvent({
+              sourceTab,
+              taskId: params.taskId,
+              studioRoleId: effectiveRoleId,
+              runId,
+              type: "runtime_attached",
+              stage: "codex",
+              message: "RUNTIME ATTACHED",
+              internal: true,
+              promptMode,
+              payload: {
+                codexThreadId: runtime.codexThreadId ?? null,
+                codexTurnId: runtime.codexTurnId ?? null,
+                provider: runtime.provider ?? null,
+                providers: runtime.providers ?? [],
+              },
+            });
+          },
+        });
+        taskCodexArtifactPaths = [...codexTaskRun.artifactPaths];
+        taskCodexSummary = codexTaskRun.summary;
+        inlineEnvelope.artifacts = codexTaskRun.artifactPaths.map((path) => ({
+          kind: "raw" as const,
+          path,
+        }));
+        inlineEnvelope = patchRunStage(inlineEnvelope, "codex", "done", "역할 실행 완료");
+        inlineEnvelope = patchRunStatus(inlineEnvelope, "done");
+        dispatchTasksRoleEvent({
+          sourceTab,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          runId,
+          type: "stage_done",
+          stage: "codex",
+          message: "역할 실행 완료",
+          internal: true,
+          promptMode,
+        });
+        dispatchTasksRoleEvent({
+          sourceTab,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          runId,
+          type: "run_done",
+          message: "done",
+          internal: true,
+          promptMode,
+        });
+        await finalizeTaskRoleRun({
+          runId,
+          roleId: effectiveRoleId,
+          taskId: params.taskId,
+          prompt: params.prompt,
+          requestPrompt: requestPromptText || undefined,
+          summary: taskCodexSummary,
+          internal: true,
+          promptMode,
+          intent: params.intent,
+          handoffToRole: params.handoffToRole,
+          handoffRequest: params.handoffRequest,
+          sourceTab,
+          artifactPaths: taskCodexArtifactPaths,
+          runStatus: "done",
+          envelope: inlineEnvelope,
+        });
+        return {
+          runId,
+          summary: taskCodexSummary ?? "",
+          artifactPaths: [...taskCodexArtifactPaths],
+          envelope: inlineEnvelope,
+          runStatus: "done" as const,
+        };
+      } catch (error) {
+        taskCodexArtifactPaths = extractTaskRoleCodexRunArtifactPaths(error);
+        const errorText = String(error ?? "unknown error").trim() || "unknown error";
+        inlineEnvelope = patchRunStage(inlineEnvelope, "codex", "error", errorText, errorText);
+        inlineEnvelope = patchRunStatus(inlineEnvelope, "error");
+        dispatchTasksRoleEvent({
+          sourceTab,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          runId,
+          type: "stage_error",
+          stage: "codex",
+          message: errorText,
+          internal: true,
+          promptMode,
+          payload: { error: errorText },
+        });
+        dispatchTasksRoleEvent({
+          sourceTab,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          runId,
+          type: "run_error",
+          message: errorText,
+          internal: true,
+          promptMode,
+          payload: { error: errorText },
+        });
+        await finalizeTaskRoleRun({
+          runId,
+          roleId: effectiveRoleId,
+          taskId: params.taskId,
+          prompt: params.prompt,
+          requestPrompt: requestPromptText || undefined,
+          summary: taskCodexSummary,
+          internal: true,
+          promptMode,
+          intent: params.intent,
+          handoffToRole: params.handoffToRole,
+          handoffRequest: params.handoffRequest,
+          sourceTab,
+          artifactPaths: taskCodexArtifactPaths,
+          runStatus: "error",
+          envelope: inlineEnvelope,
+        });
+        throw error;
+      }
+    }
+    const queueScope = params.internal
+      ? `:${promptMode}`
+      : "";
+    const queueKeyOverride = sourceTab === "tasks-thread"
+      ? `role:${params.roleId}:thread:${params.taskId}${queueScope}`
+      : `role:${params.roleId}:task:${params.taskId}${queueScope}`;
+    const result = await runRoleWithCoordinator({
+      runId: params.runId,
+      queueKeyOverride,
+      cwd,
+      sourceTab,
+      roleId: effectiveRoleId,
+      taskId: params.taskId,
+      prompt: promptText || undefined,
+      queue,
+      invokeFn,
+      execute: async ({ runId, prompt, onProgress }) => {
+        const nextPrompt = String(prompt ?? "").trim();
+        if (nextPrompt) {
+          setStatus(`역할 요청: ${nextPrompt.slice(0, 72)}`);
+        }
+        try {
+          const codexTaskRun = await runTaskRoleWithCodex({
+            invokeFn,
+            storageCwd: cwd,
+            taskId: params.taskId,
+            studioRoleId: effectiveRoleId,
+            prompt: nextPrompt || undefined,
+            model: params.model,
+            models: params.models,
+            reasoning: params.reasoning,
+            outputArtifactName: params.outputArtifactName,
+            sourceTab,
+            runId,
+            intent: params.intent,
+            promptMode: params.promptMode,
+            onProgress,
+            onRuntimeSession: (runtime) => {
+              dispatchTasksRoleEvent({
+                sourceTab,
+                taskId: params.taskId,
+                studioRoleId: effectiveRoleId,
+                runId,
+                type: "runtime_attached",
+                stage: "codex",
+                message: "RUNTIME ATTACHED",
+                payload: {
+                  codexThreadId: runtime.codexThreadId ?? null,
+                  codexTurnId: runtime.codexTurnId ?? null,
+                  provider: runtime.provider ?? null,
+                  providers: runtime.providers ?? [],
+                },
+              });
+            },
+          });
+          taskCodexArtifactPaths = [...codexTaskRun.artifactPaths];
+          taskCodexSummary = codexTaskRun.summary;
+        } catch (error) {
+          taskCodexArtifactPaths = extractTaskRoleCodexRunArtifactPaths(error);
+          throw error;
+        }
+      },
+      appendWorkspaceEvent,
+      onEvent: (event: AgenticRunEvent) => {
+        dispatchTasksRoleEvent({
+          sourceTab,
+          taskId: params.taskId,
+          studioRoleId: effectiveRoleId,
+          runId: event.runId,
+          type: event.type,
+          stage: event.stage ?? null,
+          message: event.message ?? "",
+          internal: Boolean(params.internal),
+          promptMode,
+          payload: event.payload,
+        });
+      },
+      roleKnowledgePipeline: normalizedRoleId && params.includeRoleKnowledge !== false
+        ? {
+            bootstrap: async ({ runId, taskId, prompt }) => {
+              const bootstrapped = await bootstrapRoleKnowledgeProfile({
+                cwd,
+                invokeFn,
+                runId,
+                roleId: normalizedRoleId,
+                taskId,
+                userPrompt: prompt,
+              });
+              return {
+                message: bootstrapped.message,
+                artifactPaths: bootstrapped.artifactPaths,
+                payload: { profile: bootstrapped.profile },
+              };
+            },
+            store: async ({ bootstrap }) => {
+              const fromBootstrap = bootstrap?.payload?.profile as Parameters<typeof storeRoleKnowledgeProfile>[0]["profile"] | undefined;
+              if (!fromBootstrap) {
+                return null;
+              }
+              const stored = await storeRoleKnowledgeProfile({
+                cwd,
+                invokeFn,
+                profile: fromBootstrap,
+              });
+              return {
+                message: stored.message,
+                artifactPaths: stored.artifactPaths,
+                payload: { profile: stored.profile },
+              };
+            },
+            inject: async ({ prompt, store }) => {
+              const profile = (store?.payload?.profile ?? null) as Parameters<typeof injectRoleKnowledgePrompt>[0]["profile"];
+              const injected = await injectRoleKnowledgePrompt({
+                roleId: normalizedRoleId,
+                prompt,
+                profile: profile ?? null,
+              });
+              return {
+                prompt: injected.prompt,
+                message: injected.message,
+                payload: { usedProfile: injected.usedProfile },
+              };
+            },
+          }
+        : undefined,
+    });
+
+    await finalizeTaskRoleRun({
+      runId: result.runId,
+      roleId: effectiveRoleId,
+      taskId: params.taskId,
+      prompt: params.prompt,
+      requestPrompt: requestPromptText || undefined,
+      summary: taskCodexSummary,
+      internal: params.internal,
+      promptMode,
+      intent: params.intent,
+      handoffToRole: params.handoffToRole,
+      handoffRequest: params.handoffRequest,
+      sourceTab,
+      artifactPaths: taskCodexArtifactPaths,
+      runStatus: result.envelope.record.status === "done" ? "done" : "error",
+      envelope: result.envelope,
+    });
+
+    return {
+      runId: result.runId,
+      summary: taskCodexSummary ?? "",
+      artifactPaths: [...taskCodexArtifactPaths],
+      envelope: result.envelope,
+      runStatus: result.envelope.record.status === "done" ? "done" : "error",
+    };
+  }, [appendWorkspaceEvent, cwd, finalizeTaskRoleRun, invokeFn, queue, setStatus]);
+
+  const runTaskCollaborationDirect = useCallback(async (params: {
+    taskId: string;
+    prompt?: string;
+    sourceTab?: "tasks" | "tasks-thread";
+    roleIds: string[];
+    candidateRoleIds?: string[];
+    requestedRoleIds?: string[];
+    rolePrompts?: Record<string, string>;
+    intent?: string;
+    creativeMode?: boolean;
+    primaryRoleId: string;
+    synthesisRoleId: string;
+    criticRoleId?: string;
+    cappedParticipantCount?: boolean;
+    useAdaptiveOrchestrator?: boolean;
+    preferredModels?: string[];
+  }) => {
+    const sourceTab = params.sourceTab === "tasks" ? "tasks" : "tasks-thread";
+    if (!params.taskId || !params.roleIds.length) {
+      return;
+    }
+    let preferredModel = "";
+    let preferredReasoning = "";
+    let contextSummary = "";
+    if (sourceTab === "tasks-thread") {
+      try {
+        const threadDetail = await invokeFn<{ thread?: { model?: string | null; reasoning?: string | null } }>("thread_load", {
+          cwd,
+          threadId: params.taskId,
+        });
+        preferredModel = String(threadDetail.thread?.model ?? "").trim();
+        preferredReasoning = String(threadDetail.thread?.reasoning ?? "").trim();
+        contextSummary = await buildTaskThreadContextSummary({
+          invokeFn,
+          cwd,
+          threadId: params.taskId,
+          maxChars: 2400,
+        });
+      } catch {
+        contextSummary = "";
+      }
+    }
+
+    try {
+      const collaboration = await runTaskCollaborationWithCodex({
+        prompt: String(params.prompt ?? "").trim(),
+        contextSummary,
+        participantRoleIds: params.roleIds,
+        candidateRoleIds: params.candidateRoleIds,
+        requestedRoleIds: params.requestedRoleIds,
+        participantPrompts: params.rolePrompts,
+        intent: params.intent,
+        creativeMode: params.creativeMode,
+        synthesisRoleId: params.synthesisRoleId,
+        criticRoleId: params.criticRoleId,
+        cappedParticipantCount: Boolean(params.cappedParticipantCount),
+        useAdaptiveOrchestrator: Boolean(params.useAdaptiveOrchestrator),
+        preferredModel,
+        preferredReasoning,
+        preferredModels: params.preferredModels,
+        executeRoleRun: async (runParams) => {
+          const result = await executeTaskRoleRun({
+            roleId: runParams.roleId,
+            taskId: params.taskId,
+            prompt: runParams.prompt,
+            requestPrompt: params.prompt,
+            sourceTab,
+            internal: runParams.internal,
+            intent: runParams.intent,
+            model: runParams.model,
+            models: runParams.models,
+            reasoning: runParams.reasoning,
+            outputArtifactName: runParams.outputArtifactName,
+            includeRoleKnowledge: runParams.includeRoleKnowledge,
+            promptMode: runParams.promptMode,
+          });
+          if (!result) {
+            throw new Error(`${runParams.roleId} role run was skipped or produced no result`);
+          }
+          if (result.runStatus !== "done") {
+            const detail = extractRunEnvelopeError(result.envelope);
+            throw new Error(detail ? `${runParams.roleId} role run failed: ${detail}` : `${runParams.roleId} role run failed`);
+          }
+          return {
+            roleId: runParams.roleId,
+            runId: result.runId,
+            summary: result.summary,
+            artifactPaths: result.artifactPaths,
+          };
+        },
+        onProgress: (progress) => {
+          const studioRoleId = String(
+            toStudioRoleId(String(progress.roleId ?? "").trim())
+              || toStudioRoleId(String(params.synthesisRoleId ?? "").trim())
+              || toStudioRoleId(String(params.primaryRoleId ?? "").trim())
+              || progress.roleId
+              || params.synthesisRoleId
+              || params.primaryRoleId,
+          ).trim();
+          if (!studioRoleId) {
+            return;
+          }
+          dispatchTasksRoleEvent({
+            sourceTab,
+            taskId: params.taskId,
+            studioRoleId,
+            type: "stage_started",
+            stage: progress.stage,
+            message: progress.message,
+            internal: true,
+            promptMode: "orchestrate",
+          });
+        },
+        onOrchestrationResolved: (plan) => {
+          dispatchTasksOrchestrationResolved({
+            sourceTab,
+            taskId: params.taskId,
+            participantRoleIds: plan.participantRoleIds,
+            primaryRoleId: plan.primaryRoleId,
+            criticRoleId: plan.criticRoleId,
+            orchestrationSummary: plan.orchestrationSummary,
+          });
+        },
+      });
+      setStatus(`멀티에이전트 합성 완료: ${collaboration.finalResult.summary.slice(0, 40)}`);
+    } catch (error) {
+      const errorText = String(error ?? "멀티에이전트 협업에 실패했습니다.").trim();
+      const terminalStudioRoleId = String(
+        toStudioRoleId(String(params.synthesisRoleId ?? "").trim())
+          || toStudioRoleId(String(params.primaryRoleId ?? "").trim())
+          || params.synthesisRoleId
+          || params.primaryRoleId,
+      ).trim();
+      dispatchTasksRoleEvent({
+        sourceTab,
+        taskId: params.taskId,
+        studioRoleId: terminalStudioRoleId,
+        type: "stage_error",
+        stage: "save",
+        message: errorText,
+        internal: false,
+        promptMode: "final",
+      });
+      dispatchTasksRoleEvent({
+        sourceTab,
+        taskId: params.taskId,
+        studioRoleId: terminalStudioRoleId,
+        type: "run_error",
+        message: errorText,
+        internal: false,
+        promptMode: "final",
+        payload: { error: errorText },
+      });
+      appendWorkspaceEvent({
+        source: "agentic",
+        message: `멀티에이전트 협업 실패: ${errorText}`,
+        actor: "system",
+        level: "error",
+      });
+      setStatus(`멀티에이전트 협업 실패: ${errorText}`);
+    }
+  }, [cwd, executeTaskRoleRun, invokeFn, setStatus]);
+
+  const runRoleDirect = useCallback(
+    async (params: {
+      runId?: string;
+      roleId: string;
+      taskId: string;
+      prompt?: string;
+      sourceTab?: "agents" | "workflow" | "workbench" | "tasks" | "tasks-thread";
+      handoffToRole?: string;
+      handoffRequest?: string;
+      preferredModels?: string[];
+    }) => {
+      const sourceTab =
+        params.sourceTab === "workflow"
+          ? "workflow"
+          : params.sourceTab === "workbench"
+            ? "workbench"
+            : params.sourceTab === "tasks"
+              ? "tasks"
+              : params.sourceTab === "tasks-thread"
+                ? "tasks-thread"
+                : "agents";
+      if (sourceTab === "tasks" || sourceTab === "tasks-thread") {
+        await executeTaskRoleRun({
+          runId: params.runId,
+          roleId: params.roleId,
+          taskId: params.taskId,
+          prompt: params.prompt,
+          sourceTab,
+          handoffToRole: params.handoffToRole,
+          handoffRequest: params.handoffRequest,
+          models: params.preferredModels,
+          includeRoleKnowledge: true,
+          promptMode: "direct",
+        });
+        return;
+      }
+      const normalizedRoleId = toStudioRoleId(params.roleId);
+      const result = await runRoleWithCoordinator({
+        runId: params.runId,
+        cwd,
+        sourceTab,
+        roleId: params.roleId,
+        taskId: params.taskId,
+        prompt: params.prompt,
+        queue,
+        invokeFn,
+        execute: async ({ prompt }) => {
+          const promptText = String(prompt ?? "").trim();
+          if (promptText) {
+            setStatus(`역할 요청: ${promptText.slice(0, 72)}`);
+          }
+          await runGraphWithAgenticCoordinator(false, promptText || undefined);
+        },
+        appendWorkspaceEvent,
+        roleKnowledgePipeline: normalizedRoleId
+          ? {
+              bootstrap: async ({ runId, taskId, prompt }) => {
+                const bootstrapped = await bootstrapRoleKnowledgeProfile({
+                  cwd,
+                  invokeFn,
+                  runId,
+                  roleId: normalizedRoleId,
+                  taskId,
+                  userPrompt: prompt,
+                });
+                return {
+                  message: bootstrapped.message,
+                  artifactPaths: bootstrapped.artifactPaths,
+                  payload: { profile: bootstrapped.profile },
+                };
+              },
+              store: async ({ bootstrap }) => {
+                const fromBootstrap = bootstrap?.payload?.profile as Parameters<typeof storeRoleKnowledgeProfile>[0]["profile"] | undefined;
+                if (!fromBootstrap) {
+                  return null;
+                }
+                const stored = await storeRoleKnowledgeProfile({
+                  cwd,
+                  invokeFn,
+                  profile: fromBootstrap,
+                });
+                return {
+                  message: stored.message,
+                  artifactPaths: stored.artifactPaths,
+                  payload: { profile: stored.profile },
+                };
+              },
+              inject: async ({ prompt, store }) => {
+                const profile = (store?.payload?.profile ?? null) as Parameters<typeof injectRoleKnowledgePrompt>[0]["profile"];
+                const injected = await injectRoleKnowledgePrompt({
+                  roleId: normalizedRoleId,
+                  prompt,
+                  profile: profile ?? null,
+                });
+                return {
+                  prompt: injected.prompt,
+                  message: injected.message,
+                  payload: { usedProfile: injected.usedProfile },
+                };
+              },
+            }
+          : undefined,
+      });
+      const baseArtifactPaths = result.envelope.artifacts.map((row) => String(row.path ?? "").trim()).filter(Boolean);
+      const persistedRunPath = await persistAgenticRunEnvelope({
+        cwd,
+        invokeFn,
+        envelope: result.envelope,
+      }).catch(() => null);
+      let roleSummaryArtifactPath = "";
+      try {
+        const artifactDir = `${String(cwd ?? "").trim().replace(/[\\/]+$/, "")}/.rail/studio_runs/${result.runId}/artifacts`;
+        const roleToken = toRoleShortToken(params.roleId);
+        const fileName = `${toCompactTimestamp()}_${roleToken}.json`;
+        roleSummaryArtifactPath = await invokeFn<string>("workspace_write_text", {
+          cwd: artifactDir,
+          name: fileName,
+          content: buildRoleArtifactJson({
+            runId: result.runId,
+            roleId: params.roleId,
+            taskId: params.taskId,
+            prompt: params.prompt,
+            artifactPaths: baseArtifactPaths,
+          }),
+        });
+      } catch {
+        roleSummaryArtifactPath = "";
+      }
+      const artifactPaths = [
+        roleSummaryArtifactPath,
+        ...baseArtifactPaths,
+        persistedRunPath || "",
+      ];
+      const dedupedArtifactPaths = [...new Set(artifactPaths.map((row) => String(row ?? "").trim()).filter(Boolean))];
+      onRoleRunCompleted?.({
+        runId: result.runId,
+        roleId: params.roleId,
+        taskId: params.taskId,
+        prompt: params.prompt,
+        handoffToRole: params.handoffToRole,
+        handoffRequest: params.handoffRequest,
+        sourceTab,
+        artifactPaths: dedupedArtifactPaths,
+        runStatus: result.envelope.record.status === "done" ? "done" : "error",
+        envelope: result.envelope,
+      });
+    },
+    [appendWorkspaceEvent, cwd, executeTaskRoleRun, invokeFn, onRoleRunCompleted, queue, runGraphWithAgenticCoordinator, setStatus],
+  );
+
+  useEffect(() => {
+    return subscribeAction((action) => {
+      if (action.type === "run_topic") {
+        const topic = action.payload.topic as DashboardTopicId;
+        const normalizedSetId = String(action.payload.setId ?? "").trim() || `data-${topic}`;
+        void runDashboardTopicDirect(
+          topic,
+          action.payload.followupInstruction,
+          normalizedSetId,
+        );
+        return;
+      }
+      if (action.type === "run_graph") {
+        void runGraphWithAgenticCoordinator(false);
+        return;
+      }
+      if (action.type === "open_graph") {
+        onSelectWorkspaceTab("workflow");
+        const focusNodeId = String(action.payload?.focusNodeId ?? "").trim();
+        if (focusNodeId) {
+          setNodeSelection([focusNodeId], focusNodeId);
+        }
+        return;
+      }
+      if (action.type === "focus_node") {
+        onSelectWorkspaceTab("workflow");
+        const nodeId = String(action.payload.nodeId ?? "").trim();
+        if (nodeId) {
+          setNodeSelection([nodeId], nodeId);
+        }
+        return;
+      }
+      if (action.type === "open_run") {
+        onSelectWorkspaceTab("workflow");
+        setStatus(`run 열기: ${action.payload.runId}`);
+        return;
+      }
+      if (action.type === "open_handoff") {
+        onSelectWorkspaceTab("workflow");
+        const handoffId = String(action.payload?.handoffId ?? "").trim();
+        if (handoffId) {
+          setStatus(`그래프 핸드오프 열기: ${handoffId}`);
+        }
+        return;
+      }
+      if (action.type === "open_knowledge_doc") {
+        onSelectWorkspaceTab("knowledge");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("rail:open-knowledge-entry", { detail: { entryId: action.payload.entryId } }));
+        }
+        setStatus(`데이터베이스 문서 열기: ${action.payload.entryId}`);
+        return;
+      }
+      if (action.type === "inject_context_sources") {
+        const count = Array.isArray(action.payload.sourceIds) ? action.payload.sourceIds.length : 0;
+        setStatus(`컨텍스트 소스 주입 요청: ${count}건`);
+        return;
+      }
+      if (action.type === "run_role") {
+        const sourceTab =
+          action.payload.sourceTab === "workflow"
+            ? "workflow"
+            : action.payload.sourceTab === "workbench"
+              ? "workbench"
+              : action.payload.sourceTab === "tasks"
+                ? "tasks"
+                : action.payload.sourceTab === "tasks-thread"
+                  ? "tasks-thread"
+                  : "agents";
+        if (sourceTab === "workflow" && workspaceTab !== "workflow") {
+          onSelectWorkspaceTab("workflow");
+        }
+        if ((sourceTab === "tasks" || sourceTab === "tasks-thread") && workspaceTab !== "tasks") {
+          onSelectWorkspaceTab("tasks");
+        }
+        setStatus(
+          sourceTab === "workflow"
+            ? `그래프 역할 실행 요청: ${action.payload.roleId} (${action.payload.taskId})`
+            : sourceTab === "workbench"
+              ? `워크스페이스 역할 실행 요청: ${action.payload.roleId} (${action.payload.taskId})`
+              : sourceTab === "tasks"
+                ? `TASK 역할 실행 요청: ${action.payload.roleId} (${action.payload.taskId})`
+                : sourceTab === "tasks-thread"
+                  ? `THREAD 역할 실행 요청: ${action.payload.roleId} (${action.payload.taskId})`
+                  : `역할 실행 요청: ${action.payload.roleId} (${action.payload.taskId})`,
+        );
+        if (sourceTab === "agents" || sourceTab === "workbench") {
+          applyPreset(presetForRole(action.payload.roleId));
+        }
+        void runRoleDirect({ ...action.payload, sourceTab });
+        return;
+      }
+      if (action.type === "run_task_collaboration") {
+        const sourceTab = action.payload.sourceTab === "tasks" ? "tasks" : "tasks-thread";
+        if (workspaceTab !== "tasks") {
+          onSelectWorkspaceTab("tasks");
+        }
+        setStatus(`멀티에이전트 협업 실행 요청: ${action.payload.taskId}`);
+        void runTaskCollaborationDirect({
+          taskId: action.payload.taskId,
+          prompt: action.payload.prompt,
+          sourceTab,
+          roleIds: action.payload.roleIds,
+          candidateRoleIds: action.payload.candidateRoleIds,
+          requestedRoleIds: action.payload.requestedRoleIds,
+          rolePrompts: action.payload.rolePrompts,
+          intent: action.payload.intent,
+          creativeMode: action.payload.creativeMode,
+          primaryRoleId: action.payload.primaryRoleId,
+          synthesisRoleId: action.payload.synthesisRoleId,
+          criticRoleId: action.payload.criticRoleId,
+          cappedParticipantCount: action.payload.cappedParticipantCount,
+          useAdaptiveOrchestrator: action.payload.useAdaptiveOrchestrator,
+          preferredModels: action.payload.preferredModels,
+        });
+        return;
+      }
+      if (action.type === "handoff_create" || action.type === "request_handoff") {
+        onSelectWorkspaceTab("workflow");
+        setStatus(`그래프 핸드오프 요청: ${action.payload.handoffId}`);
+        return;
+      }
+      if (action.type === "handoff_consume" || action.type === "consume_handoff") {
+        onSelectWorkspaceTab("workflow");
+        setStatus(`핸드오프 컨텍스트 적용: ${action.payload.handoffId}`);
+        return;
+      }
+      if (action.type === "request_code_approval") {
+        setStatus(`코드 변경 승인 요청: ${action.payload.approvalId}`);
+        return;
+      }
+      if (action.type === "resolve_code_approval") {
+        setStatus(`코드 변경 승인 처리: ${action.payload.approvalId} (${action.payload.decision})`);
+        return;
+      }
+      if (action.type === "apply_template" && action.payload.presetKind) {
+        applyPreset(action.payload.presetKind as PresetKind);
+      }
+    });
+  }, [applyPreset, onSelectWorkspaceTab, runDashboardTopicDirect, runGraphWithAgenticCoordinator, runRoleDirect, runTaskCollaborationDirect, setNodeSelection, setStatus, subscribeAction, workspaceTab]);
+
+  return {
+    onRunGraph,
+    runDashboardTopicDirect,
+  };
+}

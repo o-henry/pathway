@@ -1,0 +1,6 @@
+/* workflow page styles */
+@import "./workflow/layout.css";
+@import "./workflow/canvas-terminals.css";
+@import "./workflow/sidebars.css";
+@import "./workflow/rag-dock.css";
+@import "./workflow/role-workspace.css";

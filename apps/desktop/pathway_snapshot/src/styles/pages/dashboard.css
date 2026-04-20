@@ -1,0 +1,3 @@
+/* dashboard page styles */
+@import "./dashboard/terminal.css";
+@import "./dashboard/ops.css";

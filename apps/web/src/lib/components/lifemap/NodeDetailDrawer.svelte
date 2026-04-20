@@ -121,20 +121,24 @@
 
 <style>
   .drawer {
-    position: sticky;
-    top: 1rem;
-    align-self: start;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(25vw, 360px);
     display: none;
-    border: 1px solid var(--pathway-line-strong);
-    border-radius: var(--pathway-panel-radius);
-    background: rgba(20, 26, 32, 0.9);
-    box-shadow: 0 18px 38px rgba(9, 14, 20, 0.24);
-    padding: 1rem;
+    border-left: 1px solid rgba(65, 72, 93, 0.18);
+    background:
+      linear-gradient(180deg, rgba(248, 245, 241, 0.97), rgba(236, 231, 225, 0.98));
+    box-shadow: -20px 0 40px rgba(18, 20, 28, 0.12);
+    padding: 0.92rem 0.94rem 1rem;
+    overflow-y: auto;
+    z-index: 6;
   }
 
   .open {
     display: grid;
-    gap: 1rem;
+    gap: 0.88rem;
   }
 
   .drawer-header {
@@ -142,14 +146,14 @@
     align-items: start;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 1px solid var(--pathway-line);
+    border-bottom: 1px solid rgba(78, 81, 105, 0.12);
     padding-bottom: 0.8rem;
   }
 
   .eyebrow {
     margin: 0 0 0.18rem;
     color: var(--drawer-accent);
-    font-size: 0.74rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -166,7 +170,8 @@
   }
 
   h2 {
-    font-size: 1.22rem;
+    color: var(--pathway-paper-ink);
+    font-size: 1.04rem;
     line-height: 1.18;
   }
 
@@ -175,7 +180,7 @@
   .empty,
   .stack-list p,
   dd {
-    color: var(--pathway-muted);
+    color: var(--pathway-paper-muted);
     line-height: 1.55;
   }
 
@@ -185,13 +190,13 @@
   }
 
   .close-button {
-    border: 1px solid var(--pathway-line-strong);
+    border: 1px solid rgba(78, 81, 105, 0.16);
     border-radius: 0;
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--pathway-ink);
+    background: rgba(255, 255, 255, 0.45);
+    color: var(--pathway-paper-ink);
     cursor: pointer;
     font-weight: 700;
-    padding: 0.42rem 0.62rem;
+    padding: 0.36rem 0.54rem;
   }
 
   section {
@@ -215,9 +220,9 @@
   .field-list div,
   .stack-list li,
   .score-list li {
-    border-left: 3px solid rgba(186, 210, 255, 0.18);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 0.78rem 0.84rem;
+    border-left: 2px solid color-mix(in srgb, var(--drawer-accent) 34%, #d9d5d0 66%);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.72rem 0.74rem;
   }
 
   dt {
@@ -241,8 +246,20 @@
   }
 
   small {
-    color: var(--pathway-muted);
+    color: var(--pathway-paper-muted);
     display: block;
     margin-top: 0.32rem;
+  }
+
+  @media (max-width: 900px) {
+    .drawer {
+      top: auto;
+      left: 0;
+      width: 100%;
+      height: min(34vh, 280px);
+      border-left: 0;
+      border-top: 1px solid rgba(65, 72, 93, 0.18);
+      box-shadow: 0 -18px 36px rgba(18, 20, 28, 0.1);
+    }
   }
 </style>

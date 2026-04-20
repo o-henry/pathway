@@ -4,8 +4,8 @@ import type { MindMapEdgeData, MindMapNodeData } from './types';
 
 const ROOT_X = 72;
 const ROOT_Y = 72;
-const COLUMN_GAP = 240;
-const ROW_GAP = 34;
+const COLUMN_GAP = 292;
+const ROW_GAP = 78;
 const FALLBACK_SECTION_GAP = 120;
 
 type PositionedNode = Node<MindMapNodeData>;
@@ -187,18 +187,18 @@ function pickHandle(
 
 function getNodeWidth(node: PositionedNode): number {
   if (node.data.shape === 'circle') {
-    return 220;
+    return 214;
   }
 
-  return 236;
+  return 222;
 }
 
 function getNodeHeight(node: PositionedNode): number {
   if (node.data.shape === 'circle') {
-    return 220;
+    return 214;
   }
 
-  return 112;
+  return 118;
 }
 
 function dedupe(values: string[]) {

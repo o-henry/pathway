@@ -8,7 +8,7 @@
 
 ## What is already compatible
 
-- Frontend is a self-contained SvelteKit app.
+- Frontend is now a self-contained React/Vite desktop UI under `apps/desktop`.
 - Backend is a local FastAPI service with filesystem-backed state.
 - No hard dependency on cloud auth, remote database, or server-side session storage.
 
@@ -16,7 +16,7 @@
 
 ### Option A: Sidecar backend
 
-- Bundle the Svelte frontend in Tauri.
+- Bundle the desktop frontend in Tauri.
 - Launch FastAPI as a sidecar process.
 - Keep SQLite/LanceDB paths inside an app-specific local data directory.
 
@@ -44,18 +44,28 @@ Cons:
 - More packaging complexity
 - Harder cross-platform testing
 
+## Current direction
+
+The repository now includes a first real `src-tauri/` desktop shell plus a dedicated `apps/desktop` React frontend.
+
+- `pnpm dev:desktop` starts the Tauri app in development.
+- The desktop shell targets the React desktop UI on `http://127.0.0.1:1420`.
+- The current Rust bootstrap attempts to start the local FastAPI app on `127.0.0.1:8000` when it is not already running.
+
+This is intentionally the smallest viable desktop path, not the final packaged distribution story.
+
 ## Recommended next step
 
-Use **Option A** first:
+Continue with **Option A**:
 
-1. Keep current FastAPI app.
-2. Add a small launcher that picks a free localhost port.
-3. Point the frontend to that discovered port.
-4. Store app data in a Tauri-managed app data directory.
+1. Keep the current FastAPI app.
+2. Replace the fixed `8000` assumption with a discovered port + handshake flow.
+3. Move local data paths behind a Tauri app-data resolver.
+4. Decide how Python/uv/runtime dependencies will be bundled for production desktop builds.
 
 ## Preconditions before packaging
 
-- Decide a production SvelteKit adapter strategy.
+- Decide whether the legacy `apps/web` Svelte path should remain in the repo or be retired.
 - Move local data paths behind a single app-data resolver.
 - Add startup health checks and graceful shutdown handling.
 - Add a workspace browser so the packaged app opens into persisted data, not only the latest active map.

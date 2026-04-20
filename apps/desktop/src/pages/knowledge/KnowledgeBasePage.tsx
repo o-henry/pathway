@@ -1,0 +1,78 @@
+import type { KnowledgeEntry, KnowledgeSourcePost } from "../../features/studio/knowledgeTypes";
+import { KnowledgeBaseDetailPanel } from "./KnowledgeBaseDetailPanel";
+import { KnowledgeDeleteGroupModal } from "./KnowledgeDeleteGroupModal";
+import { KnowledgeBaseListPanel } from "./KnowledgeBaseListPanel";
+import { useKnowledgeBaseState } from "./useKnowledgeBaseState";
+
+type KnowledgeBasePageProps = {
+  cwd: string;
+  isActive: boolean;
+  posts: KnowledgeSourcePost[];
+  onInjectContextSources: (entries: KnowledgeEntry[]) => void;
+  onOpenInVisualize?: (entry: KnowledgeEntry) => void;
+};
+
+export default function KnowledgeBasePage({
+  cwd,
+  isActive,
+  posts,
+  onInjectContextSources,
+  onOpenInVisualize,
+}: KnowledgeBasePageProps) {
+  const state = useKnowledgeBaseState({ cwd, isActive, posts });
+  const showLoadingOverlay = state.loading && state.grouped.length === 0;
+
+  return (
+    <section aria-label="데이터베이스 작업공간" className="panel-card knowledge-view workspace-tab-panel" data-e2e="knowledge-page">
+      <header className="knowledge-head">
+        <h2>데이터베이스</h2>
+        <p>역할 실행으로 생성된 산출물(Markdown/JSON)을 탐색하고 에이전트 컨텍스트로 재주입합니다.</p>
+      </header>
+      <section
+        aria-busy={state.loading}
+        className={`knowledge-layout${state.loading ? " is-loading" : ""}`}
+      >
+        <KnowledgeBaseListPanel
+          collapsedByGroup={state.collapsedByGroup}
+          entryStats={state.entryStats}
+          filteredCount={state.filtered.length}
+          grouped={state.grouped}
+          onDeleteGroup={state.onDeleteGroup}
+          onSelectEntry={state.setSelectedId}
+          onSearchQueryChange={state.setSearchQuery}
+          onToggleGroup={state.onToggleGroup}
+          searchQuery={state.searchQuery}
+          selectedEntry={state.selected}
+        />
+        <KnowledgeBaseDetailPanel
+          detailError={state.detailError}
+          detailLoading={state.detailLoading}
+          jsonContent={state.jsonContent}
+          jsonReadable={state.jsonReadable}
+          markdownContent={state.markdownContent}
+          onDeleteSelected={state.onDeleteSelected}
+          onInjectContextSources={onInjectContextSources}
+          onOpenInVisualize={onOpenInVisualize}
+          onRevealPath={state.onRevealPath}
+          searchQuery={state.searchQuery}
+          selected={state.selected}
+        />
+        {showLoadingOverlay ? (
+          <div className="knowledge-loading-overlay" aria-hidden="true">
+            <div className="knowledge-loading-skeleton">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        ) : null}
+      </section>
+      <KnowledgeDeleteGroupModal
+        onCancel={state.onCancelDeleteGroup}
+        onConfirm={state.onConfirmDeleteGroup}
+        open={Boolean(state.pendingGroupDelete)}
+        pendingGroupDelete={state.pendingGroupDelete}
+      />
+    </section>
+  );
+}

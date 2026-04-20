@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from lifemap_api.api.routes_checkins import router as checkins_router
 from lifemap_api.api.routes_goals import router as goals_router
@@ -30,26 +31,27 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "testserver"],
+    )
+    app.add_middleware(
         CORSMiddleware,
         allow_origins=[
             "http://127.0.0.1:5173",
             "http://localhost:5173",
             "http://127.0.0.1:4173",
             "http://localhost:4173",
+            "http://127.0.0.1:1420",
+            "http://localhost:1420",
         ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Accept", "Content-Type"],
     )
 
     @app.get("/health")
-    def health() -> dict[str, object]:
-        return {
-            "status": "ok",
-            "app_env": settings.app_env,
-            "data_dir": str(settings.data_dir),
-            "source_fetch_enabled": settings.source_fetch_enabled,
-        }
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
 
     app.include_router(profiles_router)
     app.include_router(goals_router)

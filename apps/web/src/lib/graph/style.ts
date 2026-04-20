@@ -16,60 +16,60 @@ export const tonePalette: Record<
   }
 > = {
   mint: {
-    background: '#dde7df',
-    border: '#7f9582',
-    accent: '#456352',
-    text: '#25352b',
-    chip: '#d3ddd5'
+    background: '#e5ece6',
+    border: '#93a39a',
+    accent: '#53695d',
+    text: '#29352f',
+    chip: '#dfe7e0'
   },
   lavender: {
-    background: '#e1dee8',
-    border: '#8a8095',
-    accent: '#5f5670',
-    text: '#352f3f',
-    chip: '#d5d2de'
+    background: '#ece9f3',
+    border: '#958cad',
+    accent: '#655d7c',
+    text: '#3c3550',
+    chip: '#e3deed'
   },
   peach: {
-    background: '#eadfd3',
-    border: '#a68a73',
-    accent: '#7b6048',
-    text: '#453428',
-    chip: '#ddd1c4'
+    background: '#efe4d8',
+    border: '#aa917b',
+    accent: '#7f6751',
+    text: '#4a3a2e',
+    chip: '#e6d9cd'
   },
   sky: {
-    background: '#dae5e8',
-    border: '#7d939c',
-    accent: '#486874',
-    text: '#273742',
-    chip: '#d0dbdf'
+    background: '#e2eaed',
+    border: '#8ba0aa',
+    accent: '#516d78',
+    text: '#2a3841',
+    chip: '#d8e1e5'
   },
   rose: {
-    background: '#e7d8d6',
-    border: '#9b7d79',
-    accent: '#735955',
-    text: '#43302d',
-    chip: '#dccfcd'
+    background: '#eddedd',
+    border: '#a48a8a',
+    accent: '#7a6160',
+    text: '#493432',
+    chip: '#e4d5d4'
   },
   sand: {
-    background: '#e8ddca',
-    border: '#9c8767',
-    accent: '#6f5a3d',
-    text: '#433827',
-    chip: '#ddd1bb'
+    background: '#ece1cf',
+    border: '#a29073',
+    accent: '#735f45',
+    text: '#473a2c',
+    chip: '#e2d6c0'
   },
   yellow: {
-    background: '#ebe0aa',
-    border: '#a6944e',
-    accent: '#75652b',
-    text: '#433817',
-    chip: '#dfd39c'
+    background: '#efe5b7',
+    border: '#b09f61',
+    accent: '#7b6d35',
+    text: '#493d1f',
+    chip: '#e5daaa'
   },
   slate: {
-    background: '#dde1e5',
-    border: '#848d95',
-    accent: '#55616b',
-    text: '#2e3840',
-    chip: '#d2d8dd'
+    background: '#e4e7ea',
+    border: '#9199a1',
+    accent: '#606973',
+    text: '#333b44',
+    chip: '#dce1e5'
   }
 };
 

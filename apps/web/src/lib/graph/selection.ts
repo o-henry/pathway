@@ -1,24 +1,19 @@
 import type { GraphBundle } from './types';
 
-export function getProgressionPathNodeIds(bundle: GraphBundle, selectedNodeId: string | null): Set<string> {
+export function getProgressionPathNodeIds(
+  bundle: GraphBundle,
+  selectedNodeId: string | null,
+  incomingProgression?: Map<string, string[]>
+): Set<string> {
   if (!selectedNodeId) {
     return new Set();
   }
 
-  const progressionTypeIds = new Set(
-    bundle.ontology.edge_types.filter((edgeType) => edgeType.role === 'progression').map((edge) => edge.id)
-  );
-
-  const incoming = new Map<string, string[]>();
-  for (const edge of bundle.edges) {
-    if (!progressionTypeIds.has(edge.type)) {
-      continue;
-    }
-
-    const list = incoming.get(edge.target) ?? [];
-    list.push(edge.source);
-    incoming.set(edge.target, list);
-  }
+  const incoming =
+    incomingProgression ??
+    buildIncomingProgressionMap(bundle, new Set(
+      bundle.ontology.edge_types.filter((edgeType) => edgeType.role === 'progression').map((edge) => edge.id)
+    ));
 
   const visited = new Set<string>();
   const stack = [selectedNodeId];
@@ -36,4 +31,19 @@ export function getProgressionPathNodeIds(bundle: GraphBundle, selectedNodeId: s
   }
 
   return visited;
+}
+
+function buildIncomingProgressionMap(bundle: GraphBundle, progressionTypeIds: Set<string>) {
+  const incoming = new Map<string, string[]>();
+  for (const edge of bundle.edges) {
+    if (!progressionTypeIds.has(edge.type)) {
+      continue;
+    }
+
+    const list = incoming.get(edge.target) ?? [];
+    list.push(edge.source);
+    incoming.set(edge.target, list);
+  }
+
+  return incoming;
 }

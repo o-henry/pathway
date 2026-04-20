@@ -11,12 +11,16 @@
   const colors = $derived(tonePalette[data.tone]);
   const riskFlag = $derived((data.riskLevel ?? 0) >= 0.65);
   const compactFields = $derived(data.fieldPreview.slice(0, 1));
+  const isGoalNode = $derived(
+    (data.nodeType?.id ?? data.node.type).toLowerCase().includes('goal')
+  );
 </script>
 
 <div
   class:selected
   class:selected-route={Boolean(data.selectedRoute)}
   class:changed-in-preview={Boolean(data.changedInPreview)}
+  class:goal-node={isGoalNode}
   class:pill={data.shape === 'pill'}
   class:rounded={data.shape === 'rounded_card'}
   class:circle={data.shape === 'circle'}
@@ -79,38 +83,43 @@
 <style>
   .node-shell {
     width: 100%;
-    border: 1px solid color-mix(in srgb, var(--node-border) 84%, #fff 16%);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--node-bg) 97%, #fff 3%), var(--node-bg));
-    box-shadow: 0 10px 22px rgba(18, 24, 33, 0.11);
+    border: 1px solid color-mix(in srgb, var(--node-border) 74%, #fff 26%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--node-bg) 96%, #fff 4%),
+        color-mix(in srgb, var(--node-bg) 90%, #fff 10%)
+      );
+    box-shadow: 0 8px 18px rgba(26, 22, 35, 0.08);
     color: var(--node-text);
-    padding: 0.78rem 0.82rem 0.72rem;
+    padding: 0.54rem 0.62rem 0.52rem;
     position: relative;
   }
 
   .rounded {
-    min-width: 236px;
-    max-width: 244px;
-    border-radius: 4px;
+    min-width: 196px;
+    max-width: 208px;
+    border-radius: 9px;
   }
 
   .circle {
     display: grid;
     place-items: center;
-    width: 210px;
-    min-width: 210px;
-    min-height: 210px;
+    width: 190px;
+    min-width: 190px;
+    min-height: 190px;
     border-radius: 999px;
-    padding: 1.3rem;
+    padding: 1rem;
     text-align: center;
   }
 
   .selected {
-    box-shadow: 0 0 0 3px rgba(48, 91, 138, 0.14), 0 14px 28px rgba(18, 24, 33, 0.14);
+    box-shadow: 0 0 0 2px rgba(86, 110, 170, 0.14), 0 14px 24px rgba(18, 24, 33, 0.12);
     transform: translateY(-2px);
   }
 
   .selected-route {
-    box-shadow: 0 0 0 3px rgba(38, 92, 164, 0.18), 0 14px 28px rgba(18, 24, 33, 0.14);
+    box-shadow: 0 0 0 2px rgba(92, 90, 164, 0.18), 0 14px 24px rgba(18, 24, 33, 0.12);
   }
 
   .changed-in-preview {
@@ -123,8 +132,8 @@
     align-items: center;
     justify-content: flex-start;
     flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-bottom: 0.48rem;
+    gap: 0.4rem;
+    margin-bottom: 0.34rem;
   }
 
   .circle .node-type-row {
@@ -139,7 +148,7 @@
     align-items: center;
     justify-content: center;
     border: 1px solid rgba(23, 20, 17, 0.1);
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--node-chip);
     color: var(--node-text);
   }
@@ -151,7 +160,7 @@
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.06em;
-    padding: 0.22rem 0.4rem;
+    padding: 0.18rem 0.42rem;
     text-transform: uppercase;
   }
 
@@ -161,9 +170,6 @@
   }
 
   .preview-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     background: #d9e8dc;
     color: #2e6644;
   }
@@ -176,21 +182,21 @@
   }
 
   h3 {
-    font-size: 0.96rem;
-    line-height: 1.22;
-    margin-bottom: 0.32rem;
+    font-size: 0.84rem;
+    line-height: 1.24;
+    margin-bottom: 0.18rem;
   }
 
   .circle h3 {
-    font-size: 1.1rem;
+    font-size: 1.04rem;
     line-height: 1.12;
     max-width: 9ch;
   }
 
   .summary {
     color: color-mix(in srgb, var(--node-text) 84%, #fff 16%);
-    font-size: 0.8rem;
-    line-height: 1.42;
+    font-size: 0.69rem;
+    line-height: 1.34;
     display: -webkit-box;
     overflow: hidden;
     line-clamp: 3;
@@ -209,17 +215,18 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.38rem;
-    margin-top: 0.62rem;
+    margin-top: 0.38rem;
   }
 
   .signal-chip {
+    display: grid;
     align-items: start;
     gap: 0.2rem;
     justify-content: flex-start;
     border: 1px solid rgba(23, 20, 17, 0.08);
-    border-radius: 0;
-    background: rgba(255, 255, 255, 0.48);
-    padding: 0.26rem 0.38rem;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 0.22rem 0.34rem;
     text-align: left;
   }
 
@@ -239,6 +246,36 @@
   .signal-chip small {
     font-size: 0.68rem;
     line-height: 1.28;
+  }
+
+  .goal-node {
+    border-color: rgba(108, 120, 175, 0.4);
+    background:
+      linear-gradient(180deg, rgba(109, 116, 176, 0.92), rgba(92, 98, 152, 0.96));
+    color: #f9fbff;
+    box-shadow: 0 14px 26px rgba(59, 59, 106, 0.22);
+  }
+
+  .goal-node .type-label,
+  .goal-node .chip {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .goal-node .summary {
+    color: rgba(245, 247, 255, 0.82);
+  }
+
+  .goal-node .signal-chip {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .goal-node .signal-chip strong,
+  .goal-node .signal-chip small {
+    color: inherit;
   }
 
   :global(.handle) {

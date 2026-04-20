@@ -15,6 +15,8 @@
   let activeRouteSelection = $state<RouteSelectionRecord | null>(null);
   let workspaceRefreshKey = $state(0);
   let activeDock = $state<'revision' | 'evidence' | 'snapshot'>('revision');
+  let leftRailOpen = $state(false);
+  let rightRailOpen = $state(false);
   let SourceLibraryPanelComponent = $state<Component | null>(null);
   let CheckInRevisionPanelComponent = $state<
     Component<{
@@ -38,6 +40,7 @@
     activePreview = null;
     activeBundle = map.graph_bundle;
     workspaceRefreshKey += 1;
+    leftRailOpen = false;
   }
 
   function handleImportedMap(map: GeneratedMapResponse) {
@@ -45,6 +48,7 @@
     activePreview = null;
     activeBundle = map.graph_bundle;
     workspaceRefreshKey += 1;
+    rightRailOpen = false;
   }
 
   function handleAcceptedMap(map: GeneratedMapResponse) {
@@ -52,6 +56,7 @@
     activePreview = null;
     activeBundle = map.graph_bundle;
     workspaceRefreshKey += 1;
+    rightRailOpen = false;
   }
 
   function handleSelectedMap(map: GeneratedMapResponse) {
@@ -63,6 +68,7 @@
   function handlePreview(preview: RevisionPreviewResponse | null) {
     activePreview = preview;
     activeBundle = preview?.proposed_graph_bundle ?? currentMap?.graph_bundle ?? exampleGraphBundle;
+    rightRailOpen = Boolean(preview);
   }
 
   function handleRouteSelection(selection: RouteSelectionRecord | null) {
@@ -82,10 +88,10 @@
   });
 
   const navigationItems = [
-    { label: 'Graph', detail: 'Primary board' },
-    { label: 'Updates', detail: 'Reality log' },
-    { label: 'Evidence', detail: 'Research desk' },
-    { label: 'Snapshots', detail: 'Saved branches' }
+    { label: 'Graph board', detail: 'Live route surface' },
+    { label: 'Reality loop', detail: 'State and revision' },
+    { label: 'Evidence desk', detail: 'Sources and grounding' },
+    { label: 'Archive', detail: 'Saved branch snapshots' }
   ];
 
   const systemNotes = [
@@ -112,6 +118,9 @@
           );
         })()
       : 'No route locked'
+  );
+  const activeSurfaceLabel = $derived(
+    activeDock === 'revision' ? 'Updates' : activeDock === 'evidence' ? 'Evidence' : 'Snapshots'
   );
 </script>
 
@@ -149,144 +158,176 @@
     </header>
 
     <section class="workspace">
-      <aside class="sidebar">
-        <section class="nav-panel">
-          <div class="nav-panel-header">
-            <p class="label">Workspace</p>
-            <h1>{currentMap?.title ?? 'Adaptive pathway graph'}</h1>
-          </div>
-
-          <div class="nav-list">
-            {#each navigationItems as item (item.label)}
-              <article class="nav-item">
-                <strong>{item.label}</strong>
-                <span>{item.detail}</span>
-              </article>
-            {/each}
-          </div>
-        </section>
-
-        <GenerateMapPanel onGenerated={handleGeneratedMap} />
-
-        <WorkspaceHistoryPanel
-          activeMapId={currentMap?.id ?? null}
-          refreshKey={workspaceRefreshKey}
-          onSelectMap={handleSelectedMap}
-        />
-      </aside>
-
       <section class="stage-column">
-        <section class="stage-topbar">
-          <div class="stage-copy">
-            <p class="label">Graph board</p>
-            <h2>{currentMap?.graph_bundle.map.summary ?? 'Map the current route, inspect pressure points, and revise as reality changes.'}</h2>
+        <section class="graph-board">
+          <div class="graph-board-header">
+            <div class="stage-copy">
+              <p class="label">Graph board</p>
+              <h1>{currentMap?.title ?? 'Adaptive pathway graph'}</h1>
+              <h2>{currentMap?.graph_bundle.map.summary ?? 'Map the current route, inspect pressure points, and revise as reality changes.'}</h2>
+            </div>
+
+            <div class="stage-actions">
+              <button
+                type="button"
+                class:active={leftRailOpen}
+                class="rail-toggle"
+                onclick={() => (leftRailOpen = !leftRailOpen)}
+              >
+                <span>Intake</span>
+                <strong>{leftRailOpen ? 'Hide' : 'Open'}</strong>
+              </button>
+              <button
+                type="button"
+                class:active={rightRailOpen}
+                class="rail-toggle"
+                onclick={() => (rightRailOpen = !rightRailOpen)}
+              >
+                <span>{activeSurfaceLabel}</span>
+                <strong>{rightRailOpen ? 'Hide' : 'Inspect'}</strong>
+              </button>
+            </div>
           </div>
 
-          <div class="stage-status">
-            <article>
+          <div class="graph-overlay top-left">
+            <article class="overlay-card route-card">
               <span>Current route</span>
               <strong>{currentRouteLabel}</strong>
             </article>
-            <article>
+          </div>
+
+          <div class="graph-overlay top-right">
+            <article class="overlay-card mode-card">
               <span>Board mode</span>
               <strong>{activePreview ? 'Revision preview' : 'Live snapshot'}</strong>
             </article>
           </div>
-        </section>
 
-        <section class="graph-board">
-          {#if StaticLifeMapComponent}
-            <StaticLifeMapComponent
-              bundle={activeBundle}
-              selectedRouteNodeId={activeRouteSelection?.selected_node_id ?? null}
-              diffOverlay={activePreview?.diff ?? null}
-              overlayMode={Boolean(activePreview)}
-            />
-          {:else}
-            <section class="loading-card">
-              <p class="label">Graph engine</p>
-              <h2>Loading pathway workspace</h2>
-              <p>The graph surface and inspector load separately to keep the app shell responsive.</p>
+          <aside class:open={leftRailOpen} class="floating-rail left-rail">
+            <section class="nav-panel">
+              <div class="nav-panel-header">
+                <p class="label">Workspace</p>
+                <h3>{currentMap?.title ?? 'Adaptive pathway graph'}</h3>
+              </div>
+
+              <div class="nav-list">
+                {#each navigationItems as item (item.label)}
+                  <article class="nav-item">
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                  </article>
+                {/each}
+              </div>
             </section>
-          {/if}
-        </section>
-      </section>
 
-      <aside class="inspector-column">
-        <section class="inspector-note">
-          <p class="label">System rules</p>
-          <div class="system-note-list">
-            {#each systemNotes as note (note)}
-              <p>{note}</p>
-            {/each}
-          </div>
-        </section>
+            <GenerateMapPanel onGenerated={handleGeneratedMap} />
 
-        <section class="inspector">
-          <div class="dock-tab-row" role="tablist" aria-label="Pathway inspector">
-            {#each dockTabs as tab (tab.id)}
-              <button
-                type="button"
-                role="tab"
-                class:active={activeDock === tab.id}
-                aria-selected={activeDock === tab.id}
-                onclick={() => (activeDock = tab.id)}
-              >
-                {tab.label}
-              </button>
-            {/each}
-          </div>
+            <WorkspaceHistoryPanel
+              activeMapId={currentMap?.id ?? null}
+              refreshKey={workspaceRefreshKey}
+              onSelectMap={handleSelectedMap}
+            />
+          </aside>
 
-          <div class="dock-surface">
-            {#if activeDock === 'revision'}
-              {#if CheckInRevisionPanelComponent}
-                <CheckInRevisionPanelComponent
-                  {currentMap}
-                  onAccepted={handleAcceptedMap}
-                  onPreview={handlePreview}
-                  onRouteSelection={handleRouteSelection}
-                />
-              {/if}
-            {:else if activeDock === 'evidence'}
-              {#if SourceLibraryPanelComponent}
-                <SourceLibraryPanelComponent />
-              {/if}
+          <div class:shifted-left={leftRailOpen} class:shifted-right={rightRailOpen} class="graph-canvas">
+            {#if StaticLifeMapComponent}
+              <StaticLifeMapComponent
+                bundle={activeBundle}
+                selectedRouteNodeId={activeRouteSelection?.selected_node_id ?? null}
+                diffOverlay={activePreview?.diff ?? null}
+                overlayMode={Boolean(activePreview)}
+              />
             {:else}
-              <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
+              <section class="loading-card">
+                <p class="label">Graph engine</p>
+                <h2>Loading pathway workspace</h2>
+                <p>The graph surface and inspector load separately to keep the app shell responsive.</p>
+              </section>
             {/if}
           </div>
+
+          <aside class:open={rightRailOpen} class="floating-rail right-rail">
+            <section class="inspector-note">
+              <p class="label">System rules</p>
+              <div class="system-note-list">
+                {#each systemNotes as note (note)}
+                  <p>{note}</p>
+                {/each}
+              </div>
+            </section>
+
+            <section class="inspector">
+              <div class="dock-tab-row" role="tablist" aria-label="Pathway inspector">
+                {#each dockTabs as tab (tab.id)}
+                  <button
+                    type="button"
+                    role="tab"
+                    class:active={activeDock === tab.id}
+                    aria-selected={activeDock === tab.id}
+                    onclick={() => (activeDock = tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                {/each}
+              </div>
+
+              <div class="dock-surface">
+                {#if activeDock === 'revision'}
+                  {#if CheckInRevisionPanelComponent}
+                    <CheckInRevisionPanelComponent
+                      {currentMap}
+                      onAccepted={handleAcceptedMap}
+                      onPreview={handlePreview}
+                      onRouteSelection={handleRouteSelection}
+                    />
+                  {/if}
+                {:else if activeDock === 'evidence'}
+                  {#if SourceLibraryPanelComponent}
+                    <SourceLibraryPanelComponent />
+                  {/if}
+                {:else}
+                  <WorkspaceDataPanel {currentMap} onImported={handleImportedMap} />
+                {/if}
+              </div>
+            </section>
+          </aside>
         </section>
-      </aside>
+      </section>
     </section>
   </main>
 </div>
 
 <style>
   :global(:root) {
-    --pathway-bg: #262d35;
-    --pathway-bg-strong: #1d232a;
-    --pathway-panel: rgba(45, 54, 63, 0.92);
-    --pathway-panel-strong: rgba(52, 63, 74, 0.96);
-    --pathway-line: rgba(157, 171, 186, 0.16);
-    --pathway-line-strong: rgba(183, 194, 206, 0.22);
+    --pathway-bg: #1d2329;
+    --pathway-bg-strong: #171c22;
+    --pathway-panel: linear-gradient(180deg, rgba(36, 44, 52, 0.96), rgba(29, 36, 43, 0.98));
+    --pathway-panel-strong: linear-gradient(180deg, rgba(41, 50, 59, 0.98), rgba(31, 38, 45, 1));
+    --pathway-line: rgba(171, 184, 198, 0.12);
+    --pathway-line-strong: rgba(202, 212, 223, 0.17);
     --pathway-ink: #edf2f8;
-    --pathway-muted: #a5b2c2;
-    --pathway-accent: #87aee8;
-    --pathway-accent-strong: #bad2ff;
-    --pathway-warm: #c69662;
-    --pathway-danger: #ff9e86;
-    --pathway-success: #8bd3ae;
+    --pathway-muted: #98a6b5;
+    --pathway-accent: #90a7d7;
+    --pathway-accent-strong: #ced8f0;
+    --pathway-warm: #c2a06f;
+    --pathway-danger: #eaa08d;
+    --pathway-success: #8fcbb3;
     --pathway-panel-radius: 8px;
-    --pathway-card-radius: 6px;
-    --pathway-chip-radius: 4px;
-    --pathway-shadow: 0 16px 34px rgba(3, 8, 13, 0.28);
+    --pathway-card-radius: 4px;
+    --pathway-chip-radius: 3px;
+    --pathway-shadow: 0 18px 40px rgba(3, 8, 13, 0.24);
+    --pathway-paper: linear-gradient(180deg, rgba(247, 244, 239, 0.98), rgba(239, 236, 232, 0.98));
+    --pathway-paper-line: rgba(94, 92, 118, 0.08);
+    --pathway-paper-ink: #352f45;
+    --pathway-paper-muted: #6a657f;
   }
 
   :global(body) {
     margin: 0;
     background:
-      radial-gradient(circle at top left, rgba(116, 154, 220, 0.18), transparent 24%),
-      linear-gradient(180deg, #2b333c 0%, #20262d 100%);
+      radial-gradient(circle at top left, rgba(136, 156, 208, 0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(194, 160, 111, 0.09), transparent 28%),
+      linear-gradient(180deg, #232a31 0%, #1a1f25 100%);
     color: var(--pathway-ink);
     font-family:
       'IBM Plex Sans', 'Pretendard Variable', 'Pretendard', system-ui, sans-serif;
@@ -294,18 +335,18 @@
 
   .page {
     min-height: 100vh;
-    padding: 0.75rem;
+    padding: 0.65rem;
   }
 
   .app-shell {
-    min-height: calc(100vh - 1.5rem);
-    border: 1px solid rgba(207, 216, 226, 0.14);
-    border-radius: 12px;
+    min-height: calc(100vh - 1.3rem);
+    border: 1px solid rgba(207, 216, 226, 0.1);
+    border-radius: 10px;
     background:
-      linear-gradient(180deg, rgba(49, 59, 69, 0.96), rgba(34, 41, 49, 0.98));
+      linear-gradient(180deg, rgba(41, 49, 57, 0.96), rgba(27, 33, 39, 0.99));
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 28px 60px rgba(0, 0, 0, 0.36);
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 26px 56px rgba(0, 0, 0, 0.34);
     overflow: hidden;
   }
 
@@ -314,21 +355,17 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    min-height: 52px;
-    border-bottom: 1px solid rgba(207, 216, 226, 0.1);
-    background: rgba(17, 22, 28, 0.38);
-    padding: 0 1rem;
+    min-height: 48px;
+    border-bottom: 1px solid rgba(207, 216, 226, 0.08);
+    background: rgba(12, 16, 20, 0.4);
+    padding: 0 0.85rem;
   }
 
   .window-brand,
   .window-state,
   .workspace,
-  .sidebar,
   .stage-column,
-  .inspector-column,
   .nav-list,
-  .stage-topbar,
-  .stage-status,
   .inspector,
   .system-note-list {
     display: grid;
@@ -349,8 +386,6 @@
   .window-pill,
   .nav-item span,
   .nav-item strong,
-  .stage-status span,
-  .stage-status strong,
   .dock-tab-row button {
     font-family:
       'IBM Plex Mono', 'SFMono-Regular', 'Menlo', 'Monaco', monospace;
@@ -417,72 +452,80 @@
   }
 
   .workspace {
-    min-height: calc(100vh - 53px - 1.5rem);
-    padding: 0.75rem;
-  }
-
-  .sidebar,
-  .inspector-column {
-    align-content: start;
+    min-height: calc(100vh - 49px - 1.3rem);
+    padding: 0.72rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .stage-column,
   .graph-board,
-  .dock-surface {
+  .dock-surface,
+  .graph-canvas {
     min-width: 0;
+  }
+
+  .stage-column {
+    gap: 0;
   }
 
   .nav-panel,
   .inspector-note,
+  .inspector,
   .loading-card {
     display: grid;
-    gap: 0.8rem;
+    gap: 0.75rem;
     border: 1px solid var(--pathway-line-strong);
     border-radius: var(--pathway-panel-radius);
-    background: rgba(20, 26, 32, 0.72);
-    box-shadow: var(--pathway-shadow);
-    padding: 0.95rem;
+    background: linear-gradient(180deg, rgba(28, 35, 42, 0.92), rgba(21, 27, 33, 0.96));
+    box-shadow: 0 16px 34px rgba(4, 8, 13, 0.28);
+    padding: 0.88rem;
+    backdrop-filter: blur(20px);
   }
 
+  .graph-board-header,
   .nav-panel-header,
   .stage-copy {
     display: grid;
     gap: 0.35rem;
   }
 
-  .nav-panel h1,
+  .nav-panel h3,
+  .stage-copy h1,
   .stage-copy h2,
   .loading-card h2,
   p {
     margin: 0;
   }
 
-  .nav-panel h1 {
-    font-size: clamp(1.15rem, 1.6vw, 1.5rem);
-    line-height: 1.15;
+  .nav-panel h3,
+  .stage-copy h1 {
+    font-size: clamp(1.02rem, 1.25vw, 1.22rem);
+    line-height: 1.2;
   }
 
   .nav-list {
-    gap: 0.45rem;
+    gap: 0.42rem;
   }
 
   .nav-item {
     display: grid;
     gap: 0.16rem;
     border: 1px solid rgba(207, 216, 226, 0.12);
-    background: rgba(255, 255, 255, 0.03);
-    padding: 0.72rem;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 0.56rem 0.62rem;
   }
 
   .nav-item strong,
-  .stage-status strong {
-    font-size: 0.76rem;
+  .rail-toggle strong,
+  .overlay-card strong {
+    font-size: 0.72rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
   .nav-item span,
-  .stage-status span,
+  .rail-toggle span,
+  .overlay-card span,
   .loading-card p:last-child,
   .system-note-list p {
     color: var(--pathway-muted);
@@ -496,35 +539,146 @@
     text-transform: uppercase;
   }
 
-  .stage-topbar {
-    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
-    align-items: stretch;
+  .stage-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  .stage-copy h2 {
-    font-size: clamp(1rem, 1.4vw, 1.2rem);
-    line-height: 1.45;
-    font-weight: 500;
-  }
-
-  .stage-status {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .stage-status article {
+  .rail-toggle,
+  .overlay-card {
     display: grid;
-    gap: 0.24rem;
-    border: 1px solid var(--pathway-line-strong);
-    background: rgba(18, 24, 30, 0.64);
-    padding: 0.82rem;
+    gap: 0.12rem;
+    border: 1px solid rgba(207, 216, 226, 0.14);
+    background: rgba(17, 22, 28, 0.72);
+    color: var(--pathway-ink);
+    font: inherit;
+    padding: 0.56rem 0.68rem;
+    backdrop-filter: blur(16px);
+  }
+
+  .rail-toggle {
+    min-width: 112px;
+    cursor: pointer;
+  }
+
+  .rail-toggle.active {
+    border-color: rgba(186, 210, 255, 0.28);
+    background: rgba(39, 47, 57, 0.86);
   }
 
   .graph-board {
-    min-height: 76vh;
+    position: relative;
+    min-height: calc(100vh - 88px);
+    border: 1px solid rgba(208, 217, 227, 0.12);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at top left, rgba(108, 129, 184, 0.08), transparent 22%),
+      radial-gradient(circle at bottom right, rgba(213, 174, 110, 0.06), transparent 24%),
+      linear-gradient(180deg, rgba(27, 33, 40, 0.6), rgba(17, 22, 27, 0.35));
+    padding: 0.32rem;
+    overflow: hidden;
+  }
+
+  .graph-board-header {
+    position: absolute;
+    top: 0.8rem;
+    left: 0.8rem;
+    right: 0.8rem;
+    z-index: 8;
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    pointer-events: none;
+  }
+
+  .stage-copy {
+    max-width: min(58vw, 720px);
+    border: 1px solid rgba(207, 216, 226, 0.12);
+    background: rgba(14, 19, 24, 0.76);
+    padding: 0.62rem 0.74rem;
+    backdrop-filter: blur(18px);
+    pointer-events: auto;
+  }
+
+  .stage-copy h2 {
+    font-size: clamp(0.88rem, 0.95vw, 0.98rem);
+    line-height: 1.42;
+    font-weight: 450;
+    color: var(--pathway-muted);
+  }
+
+  .graph-canvas {
+    min-height: inherit;
+    padding-top: 4.8rem;
+    transition:
+      padding-left 180ms ease,
+      padding-right 180ms ease;
+  }
+
+  .graph-canvas.shifted-left {
+    padding-left: min(28vw, 340px);
+  }
+
+  .graph-canvas.shifted-right {
+    padding-right: min(30vw, 360px);
+  }
+
+  .graph-overlay {
+    position: absolute;
+    z-index: 8;
+    pointer-events: none;
+  }
+
+  .graph-overlay.top-left {
+    top: 5.8rem;
+    left: 0.85rem;
+  }
+
+  .graph-overlay.top-right {
+    top: 5.8rem;
+    right: 0.85rem;
+  }
+
+  .floating-rail {
+    position: absolute;
+    top: 0.8rem;
+    bottom: 0.8rem;
+    z-index: 9;
+    display: grid;
+    gap: 0.7rem;
+    width: min(28vw, 340px);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-16px);
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+
+  .floating-rail.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .left-rail {
+    left: 0.8rem;
+  }
+
+  .right-rail {
+    right: 0.8rem;
+    width: min(30vw, 360px);
+    transform: translateX(16px);
+  }
+
+  .right-rail.open {
+    transform: translateX(0);
   }
 
   .inspector-note {
-    background: rgba(18, 24, 30, 0.72);
+    background: var(--pathway-panel-strong);
   }
 
   .system-note-list p {
@@ -533,19 +687,17 @@
   }
 
   .inspector {
-    border: 1px solid var(--pathway-line-strong);
-    border-radius: var(--pathway-panel-radius);
-    background: rgba(20, 26, 32, 0.8);
-    box-shadow: var(--pathway-shadow);
     overflow: hidden;
+    min-height: 0;
+    padding: 0;
   }
 
   .dock-tab-row {
     display: flex;
-    gap: 0.38rem;
+    gap: 0.32rem;
     border-bottom: 1px solid var(--pathway-line);
     background: rgba(10, 14, 18, 0.42);
-    padding: 0.65rem;
+    padding: 0.58rem;
   }
 
   .dock-tab-row button {
@@ -557,7 +709,7 @@
     font: inherit;
     font-size: 0.7rem;
     letter-spacing: 0.06em;
-    padding: 0.5rem 0.62rem;
+    padding: 0.46rem 0.58rem;
     text-transform: uppercase;
   }
 
@@ -568,7 +720,9 @@
   }
 
   .dock-surface {
-    min-height: 480px;
+    min-height: 0;
+    height: calc(100% - 54px);
+    overflow: auto;
   }
 
   .dock-surface :global(section) {
@@ -578,31 +732,9 @@
     background: transparent;
   }
 
-  @media (min-width: 1280px) {
-    .workspace {
-      grid-template-columns: minmax(280px, 320px) minmax(0, 1.5fr) minmax(320px, 360px);
-      align-items: start;
-    }
-
-    .sidebar,
-    .inspector-column {
-      position: sticky;
-      top: 0.75rem;
-    }
-  }
-
-  @media (max-width: 1279px) {
-    .stage-topbar,
-    .stage-status {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
   @media (max-width: 920px) {
     .window-bar,
-    .window-state,
-    .stage-topbar,
-    .stage-status {
+    .window-state {
       grid-template-columns: minmax(0, 1fr);
     }
 
@@ -614,6 +746,61 @@
     .window-state {
       grid-auto-flow: row;
       justify-items: start;
+    }
+
+    .stage-actions {
+      width: 100%;
+      justify-content: stretch;
+    }
+
+    .graph-board-header {
+      position: absolute;
+      inset: 0.7rem 0.7rem auto;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .stage-copy {
+      max-width: none;
+    }
+
+    .rail-toggle {
+      flex: 1;
+    }
+
+    .floating-rail {
+      top: auto;
+      left: 0.6rem;
+      right: 0.6rem;
+      bottom: 0.6rem;
+      width: auto;
+      max-height: min(52vh, 520px);
+    }
+
+    .left-rail,
+    .right-rail {
+      transform: translateY(18px);
+    }
+
+    .left-rail.open,
+    .right-rail.open {
+      transform: translateY(0);
+    }
+
+    .graph-canvas.shifted-left,
+    .graph-canvas.shifted-right {
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: min(54vh, 540px);
+    }
+
+    .graph-overlay.top-right {
+      top: 8.6rem;
+      right: 0.85rem;
+    }
+
+    .graph-overlay.top-left {
+      top: 8.6rem;
     }
   }
 
