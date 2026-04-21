@@ -44,6 +44,18 @@ The latest close-control cleanup pass also replaces narrow text-based close butt
 The latest Pathway canvas controls pass also normalizes all Pathway node cards to a shared height, restores `H/ㅗ` move-mode toggling inside the canvas with a dedicated move tool button, and aligns the Pathway action-button sizing with the zoom/fullscreen control stack.
 The latest goal-surface relocation pass also moves goal authoring into the workflow workspace itself: the workflow tab now keeps the goal input composer directly under the canvas, while the goal tab is simplified into a saved-goal browsing/selection surface and becomes the default first tab again.
 The latest settings collector-doctor pass also turns the settings tab into a runtime readiness board for the configured collectors: Scrapling, Crawl4AI, Lightpanda, Steel, Playwright Local, Scrapy Playwright, and Browser Use now render with green/red status dots plus the current readiness reason.
+The latest workflow control-alignment pass also restores the dedicated move tool button directly beneath the zoom controls, and normalizes both the lower-left control stack and the vertical Pathway action stack to a shared button box with centered SVG icons.
+The latest workflow/task surface cleanup pass also moves goal authoring back into the goal tab as a first-class matching card, removes the duplicate workflow-bottom composer, and offsets the workflow canvas cue away from the lower-left control stack so the buttons no longer get visually clipped by the bottom note bar.
+The latest goals-tab shell pass also replaces the temporary two-card goals screen with the upstream first-tab style `tasks-thread-layout` structure, so Pathway goals now use the same nav-island plus main-surface composition as the original o-rail first workspace.
+The latest workflow height-alignment fix also removes the stale empty second row from the workflow main canvas column, so the canvas island now stretches to the same vertical extent as the right context panel instead of stopping short above a phantom bottom gap.
+The latest goals-tab correction also drops the fake custom Pathway form surface and restores the actual upstream `TasksPage` as the first tab content, so the user again gets the original rail-style conversation/log workspace instead of a simplified standalone form.
+The latest Pathway icon override pass also stops relying on shared `plus.svg` / `minus.svg` assets for the workflow zoom controls and branch toggles, and instead points both `canvas-zoom-group` and `pathway-branch-toggle` directly at dedicated Pathway-only SVG files so the user-provided plus/minus glyphs render in those exact controls.
+The latest Pathway button readability pass also shortens the sidebar request CTA from `변경 미리보기` to `미리보기` and forces Pathway mini action buttons to keep a single-line label with tighter font sizing/padding, so narrow sidebars on smaller MacBook screens no longer break button text into two lines.
+The latest Pathway tasks-mode pass also adds a real Tauri drag region to the top shell and splits the first tab into a Pathway-specific mode: the left rail now shows goal navigation instead of the raw project tree, while the bottom composer drops agent mentions, creativity mode, provider health strip, and reasoning dropdown so only file attach, model selection, text input, and send/stop remain.
+The latest rail-density and settings-spacing pass also fixes clipped ascenders in the Pathway goals rail, adds clearer breathing room between the workspace path picker and Collector Doctor, and tightens the Pathway canvas lane spacing so the first-open graph reads as a more compact route bundle instead of a loose sparse scatter.
+The latest settings typography micro-pass also nudges Collector Doctor labels down slightly so provider names like `SCRAPLING` and `CRAWL4AI` sit more visually centered within their rows under the current display font.
+The latest workflow stats micro-pass also wraps the in-canvas metric counts in dedicated spans so values like `6 / 5 / 0` can be nudged upward independently and sit more vertically centered inside the compact status badges.
+The latest Pathway copy and sidebar clarity pass also rewrites the inherited first-tab empty prompt into goal/constraint language that matches Pathway, turns the workflow context panel into clearer summary/evidence/assumption/update sections, and gives each reality-update input its own island-style field surface instead of one flat undifferentiated form block.
 
 ## Last completed phase
 
@@ -78,6 +90,7 @@ The highest-value follow-up options are now:
 ## Commands run
 
 - `git init -b main`
+- `pnpm --filter desktop exec tsc --noEmit`
 - `git remote add origin https://github.com/o-henry/pathway.git`
 - `XDG_CACHE_HOME=/tmp PNPM_HOME=/tmp/pnpm-home pnpm dlx sv create apps/web --template minimal --types ts --add eslint vitest="usages:unit" playwright --no-install --no-download-check`
 - `pnpm install`
@@ -190,6 +203,129 @@ The highest-value follow-up options are now:
   - This pass targets the narrow close buttons that were most likely to collapse vertically; broader button/icon normalization across other tabs is still a separate cleanup task.
 - Next recommended task:
   - Do a quick visual pass on workflow sidebar and conversation overlay in `pnpm dev` to confirm the new xmark button feels sized correctly with the current font stack.
+
+## Latest micro-update
+
+- Completed work:
+  - Centered Pathway mini action button labels more accurately inside their button bounds, including the `미리보기` action.
+  - Added extra vertical travel room to the Pathway graph stage shell so pan mode can move the canvas up and down instead of only feeling horizontal.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The added pan travel range is still a fixed allowance rather than being derived from viewport size or graph density.
+- Next recommended task:
+  - Re-test Pathway pan mode in Tauri and, if needed, tune the vertical travel allowance so it feels generous without making the empty lower canvas look excessive.
+
+## Latest micro-update
+
+- Completed work:
+  - Tightened the first-open Pathway canvas composition upward again so the initial graph cluster sits closer to the screenshot-driven target layout.
+  - Added extra spacing between the goal-tab attachment badge row and the composer placeholder/input area in Pathway mode.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/pages/tasks/TasksThreadComposer.tsx`
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The initial canvas composition is still tuned with fixed offsets rather than a viewport-ratio-based preset, so further screenshot matching may still need another small pass.
+- Next recommended task:
+  - Compare the reopened first workflow canvas against the target screenshot and decide whether the Pathway initial layout should lock to this fixed composition or move to a responsive preset by window height.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the Pathway goal-tab attach button path so it now opens the browser file picker immediately in Pathway mode instead of first attempting a missing Tauri picker command and losing click context.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/useTasksThreadState.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - Pathway-mode attachments now open reliably, but they still use the browser-file fallback path rather than a full persisted desktop knowledge-picker integration.
+- Next recommended task:
+  - Verify in Tauri that selecting a file from the goal-tab composer shows the attachment chip immediately and carries the snippet into the submitted prompt.
+
+## Latest micro-update
+
+- Completed work:
+  - Made the Pathway canvas move button visually enter the same blue-tinted active state when pan mode is toggled on via `H` or by clicking the move control.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - No command needed; CSS-only visual state fix.
+- Known gaps:
+  - This pass only aligns the active visual treatment for the move control; it does not change any other control-state semantics.
+- Next recommended task:
+  - Do a quick live pass on the Pathway canvas controls to confirm active-state consistency across move, fullscreen, and branch action buttons.
+
+## Latest micro-update
+
+- Completed work:
+  - Replaced the Pathway in-canvas magic/analyze control icon asset with the user-provided `star-2` SVG.
+- Changed files:
+  - `apps/desktop/public/icon-magic-stick.svg`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `cp '/Users/henry/Downloads/star-2-svgrepo-com (1).svg' apps/desktop/public/icon-magic-stick.svg`
+- Known gaps:
+  - This pass swaps the icon asset only; it does not rename the underlying control or change any related behavior.
+- Next recommended task:
+  - Visually confirm the updated Pathway canvas action icon in Tauri and decide whether the adjacent control icons should be normalized to the same icon family.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the first-open Pathway canvas composition so the graph stage itself starts lower inside the canvas instead of clinging to the very top.
+  - Unified Pathway canvas hit-testing with the same stage inset constants so drag, marquee, and initial render all agree on the same lowered stage origin.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass retunes the initial stage origin only; it does not yet introduce per-window-height adaptive composition presets.
+- Next recommended task:
+  - Re-open the workflow canvas in Tauri and compare the first-open map placement against the reference screenshot, then decide whether the Pathway stage should use a fixed lowered origin or a responsive one tied to viewport height.
+
+## Latest micro-update
+
+- Completed work:
+  - Hid the Pathway goal-tab thread-header nav toggle entirely so the extra top-right button no longer renders in Pathway mode.
+  - Restored the reasoning-level dropdown inside the Pathway goal-tab composer so `LOW / MEDIUM / HIGH / VERY HIGH` selection is available again and continues to flow into the existing Codex thread reasoning path.
+  - Replaced the goal-tab composer placeholder with Pathway-specific copy and added a browser-file fallback attachment flow so the attach button can still open, show chips, and inject local snippet text even when the old Tauri knowledge-file picker path is unavailable.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksThreadHeaderBar.tsx`
+  - `apps/desktop/src/pages/tasks/TasksThreadComposer.tsx`
+  - `apps/desktop/src/pages/tasks/taskKnowledgeAttachments.ts`
+  - `apps/desktop/src/pages/tasks/useTasksThreadState.ts`
+  - `apps/desktop/src/pages/tasks/browserAttachmentStore.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - Browser fallback attachments now work at the composer/prompt layer, but they are still an in-memory fallback path rather than a full persisted desktop knowledge-ingestion pipeline.
+- Next recommended task:
+  - Do a live Tauri pass on the goal tab composer to confirm the restored reasoning dropdown and new attachment fallback feel correct under the current Pathway font stack.
+
+## Latest micro-update
+
+- Completed work:
+  - Lowered the initial Pathway canvas composition anchor so first-open graphs start farther below the top edge and read closer to the desired upper-middle cluster layout.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass only retunes first-open vertical placement; it does not change graph generation, branch routing, or per-node drag layout behavior.
+- Next recommended task:
+  - Recheck the first-open workflow canvas in Tauri and, if needed, fine-tune the initial Y anchor against real window heights rather than a fixed layout padding.
 
 ## Latest micro-update
 

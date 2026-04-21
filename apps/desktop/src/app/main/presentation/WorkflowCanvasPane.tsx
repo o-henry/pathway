@@ -505,12 +505,9 @@ export default function WorkflowCanvasPane({
 
             <div className="canvas-zoom-controls">
               <div className="canvas-zoom-group">
-                <button onClick={onCanvasZoomIn} title={t("workflow.canvas.zoomIn")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/plus.svg" /></button>
-                <button onClick={onCanvasZoomOut} title={t("workflow.canvas.zoomOut")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/minus.svg" /></button>
+                <button onClick={onCanvasZoomIn} title={t("workflow.canvas.zoomIn")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/pathway-plus.svg" /></button>
+                <button onClick={onCanvasZoomOut} title={t("workflow.canvas.zoomOut")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/pathway-minus.svg" /></button>
               </div>
-              <button className="canvas-zoom-single" onClick={() => setCanvasFullscreen((prev) => !prev)} title={canvasFullscreen ? t("workflow.canvas.defaultView") : t("workflow.canvas.fullView")} type="button">
-                <img alt="" aria-hidden="true" className="canvas-control-icon" src="/canvas-fullscreen.svg" />
-              </button>
               <button
                 aria-label={t("workflow.canvas.move")}
                 className={`canvas-zoom-single ${panMode ? "is-active" : ""}`.trim()}
@@ -519,6 +516,14 @@ export default function WorkflowCanvasPane({
                 type="button"
               >
                 <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-move.svg" />
+              </button>
+              <button
+                className="canvas-zoom-single"
+                onClick={() => setCanvasFullscreen((prev) => !prev)}
+                title={canvasFullscreen ? t("workflow.canvas.defaultView") : t("workflow.canvas.fullView")}
+                type="button"
+              >
+                <img alt="" aria-hidden="true" className="canvas-control-icon" src="/canvas-fullscreen.svg" />
               </button>
             </div>
 

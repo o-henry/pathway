@@ -22,6 +22,8 @@
   height: calc(var(--titlebar-overlay-height) + 14px);
   z-index: 2;
   background: transparent;
+  -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .app-shell::before {

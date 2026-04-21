@@ -32,6 +32,7 @@ const HIDDEN_TASKS_MODEL_VALUES = new Set([
 ]);
 
 type TasksThreadComposerProps = {
+  pathwayMode?: boolean;
   composerRef: RefObject<HTMLTextAreaElement | null>;
   modelMenuRef: RefObject<HTMLDivElement | null>;
   reasonMenuRef: RefObject<HTMLDivElement | null>;
@@ -174,7 +175,9 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
   const mentionOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const canSubmit = canSubmitTasksComposer(props.composerDraft);
   const composerDisabled = false;
-  const composerPlaceholder = t("tasks.composer.placeholder");
+  const composerPlaceholder = props.pathwayMode
+    ? "현재 목표, 제약, 막힌 지점, 조사할 포인트, 그래프에 반영할 변화를 입력하세요."
+    : t("tasks.composer.placeholder");
   const visibleModelOptions = RUNTIME_MODEL_OPTIONS.filter((option) => !HIDDEN_TASKS_MODEL_VALUES.has(option.value));
   const selectedBadges = buildSelectedTasksComposerBadges({
     roleIds: props.selectedComposerRoleIds,
@@ -210,7 +213,7 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
 
   return (
     <>
-      {(props.providerStatuses?.length ?? 0) > 0 ? (
+      {!props.pathwayMode && (props.providerStatuses?.length ?? 0) > 0 ? (
         <div
           aria-label="웹 AI provider 상태"
           id="tasks-provider-status-strip"
@@ -256,11 +259,11 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
       ) : null}
       <div
         aria-label="Tasks 질문 작성기"
-        className="tasks-thread-composer-shell question-input agents-composer"
+        className={`tasks-thread-composer-shell question-input agents-composer${props.pathwayMode ? " is-pathway-mode" : ""}`.trim()}
         data-e2e="tasks-composer-shell"
         role="region"
       >
-      {props.mentionMatch ? (
+      {!props.pathwayMode && props.mentionMatch ? (
         <div
           aria-label={t("tasks.aria.agentMentions")}
           className="tasks-thread-mention-menu"
@@ -320,6 +323,7 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
         </div>
       ) : null}
 
+      {!props.pathwayMode ? (
       <div aria-label="선택된 에이전트 및 provider" className="tasks-thread-selected-mentions" data-e2e="tasks-selected-badges">
           <button
             aria-label={props.creativeModeEnabled ? "창의성 모드 켜짐, 끄기" : "창의성 모드 꺼짐, 켜기"}
@@ -365,6 +369,7 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
             </span>
           ))}
       </div>
+      ) : null}
       <div aria-label="질문 입력 영역" className="tasks-thread-composer-input-wrap" role="group">
         <textarea
           ref={props.composerRef}

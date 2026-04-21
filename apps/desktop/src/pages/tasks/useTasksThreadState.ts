@@ -108,6 +108,7 @@ import {
   type BrowserStore,
 } from "./taskThreadStorageState";
 import { buildPromptWithKnowledgeAttachments, findKnowledgeEntryIdByArtifact } from "./taskKnowledgeAttachments";
+import { clearBrowserAttachments, removeBrowserAttachment, setBrowserAttachment } from "./browserAttachmentStore";
 import { applyCoordinationSettlement, settleRunningCoordinationRun } from "./taskCoordinationLifecycle";
 import { buildOptimisticThreadDeleteState } from "./taskThreadOptimisticDelete";
 import {
@@ -129,6 +130,7 @@ const LIVE_NOTE_SAME_MESSAGE_REFRESH_MS = 10_000;
 const TASK_ACTION_SLOW_MS = 900;
 
 type Params = {
+  pathwayMode?: boolean;
   cwd: string;
   hasTauriRuntime: boolean;
   isActive?: boolean;
@@ -1581,17 +1583,94 @@ export function useTasksThreadState(params: Params) {
 
   const pendingApprovals = useMemo(() => activeThread?.approvals.filter((approval) => approval.status === "pending") ?? [], [activeThread]);
 
-  const openAttachmentPicker = useCallback(async () => {
-    if (!params.hasTauriRuntime || !params.cwd) {
-      params.setStatus("Tasks file attachments are available in the desktop runtime only.");
-      return;
+  const openBrowserAttachmentPicker = useCallback(async () => {
+    if (typeof document === "undefined") {
+      return [] as KnowledgeFileRef[];
     }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.appendChild(input);
+
+    const files = await new Promise<File[]>((resolve) => {
+      input.addEventListener(
+        "change",
+        () => {
+          resolve(Array.from(input.files ?? []));
+        },
+        { once: true },
+      );
+      input.click();
+    });
+
+    input.remove();
+    const refs = await Promise.all(
+      files.map(async (file) => {
+        const fileWithPath = file as File & { path?: string };
+        const path = String(fileWithPath.path ?? file.name).trim() || file.name;
+        const id = `browser-${file.name}-${file.lastModified}-${file.size}`;
+        const extIndex = file.name.lastIndexOf(".");
+        const ext = extIndex >= 0 ? file.name.slice(extIndex + 1).toLowerCase() : "";
+        const text = await file.text().catch(() => "");
+        setBrowserAttachment({
+          id,
+          name: file.name,
+          path,
+          text,
+        });
+        return {
+          id,
+          name: file.name,
+          path,
+          ext,
+          enabled: true,
+          sizeBytes: file.size,
+          mtimeMs: file.lastModified,
+          status: "ready" as const,
+        };
+      }),
+    );
+    return refs;
+  }, []);
+
+  const openAttachmentPicker = useCallback(async () => {
     try {
-      const paths = await params.invokeFn<string[]>("dialog_pick_knowledge_files");
-      if (!paths.length) {
+      let probed: KnowledgeFileRef[] = [];
+      if (params.pathwayMode) {
+        probed = await openBrowserAttachmentPicker();
+      } else if (params.hasTauriRuntime && params.cwd) {
+        try {
+          const paths = await params.invokeFn<string[]>("dialog_pick_knowledge_files");
+          if (paths.length > 0) {
+            try {
+              probed = await params.invokeFn<KnowledgeFileRef[]>("knowledge_probe", { paths });
+            } catch {
+              probed = paths.map((path, index) => {
+                const normalizedPath = String(path ?? "").trim();
+                const name = normalizedPath.split(/[\\/]/).at(-1) || `attachment-${index + 1}`;
+                const extIndex = name.lastIndexOf(".");
+                return {
+                  id: `path-${normalizedPath}`,
+                  name,
+                  path: normalizedPath,
+                  ext: extIndex >= 0 ? name.slice(extIndex + 1).toLowerCase() : "",
+                  enabled: true,
+                  status: "ready" as const,
+                };
+              });
+            }
+          }
+        } catch {
+          probed = await openBrowserAttachmentPicker();
+        }
+      } else {
+        probed = await openBrowserAttachmentPicker();
+      }
+      if (!probed.length) {
         return;
       }
-      const probed = await params.invokeFn<KnowledgeFileRef[]>("knowledge_probe", { paths });
       setAttachedFiles((current) => {
         const seen = new Set(current.map((file) => file.path));
         const next = [...current];
@@ -1606,15 +1685,17 @@ export function useTasksThreadState(params: Params) {
     } catch (error) {
       params.setStatus(`Failed to attach files: ${formatError(error)}`);
     }
-  }, [params]);
+  }, [openBrowserAttachmentPicker, params]);
 
   const removeAttachedFile = useCallback((fileId: string) => {
+    removeBrowserAttachment(fileId);
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
   }, []);
 
   const clearAttachedFiles = useCallback(() => {
+    clearBrowserAttachments(attachedFiles.map((file) => file.id));
     setAttachedFiles([]);
-  }, []);
+  }, [attachedFiles]);
 
   const openProjectDirectory = useCallback(async () => {
     if (!params.hasTauriRuntime) {

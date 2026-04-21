@@ -107,7 +107,9 @@ export default function SettingsPage({
             onClick={onRefreshCollectorDoctor}
             type="button"
           >
-            {collectorDoctorPending ? "확인 중" : "새로고침"}
+            <span className="settings-refresh-label-text">
+              {collectorDoctorPending ? "확인 중" : "새로고침"}
+            </span>
           </button>
         </div>
         <div className="settings-collector-doctor-list">
@@ -120,10 +122,12 @@ export default function SettingsPage({
                 />
                 <div className="settings-collector-card-copy">
                   <strong>{collector.label}</strong>
-                  <span>{collector.detail}</span>
                 </div>
+                <span className="settings-collector-card-detail">{collector.detail}</span>
               </div>
-              <p className="settings-collector-card-message">{collector.message}</p>
+              {collector.state === "checking" ? null : (
+                <p className="settings-collector-card-message">{collector.message}</p>
+              )}
             </article>
           ))}
         </div>

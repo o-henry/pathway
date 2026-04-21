@@ -175,6 +175,12 @@
   line-height: 1;
 }
 
+.settings-account-button .settings-button-label,
+.settings-refresh-label-text {
+  position: relative;
+  top: 1px;
+}
+
 .settings-usage-button.settings-account-button,
 .bridge-head-action-button.settings-account-button {
   min-height: 30px;
@@ -324,6 +330,7 @@
 .settings-collector-doctor {
   display: grid;
   gap: 10px;
+  margin-top: 18px;
 }
 
 .settings-collector-doctor-head {
@@ -358,7 +365,6 @@
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #dde4ee;
   border-radius: 6px;
   background: #fbfcfe;
 }
@@ -370,23 +376,32 @@
 }
 
 .settings-collector-card-copy {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .settings-collector-card-copy strong {
+  position: relative;
+  top: 1px;
   color: #1f2430;
   font-size: 13px;
   line-height: 1.25;
 }
 
-.settings-collector-card-copy span,
+.settings-collector-card-detail,
 .settings-collector-card-message {
   margin: 0;
   color: #667284;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.settings-collector-card-detail {
+  margin-left: auto;
+  text-align: right;
+  min-width: 0;
 }
 
 .settings-collector-dot {

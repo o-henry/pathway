@@ -26,10 +26,17 @@ import { TasksThreadHeaderBar } from "./TasksThreadHeaderBar";
 import { TasksThreadConversation } from "./TasksThreadConversation";
 import { TasksThreadReviewPane } from "./TasksThreadReviewPane";
 import { shouldShowTasksComposerStopButton, TasksThreadComposer } from "./TasksThreadComposer";
+import type { GoalRecord } from "../../lib/types";
 
 type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
 type TasksPageProps = {
+  pathwayMode?: boolean;
+  pathwayGoals?: GoalRecord[];
+  activeGoalId?: string | null;
+  activeGoalTitle?: string | null;
+  onSelectGoal?: (goalId: string | null) => void;
+  onOpenWorkflow?: () => void;
   cwd: string;
   hasTauriRuntime: boolean;
   isActive?: boolean;
@@ -265,8 +272,8 @@ export default function TasksPage(props: TasksPageProps) {
   const deferredLiveProcessEvents = useDeferredValue(state.liveProcessEvents ?? EMPTY_LIVE_EVENTS);
   const fileTree = useMemo(() => buildThreadFileTree(state.activeThread?.files ?? []), [state.activeThread?.files]);
   const mentionMatch = useMemo(
-    () => (isMentionMenuHidden ? null : getTaskAgentMentionMatch(state.composerDraft, composerCursor)),
-    [composerCursor, isMentionMenuHidden, state.composerDraft],
+    () => (props.pathwayMode || isMentionMenuHidden ? null : getTaskAgentMentionMatch(state.composerDraft, composerCursor)),
+    [composerCursor, isMentionMenuHidden, props.pathwayMode, state.composerDraft],
   );
   const recentRuntimeSessions = useMemo(() => state.searchRuntimeSessions(""), [state.searchRuntimeSessions]);
   const deferredRecentRuntimeSessions = useDeferredValue(recentRuntimeSessions ?? EMPTY_RUNTIME_SESSIONS);
@@ -343,6 +350,58 @@ export default function TasksPage(props: TasksPageProps) {
       data-e2e="tasks-workspace"
       role="region"
     >
+      {props.pathwayMode ? (
+        <aside aria-label="Pathway 목표 탐색" className="tasks-thread-nav pathway-tasks-nav" role="navigation">
+          <section aria-label="Pathway 목표 탐색 아일랜드" className="tasks-thread-nav-island pathway-tasks-nav-island" role="region">
+            <div className="tasks-thread-nav-actions">
+              <button aria-label="새 목표" className="tasks-thread-new-button" onClick={() => props.onSelectGoal?.(null)} type="button">
+                새 목표
+              </button>
+              <button aria-label="워크플로우 열기" className="tasks-thread-new-button" onClick={props.onOpenWorkflow} type="button">
+                워크플로우
+              </button>
+              <div aria-label="현재 목표" className="tasks-thread-project-card" role="group">
+                <strong>현재 목표</strong>
+                <span title={props.activeGoalTitle ?? ""}>{props.activeGoalTitle || "-"}</span>
+              </div>
+            </div>
+            <div aria-label="목표 목록 요약" className="tasks-thread-nav-copy" role="group">
+              <strong>목표 목록</strong>
+              <span>{`${props.pathwayGoals?.length ?? 0} goals`}</span>
+            </div>
+            <div aria-label="Pathway 목표 목록" className="tasks-thread-project-tree pathway-goal-tree" role="list">
+              {(props.pathwayGoals?.length ?? 0) === 0 ? (
+                <p className="tasks-thread-empty-copy">첫 목표를 만들어 로컬 의사결정 그래프를 시작하세요.</p>
+              ) : (
+                props.pathwayGoals!.map((goal) => (
+                  <article
+                    className={`tasks-thread-list-row${props.activeGoalId === goal.id ? " is-active" : ""}`}
+                    key={goal.id}
+                    role="listitem"
+                  >
+                    <button
+                      aria-label={`${goal.title} 목표 선택`}
+                      className={`tasks-thread-list-item${props.activeGoalId === goal.id ? " is-active" : ""}`}
+                      onClick={() => props.onSelectGoal?.(goal.id)}
+                      type="button"
+                    >
+                      <div className="tasks-thread-list-title-row">
+                        <strong>{goal.title}</strong>
+                      </div>
+                      <p>{goal.category || "uncategorized"}</p>
+                      {goal.success_criteria ? (
+                        <div className="tasks-thread-list-meta-row">
+                          <span className="tasks-thread-list-stage is-active">{goal.success_criteria}</span>
+                        </div>
+                      ) : null}
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </aside>
+      ) : (
       <TasksThreadNavPane
         activeThread={state.activeThread}
         activeThreadId={state.activeThreadId}
@@ -388,9 +447,11 @@ export default function TasksPage(props: TasksPageProps) {
           setCollapsedProjects((current) => ({ ...current, [normalized]: !current[normalized] }));
         }}
       />
+      )}
 
       <section aria-label="Tasks 메인 영역" className="tasks-thread-main-surface" role="region">
         <TasksThreadHeaderBar
+          pathwayMode={props.pathwayMode}
           displayPath={displayThreadPath(state.projectPath || state.activeThread?.task.worktreePath || state.activeThread?.task.workspacePath || props.cwd)}
           hasActiveThread={Boolean(state.activeThread)}
           headerTitle={headerTitle}
@@ -453,6 +514,7 @@ export default function TasksPage(props: TasksPageProps) {
         )}
 
         <TasksThreadComposer
+          pathwayMode={props.pathwayMode}
           attachedFiles={state.attachedFiles}
           autoSelectedComposerRoleIds={autoSelectedComposerRoleIds}
           autoSelectedProviderModel={autoSelectedProviderModel}

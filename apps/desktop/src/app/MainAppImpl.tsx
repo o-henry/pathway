@@ -1,12 +1,12 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import AppNav from '../components/AppNav';
+import TasksPage from '../pages/tasks/TasksPage';
 import SettingsPage from '../pages/settings/SettingsPage';
 import { invoke, openPath, openUrl } from '../shared/tauri';
 import {
   acceptRevisionPreview,
   analyzeGoal,
-  createGoal,
   createRevisionPreview,
   createStateUpdate,
   fetchCurrentState,
@@ -246,12 +246,6 @@ export default function MainApp() {
   );
   const [collectorDoctorPending, setCollectorDoctorPending] = useState(false);
 
-  const [goalForm, setGoalForm] = useState({
-    title: '',
-    description: '',
-    category: 'general',
-    successCriteria: ''
-  });
   const [stateForm, setStateForm] = useState({
     progress_summary: '',
     blockers: '',
@@ -263,8 +257,8 @@ export default function MainApp() {
 
   const activeBundle = activeMap?.graph_bundle ?? null;
   const demoBundle = useMemo(
-    () => buildExampleGraphBundle(activeGoal?.title || goalForm.title || undefined),
-    [activeGoal?.title, goalForm.title]
+    () => buildExampleGraphBundle(activeGoal?.title || undefined),
+    [activeGoal?.title]
   );
   const visibleBundle = activeBundle && revisionPreview
     ? mergePreviewBundle(activeBundle, revisionPreview)
@@ -542,32 +536,6 @@ export default function MainApp() {
     }
   }
 
-  async function handleCreateGoal() {
-    if (!goalForm.title.trim() || !goalForm.successCriteria.trim()) {
-      setErrorMessage('목표 제목과 성공 기준은 필수입니다.');
-      return;
-    }
-
-    try {
-      setIsBusy(true);
-      setErrorMessage('');
-      const created = await createGoal({
-        title: goalForm.title.trim(),
-        description: goalForm.description.trim(),
-        category: goalForm.category.trim() || 'general',
-        success_criteria: goalForm.successCriteria.trim()
-      });
-      setGoalForm({ title: '', description: '', category: 'general', successCriteria: '' });
-      setStatusMessage('목표가 생성되었습니다. 이제 새 목표를 기준으로 Pathway가 전개됩니다.');
-      await refreshGoals(false);
-      setActiveGoalId(created.id);
-    } catch (error) {
-      setErrorMessage(formatUiError(error, '목표 생성에 실패했습니다.'));
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
   async function handleAnalyzeGoal() {
     if (!activeGoalId) {
       return;
@@ -800,9 +768,9 @@ export default function MainApp() {
       <div className="pathway-canvas-status-strip" aria-label="그래프 상태" title={statusMessage}>
         <span className="pathway-canvas-status-label">{hasLiveGraph ? '활성 그래프' : '데모 그래프'}</span>
         <div className="pathway-canvas-status-metrics">
-          <span className="pathway-canvas-stat-badge">노드 {displayBundle.nodes.length}</span>
-          <span className="pathway-canvas-stat-badge">루트 {displayBundle.edges.length}</span>
-          <span className="pathway-canvas-stat-badge">근거 {displayBundle.evidence.length}</span>
+          <span className="pathway-canvas-stat-badge">노드 <span className="pathway-canvas-stat-count">{displayBundle.nodes.length}</span></span>
+          <span className="pathway-canvas-stat-badge">루트 <span className="pathway-canvas-stat-count">{displayBundle.edges.length}</span></span>
+          <span className="pathway-canvas-stat-badge">근거 <span className="pathway-canvas-stat-count">{displayBundle.evidence.length}</span></span>
         </div>
       </div>
     ) : null;
@@ -917,54 +885,6 @@ export default function MainApp() {
                   />
                 </section>
               )}
-
-              {!workflowCanvasFullscreen ? (
-                <section className="panel-card pathway-goal-composer-card">
-                  <div className="pathway-panel-head">
-                    <div>
-                      <span className="pathway-panel-kicker">목표 입력</span>
-                      <strong>Pathway가 모델링할 목표 정의</strong>
-                    </div>
-                  </div>
-                  <textarea
-                    className="pathway-textarea pathway-textarea-large"
-                    value={goalForm.title}
-                    onChange={(event) => setGoalForm((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="자연어로 목표를 설명하세요. 시스템이 실제로 중요한 자원 축을 추론합니다."
-                  />
-                  <textarea
-                    className="pathway-textarea"
-                    value={goalForm.description}
-                    onChange={(event) => setGoalForm((current) => ({ ...current, description: event.target.value }))}
-                    placeholder="배경 맥락, 현재 제약, 미리 알아야 할 조건을 적어주세요."
-                  />
-                  <div className="pathway-input-row">
-                    <input
-                      className="pathway-input"
-                      value={goalForm.category}
-                      onChange={(event) => setGoalForm((current) => ({ ...current, category: event.target.value }))}
-                      placeholder="카테고리"
-                    />
-                    <input
-                      className="pathway-input"
-                      value={goalForm.successCriteria}
-                      onChange={(event) => setGoalForm((current) => ({ ...current, successCriteria: event.target.value }))}
-                      placeholder="성공 기준"
-                    />
-                  </div>
-                  <div className="pathway-actions-row">
-                    <button className="mini-action-button pathway-primary-button" onClick={handleCreateGoal} type="button" disabled={isBusy}>
-                      목표 생성
-                    </button>
-                    <button className="mini-action-button" onClick={handleAnalyzeGoal} type="button" disabled={!activeGoalId || isBusy}>
-                      자원 분석
-                    </button>
-                    <button className="mini-action-button" onClick={handleGeneratePathway} type="button" disabled={!activeGoalId || isBusy}>
-                      그래프 생성
-                    </button>
-                  </div>
-                </section>
-              ) : null}
             </div>
 
             {shouldShowInspector ? (
@@ -989,9 +909,26 @@ export default function MainApp() {
                 <div className="pathway-workflow-sidebar-body">
                   {selectedNode ? (
                     <section className="pathway-workflow-sidebar-card pathway-workflow-sidebar-card-featured">
-                      <span className="pathway-panel-kicker">선택 노드</span>
+                      <span className="pathway-panel-kicker">현재 보고 있는 루트</span>
                       <strong>{selectedNode.label}</strong>
-                      <p className="pathway-panel-copy">{selectedNode.summary}</p>
+                      <p className="pathway-panel-copy">
+                        {selectedNode.summary || '이 루트가 현재 그래프에서 어떤 역할을 하는지 요약합니다.'}
+                      </p>
+
+                      <div className="pathway-node-summary-grid" aria-label="선택 노드 요약">
+                        <article className="pathway-node-summary-card">
+                          <span className="pathway-panel-kicker">노드 유형</span>
+                          <strong>{selectedNode.type.replaceAll('_', ' ')}</strong>
+                        </article>
+                        <article className="pathway-node-summary-card">
+                          <span className="pathway-panel-kicker">연결 근거</span>
+                          <strong>{selectedEvidence.length}개</strong>
+                        </article>
+                        <article className="pathway-node-summary-card">
+                          <span className="pathway-panel-kicker">연결 가정</span>
+                          <strong>{selectedAssumptions.length}개</strong>
+                        </article>
+                      </div>
 
                       {selectedNodePreviewChange ? (
                         <section className="pathway-inspector-section">
@@ -1009,7 +946,7 @@ export default function MainApp() {
                       ) : null}
 
                       <section className="pathway-inspector-section">
-                        <span className="pathway-panel-kicker">루트 정보</span>
+                        <span className="pathway-panel-kicker">구조화된 노드 정보</span>
                         <ul className="pathway-fact-list">
                           {getVisibleNodeFields(selectedNode).map(([key, value]) => (
                             <li key={key}>
@@ -1021,7 +958,7 @@ export default function MainApp() {
                       </section>
 
                       <section className="pathway-inspector-section">
-                        <span className="pathway-panel-kicker">근거</span>
+                        <span className="pathway-panel-kicker">이 판단을 받치는 근거</span>
                         {selectedEvidence.length === 0 ? (
                           <p className="pathway-panel-copy">이 노드에 연결된 근거가 아직 없습니다.</p>
                         ) : (
@@ -1038,7 +975,7 @@ export default function MainApp() {
                       </section>
 
                       <section className="pathway-inspector-section">
-                        <span className="pathway-panel-kicker">가정</span>
+                        <span className="pathway-panel-kicker">성립을 전제로 둔 가정</span>
                         {selectedAssumptions.length === 0 ? (
                           <p className="pathway-panel-copy">이 노드에 연결된 가정이 없습니다.</p>
                         ) : (
@@ -1083,23 +1020,23 @@ export default function MainApp() {
                     <section className="pathway-workflow-sidebar-card pathway-request-panel">
                       <div className="pathway-request-head">
                         <div>
-                          <span className="pathway-panel-kicker">그래프 수정 요청</span>
-                          <strong>현실을 반영한 다음 분기 다시 만들기</strong>
+                          <span className="pathway-panel-kicker">현실 업데이트</span>
+                          <strong>지금 상태를 반영해 그래프 다시 계산하기</strong>
                         </div>
                         {revisionPreview ? null : (
                           <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
-                            변경 미리보기
+                            미리보기
                           </button>
                         )}
                       </div>
 
-                      {revisionPreview ? (
-                        <p className="pathway-preview-note">
-                          현실 기록은 먼저 저장되고, 현재 화면의 미리보기만 선택적으로 적용 또는 폐기할 수 있습니다.
-                        </p>
-                      ) : null}
+                      <p className="pathway-preview-note">
+                        {revisionPreview
+                          ? '현실 기록은 먼저 저장되고, 현재 화면의 미리보기만 선택적으로 적용 또는 폐기할 수 있습니다.'
+                          : '지금 무엇이 달라졌는지 적으면 약해진 루트, 새 분기, 실제 투입 비용을 기준으로 다음 그래프를 다시 정리합니다.'}
+                      </p>
 
-                      <label className="pathway-field">
+                      <label className="pathway-field pathway-field-card pathway-field-card-lg">
                         <span>현실에서 무엇이 달라졌나요?</span>
                         <textarea
                           className="pathway-textarea pathway-request-textarea"
@@ -1110,7 +1047,7 @@ export default function MainApp() {
                       </label>
 
                       <div className="pathway-request-grid">
-                        <label className="pathway-field">
+                        <label className="pathway-field pathway-field-card">
                           <span>막히거나 약해진 경로</span>
                           <input
                             className="pathway-input"
@@ -1119,7 +1056,7 @@ export default function MainApp() {
                             placeholder="어떤 루트의 실현 가능성이 떨어졌나요?"
                           />
                         </label>
-                        <label className="pathway-field">
+                        <label className="pathway-field pathway-field-card">
                           <span>새로운 루트 또는 방법</span>
                           <input
                             className="pathway-input"
@@ -1128,7 +1065,7 @@ export default function MainApp() {
                             placeholder="새로 연결해야 할 브랜치는 무엇인가요?"
                           />
                         </label>
-                        <label className="pathway-field">
+                        <label className="pathway-field pathway-field-card">
                           <span>사용 시간</span>
                           <input
                             className="pathway-input"
@@ -1137,7 +1074,7 @@ export default function MainApp() {
                             placeholder="예: 12"
                           />
                         </label>
-                        <label className="pathway-field">
+                        <label className="pathway-field pathway-field-card">
                           <span>사용 금액</span>
                           <input
                             className="pathway-input"
@@ -1160,38 +1097,29 @@ export default function MainApp() {
 
   function renderTasksTab() {
     return (
-      <section className="pathway-grid-layout workspace-tab-panel">
-        <section className="panel-card pathway-list-card">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">목표 목록</span>
-              <strong>최근 Pathway 목표</strong>
-              <p className="pathway-panel-copy">
-                목표를 선택한 뒤 워크플로우 탭에서 입력과 그래프 생성을 이어갈 수 있습니다.
-              </p>
-            </div>
-          </div>
-          {goals.length === 0 ? (
-            <EmptyState title="목표가 아직 없습니다" copy="첫 목표를 만들어 로컬 의사결정 그래프를 시작하세요." />
-          ) : (
-            <ul className="pathway-goal-list">
-              {goals.map((goal) => (
-                <li key={goal.id}>
-                  <button
-                    className={`pathway-list-button ${activeGoalId === goal.id ? 'is-active' : ''}`}
-                    onClick={() => setActiveGoalId(goal.id)}
-                    type="button"
-                  >
-                    <strong>{goal.title}</strong>
-                    <span>{goal.category}</span>
-                    <span>{goal.success_criteria}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </section>
+      <TasksPage
+        appendWorkspaceEvent={() => {}}
+        activeGoalId={activeGoalId}
+        activeGoalTitle={activeGoal?.title ?? null}
+        codexAuthCheckPending={false}
+        cwd={cwd}
+        hasTauriRuntime={hasTauriRuntime}
+        invokeFn={invoke}
+        isActive={workspaceTab === 'tasks'}
+        loginCompleted={loginCompleted}
+        onOpenWorkflow={() => setWorkspaceTab('workflow')}
+        onOpenSettings={() => setWorkspaceTab('settings')}
+        onSelectGoal={(goalId) => {
+          setActiveGoalId(goalId);
+          if (!goalId) {
+            setActiveGoal(null);
+          }
+        }}
+        pathwayGoals={goals}
+        pathwayMode
+        publishAction={() => {}}
+        setStatus={setStatusMessage}
+      />
     );
   }
 

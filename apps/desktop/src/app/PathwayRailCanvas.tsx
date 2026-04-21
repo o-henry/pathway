@@ -213,18 +213,18 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     nodeFootprintById.set(node.id, {
       ...measured,
       childCount,
-      footprintWidth: measured.width + 124,
-      footprintHeight: measured.height + 56,
+      footprintWidth: measured.width + 92,
+      footprintHeight: measured.height + 44,
     });
   });
 
   const positioned: LayoutNode[] = [];
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
-  const rootBaseY = 118;
-  const rootGap = 170;
-  const horizontalGap = 72;
-  const siblingGap = 96;
+  const rootBaseY = 108;
+  const rootGap = 154;
+  const horizontalGap = 48;
+  const siblingGap = 82;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
   let laneCursorX = 120;
@@ -322,8 +322,8 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const maxY = Math.max(...positioned.map((item) => item.y + item.height), 0);
   const contentWidth = Math.max(1, maxX - minX);
   const contentHeight = Math.max(1, maxY - minY);
-  const horizontalPadding = 84;
-  const topPadding = 92;
+  const horizontalPadding = 56;
+  const topPadding = 96;
   const bottomPadding = 24;
 
   const normalized = positioned.map((item) => ({
@@ -440,6 +440,9 @@ const EMPTY_NODE_STATES: Record<string, NodeRunState> = {};
 const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_DIRECT_INPUTS: Set<string> = new Set();
 const EMPTY_ANCHORS: readonly NodeAnchorSide[] = [];
+const PATHWAY_STAGE_INSET_X = 28;
+const PATHWAY_STAGE_INSET_Y = 44;
+const PATHWAY_STAGE_INSET_BOTTOM = 18;
 
 function clampZoom(value: number): number {
   return Math.max(0.55, Math.min(1.8, Number(value.toFixed(2))));
@@ -753,11 +756,9 @@ export default function PathwayRailCanvas({
       return null;
     }
     const rect = canvas.getBoundingClientRect();
-    const stageInsetX = 24;
-    const stageInsetY = 24;
     return {
-      x: (event.clientX - rect.left + canvas.scrollLeft - stageInsetX) / canvasZoom,
-      y: (event.clientY - rect.top + canvas.scrollTop - stageInsetY) / canvasZoom,
+      x: (event.clientX - rect.left + canvas.scrollLeft - PATHWAY_STAGE_INSET_X) / canvasZoom,
+      y: (event.clientY - rect.top + canvas.scrollTop - PATHWAY_STAGE_INSET_Y) / canvasZoom,
     };
   };
 
@@ -767,11 +768,9 @@ export default function PathwayRailCanvas({
       return null;
     }
     const rect = canvas.getBoundingClientRect();
-    const stageInsetX = 24;
-    const stageInsetY = 24;
     return {
-      x: (clientX - rect.left + canvas.scrollLeft - stageInsetX) / canvasZoom,
-      y: (clientY - rect.top + canvas.scrollTop - stageInsetY) / canvasZoom,
+      x: (clientX - rect.left + canvas.scrollLeft - PATHWAY_STAGE_INSET_X) / canvasZoom,
+      y: (clientY - rect.top + canvas.scrollTop - PATHWAY_STAGE_INSET_Y) / canvasZoom,
     };
   };
 
@@ -1059,9 +1058,9 @@ export default function PathwayRailCanvas({
         boundedStageHeight={adapted.height}
         canvasZoom={canvasZoom}
         graphViewMode="graph"
-        stageInsetX={28}
-        stageInsetY={28}
-        stageInsetBottom={18}
+        stageInsetX={PATHWAY_STAGE_INSET_X}
+        stageInsetY={PATHWAY_STAGE_INSET_Y}
+        stageInsetBottom={PATHWAY_STAGE_INSET_BOTTOM}
         edgeLines={edgeLines}
         selectedEdgeKey={selectedEdgeKey}
         selectedEdgeNodeIdSet={EMPTY_SELECTION}

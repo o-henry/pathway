@@ -250,7 +250,12 @@ export default function WorkflowCanvasNodesLayer({
                         title={isPathwayBranchCollapsed ? "연결 노드 펼치기" : "연결 노드 접기"}
                         type="button"
                       >
-                        {isPathwayBranchCollapsed ? "+" : "-"}
+                        <img
+                          alt=""
+                          aria-hidden="true"
+                          className="pathway-branch-toggle-icon"
+                          src={isPathwayBranchCollapsed ? "/pathway-plus.svg" : "/pathway-minus.svg"}
+                        />
                       </button>
                     ) : null}
                   </div>
