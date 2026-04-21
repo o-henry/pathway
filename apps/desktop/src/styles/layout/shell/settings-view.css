@@ -30,6 +30,18 @@
   margin-top: 0;
 }
 
+.settings-view > .pathway-settings-note {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 12px;
+  border: 1px solid #dde5ef;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  display: grid;
+  gap: 8px;
+}
+
 .panel-card.settings-view {
   background: var(--bg-app);
   box-shadow: none;

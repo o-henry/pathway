@@ -31,7 +31,16 @@ License notice available in bundled font metadata:
 - "All Rights Reserved."
 
 ---
-3) 1984-body
+3) HomeVideo
+Files:
+- /fonts/home-video.ttf
+
+License / Permission:
+- User-provided local asset for development.
+- Verify redistribution rights and packaging permission before shipping this font in a distributable build.
+
+---
+4) 1984-body
 Files:
 - /fonts/1984-body-regular.otf
 - /fonts/1984-body-light.otf

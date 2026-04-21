@@ -47,8 +47,9 @@ export default function WorkflowAgentConversationPanel({
           <strong>{hasSelectedAgent ? agentTitle : "선택 에이전트 대화"}</strong>
           <span>{hasSelectedAgent ? agentMeta : "그래프에서 역할/핸드오프 노드를 선택하면 대화 로그를 이어갈 수 있습니다."}</span>
         </div>
-        <button aria-label="대화 로그 닫기" className="mini-action-button workflow-conversation-close" onClick={onToggleOpen} type="button">
-          <span className="mini-action-button-label">닫기</span>
+        <button aria-label="대화 로그 닫기" className="workflow-conversation-close" onClick={onToggleOpen} title="대화 로그 닫기" type="button">
+          <img alt="" aria-hidden="true" className="workflow-conversation-close-icon" src="/icon-xmark.svg" />
+          <span className="sr-only">대화 로그 닫기</span>
         </button>
       </header>
 

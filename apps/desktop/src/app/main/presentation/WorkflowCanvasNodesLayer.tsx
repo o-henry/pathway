@@ -162,7 +162,6 @@ export default function WorkflowCanvasNodesLayer({
         const pathwayFamily = String((node.config as Record<string, unknown>)?.pathwayFamily ?? "").trim().toLowerCase();
         const isPathwayNode = sourceKind === "pathway";
         const pathwayTitle = String((node.config as Record<string, unknown>)?.model ?? node.id).trim();
-        const pathwayKicker = String((node.config as Record<string, unknown>)?.role ?? pathwayFamily).trim();
         const pathwayDepth = Number((node.config as Record<string, unknown>)?.pathwayDepth ?? -1);
         const pathwayChildCount = Number((node.config as Record<string, unknown>)?.pathwayChildCount ?? 0);
         const isPathwayLeaf = pathwayChildCount <= 0;
@@ -238,11 +237,6 @@ export default function WorkflowCanvasNodesLayer({
                     <span className="pathway-branch-label" title={pathwayTitle}>
                       {pathwayTitle}
                     </span>
-                    {pathwayDepth === 0 ? (
-                      <span className="pathway-branch-kicker" title={pathwayKicker}>
-                        {pathwayKicker}
-                      </span>
-                    ) : null}
                     {canTogglePathwayBranch ? (
                       <button
                         aria-label={isPathwayBranchCollapsed ? "연결 노드 펼치기" : "연결 노드 접기"}
@@ -256,7 +250,7 @@ export default function WorkflowCanvasNodesLayer({
                         title={isPathwayBranchCollapsed ? "연결 노드 펼치기" : "연결 노드 접기"}
                         type="button"
                       >
-                        {isPathwayBranchCollapsed ? "+" : "−"}
+                        {isPathwayBranchCollapsed ? "+" : "-"}
                       </button>
                     ) : null}
                   </div>

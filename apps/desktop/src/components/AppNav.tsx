@@ -4,8 +4,7 @@ import { localeShortLabel, useI18n } from "../i18n";
 type WorkspaceTab =
   | "workflow"
   | "tasks"
-  | "knowledge"
-  | "adaptation";
+  | "settings";
 
 type NavItem = {
   tab: WorkspaceTab;
@@ -25,8 +24,7 @@ type AppNavProps = {
 const NAV_ITEMS: NavItem[] = [
   { tab: "tasks", label: "nav.tasks", ariaLabel: "nav.tasks", title: "nav.tasks", shortcut: "Cmd+1" },
   { tab: "workflow", label: "nav.workflow.short", ariaLabel: "nav.workflow.title", title: "nav.workflow.title", shortcut: "Cmd+2" },
-  { tab: "knowledge", label: "nav.knowledge", ariaLabel: "nav.knowledge", title: "nav.knowledge", shortcut: "Cmd+3" },
-  { tab: "adaptation", label: "nav.adaptation", ariaLabel: "nav.adaptation", title: "nav.adaptation", shortcut: "Cmd+4" },
+  { tab: "settings", label: "nav.settings", ariaLabel: "nav.settings", title: "nav.settings", shortcut: "Cmd+3" },
 ];
 const SHOW_LANGUAGE_SWITCH = false;
 

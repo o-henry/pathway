@@ -321,6 +321,99 @@
   gap: 4px;
 }
 
+.settings-collector-doctor {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-collector-doctor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-collector-doctor-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: #6a7688;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-collector-doctor-head strong {
+  color: #1f2430;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.settings-collector-doctor-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-collector-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dde4ee;
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.settings-collector-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.settings-collector-card-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-collector-card-copy strong {
+  color: #1f2430;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.settings-collector-card-copy span,
+.settings-collector-card-message {
+  margin: 0;
+  color: #667284;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-collector-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: #aab4c3;
+  box-shadow: 0 0 0 4px rgba(170, 180, 195, 0.16);
+}
+
+.settings-collector-dot.is-ready {
+  background: #169a63;
+  box-shadow: 0 0 0 4px rgba(22, 154, 99, 0.14);
+}
+
+.settings-collector-dot.is-error {
+  background: #d45454;
+  box-shadow: 0 0 0 4px rgba(212, 84, 84, 0.14);
+}
+
+.settings-collector-dot.is-checking {
+  background: #9aa8ba;
+  box-shadow: 0 0 0 4px rgba(154, 168, 186, 0.14);
+}
+
 .panel-card {
   border: 0;
   border-radius: 8px;

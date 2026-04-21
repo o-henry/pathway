@@ -221,22 +221,16 @@ export function MainAppWorkspaceContent(props: any) {
         authModeText={props.authModeText}
         codexAuthBusy={props.codexAuthBusy}
         compact={false}
+        collectorDoctorPending={false}
+        collectorDoctorStatuses={[]}
         cwd={props.cwd}
         engineStarted={props.engineStarted}
         isGraphRunning={props.isGraphRunning}
         loginCompleted={props.loginCompleted}
-        codexMultiAgentMode={props.codexMultiAgentMode}
-        codexMultiAgentModeOptions={[...props.codexMultiAgentModeOptions]}
-        userBackgroundImage={props.userBackgroundImage}
-        userBackgroundOpacity={props.userBackgroundOpacity}
         onCloseUsageResult={() => props.setUsageResultClosed(true)}
         onOpenRunsFolder={() => void props.onOpenRunsFolder()}
+        onRefreshCollectorDoctor={() => {}}
         onSelectCwdDirectory={() => void props.onSelectCwdDirectory()}
-        onSetCodexMultiAgentMode={(next) => props.setCodexMultiAgentMode(props.normalizeCodexMultiAgentMode(next))}
-        onSetUserBackgroundImage={props.setUserBackgroundImage}
-        onSetUserBackgroundOpacity={(next) =>
-          props.setUserBackgroundOpacity(Number.isFinite(next) ? Math.min(1, Math.max(0, next)) : 0)
-        }
         onToggleCodexLogin={() => void props.onLoginCodex()}
         running={props.running}
         status={props.status}

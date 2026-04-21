@@ -36,14 +36,16 @@
 .pathway-rail-canvas {
   position: relative;
   min-height: 0;
+  min-width: 0;
   height: 100%;
+  width: 100%;
   flex: 1 1 auto;
 }
 
 .pathway-canvas-preview-legend {
   position: absolute;
   right: 18px;
-  top: 16px;
+  top: 72px;
   z-index: 4;
   display: flex;
   flex-wrap: wrap;
@@ -90,29 +92,42 @@
 }
 
 .pathway-rail-canvas .canvas-pane-pathway {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   gap: 0;
 }
 
 .pathway-rail-canvas .canvas-main-row {
   min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .pathway-rail-canvas .graph-canvas-shell-pathway {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 0;
   box-shadow: none;
-  background:
-    radial-gradient(circle at 18% 14%, rgba(239, 228, 255, 0.92), transparent 24%),
-    radial-gradient(circle at 76% 20%, rgba(238, 230, 255, 0.72), transparent 22%),
-    linear-gradient(180deg, #faf8f6 0%, #f6f3ef 100%);
+  background: #fcfbf8;
 }
 
 .pathway-rail-canvas .graph-canvas-pathway {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 0;
-  background-color: transparent;
+  background-color: #fcfbf8;
   background-image:
-    linear-gradient(to right, rgba(126, 116, 162, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(126, 116, 162, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(128, 136, 148, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(128, 136, 148, 0.05) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+.pathway-rail-canvas .graph-stage-shell {
+  min-width: 0;
+  min-height: 0;
 }
 
 .pathway-rail-canvas .canvas-overlay-pathway {
@@ -124,7 +139,7 @@
   top: 14px;
   left: 18px;
   display: flex;
-  max-width: min(560px, calc(100% - 168px));
+  max-width: min(440px, calc(100% - 172px));
   pointer-events: auto;
 }
 
@@ -132,51 +147,67 @@
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  min-height: 40px;
-  padding: 6px 8px;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(300px, calc(100vw - 220px));
+  padding: 8px 10px;
   border: 1px solid rgba(131, 121, 170, 0.14);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.84);
   box-shadow: 0 10px 24px rgba(104, 95, 138, 0.07);
   backdrop-filter: blur(10px);
+  border-radius: 4px;
 }
 
 .pathway-rail-canvas .pathway-canvas-status-label {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  justify-content: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 0 8px;
   background: rgba(245, 242, 236, 0.92);
   color: #4d5562;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+  border-radius: 2px;
 }
 
 .pathway-rail-canvas .pathway-canvas-stat-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 26px;
+  padding: 0 8px;
   border: 1px solid rgba(131, 121, 170, 0.16);
   background: rgba(255, 255, 255, 0.74);
   box-shadow: 0 10px 24px rgba(104, 95, 138, 0.07);
   color: #677284;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   backdrop-filter: blur(10px);
+  border-radius: 2px;
 }
 
-.pathway-rail-canvas .pathway-canvas-stat-badge-status {
-  max-width: min(360px, 34vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pathway-rail-canvas .pathway-canvas-status-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pathway-rail-canvas {
+  --pathway-canvas-control-size: 34px;
+  --pathway-canvas-control-gap: 8px;
+  --pathway-canvas-control-inset: 18px;
+  --pathway-canvas-zoom-stack-height: calc((var(--pathway-canvas-control-size) * 4) + (var(--pathway-canvas-control-gap) * 2));
 }
 
 .pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-controls {
-  gap: 8px;
+  top: auto;
+  right: auto;
+  left: var(--pathway-canvas-control-inset);
+  bottom: var(--pathway-canvas-control-inset);
+  gap: var(--pathway-canvas-control-gap);
 }
 
 .pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-group,
@@ -185,23 +216,33 @@
   background: rgba(255, 255, 255, 0.74);
   box-shadow: 0 10px 26px rgba(104, 95, 138, 0.08);
   backdrop-filter: blur(8px);
+  border-radius: 4px;
+}
+
+.pathway-rail-canvas .canvas-overlay-pathway .canvas-zoom-controls button {
+  width: var(--pathway-canvas-control-size);
+  height: var(--pathway-canvas-control-size);
+  border-radius: 4px;
 }
 
 .pathway-rail-canvas .pathway-canvas-actions-overlay {
   position: absolute;
-  top: 62px;
-  left: 18px;
+  top: auto;
+  right: auto;
+  left: var(--pathway-canvas-control-inset);
+  bottom: calc(var(--pathway-canvas-control-inset) + var(--pathway-canvas-zoom-stack-height) + 14px);
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: var(--pathway-canvas-control-gap);
   pointer-events: auto;
 }
 
 .pathway-rail-canvas .pathway-canvas-icon-button {
-  width: 42px;
-  height: 42px;
+  width: var(--pathway-canvas-control-size);
+  height: var(--pathway-canvas-control-size);
   border: 1px solid rgba(131, 121, 170, 0.18);
-  border-radius: 12px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.84);
   box-shadow: 0 10px 24px rgba(104, 95, 138, 0.08);
   backdrop-filter: blur(10px);
@@ -270,18 +311,6 @@
 }
 
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"]::before {
-  content: "";
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  width: 18px;
-  height: 1.5px;
-  background: rgba(141, 133, 191, 0.86);
-  transform: translate(-100%, -50%);
-  pointer-events: none;
-}
-
-.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"]::before {
   display: none;
 }
 
@@ -296,16 +325,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 18px 0 18px;
+  padding: 0 46px 0 18px;
   border-radius: 2px;
   background: var(--branch-bg);
   color: var(--branch-text);
   box-shadow: 0 16px 34px rgba(111, 103, 145, 0.1);
   overflow: hidden;
-}
-
-.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-collapsed] .pathway-branch-chip {
-  padding-right: 48px;
 }
 
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-chip::after {
@@ -327,7 +352,7 @@
   --branch-dot-bg: rgba(255, 255, 255, 0.92);
   --branch-dot-border: rgba(125, 118, 170, 0.6);
   justify-content: flex-start;
-  padding-right: 22px;
+  padding-right: 46px;
   border-radius: 2px;
 }
 
@@ -357,8 +382,7 @@
   flex: 0 0 auto;
 }
 
-.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-label,
-.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-kicker {
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-label {
   position: relative;
   z-index: 1;
 }
@@ -366,9 +390,9 @@
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-label {
   min-width: 0;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 13px;
   line-height: 1.25;
   font-weight: 560;
@@ -378,14 +402,6 @@
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"] .pathway-branch-label {
   font-size: 15px;
   font-weight: 650;
-}
-
-.pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-kicker {
-  margin-left: auto;
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(90, 84, 126, 0.68);
 }
 
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-toggle {
@@ -399,7 +415,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(125, 118, 170, 0.22);
-  border-radius: 7px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: #615b84;
   font-size: 15px;
@@ -499,6 +515,23 @@
   padding: 0 14px 14px;
 }
 
+.workspace.workspace-simple-shell {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace.workspace-simple-shell > :not(.workspace-header):not(.error):not(.warning):not(.workspace-quick-toggle):not(.workspace-quick-panel) {
+  grid-row: 1;
+}
+
+.workspace.workspace-simple-shell .error,
+.workspace.workspace-simple-shell .warning {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  left: 14px;
+  z-index: 6;
+}
+
 .pathway-status-chip {
   max-width: min(420px, 42vw);
   overflow: hidden;
@@ -507,6 +540,7 @@
 
 .pathway-workflow-shell {
   min-height: 0;
+  height: 100%;
 }
 
 .pathway-workflow-frame {
@@ -514,13 +548,12 @@
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   height: 100%;
+  align-content: stretch;
   gap: 0;
-  padding: 14px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 244, 238, 0.98)),
-    radial-gradient(circle at top left, rgba(125, 119, 192, 0.08), transparent 32%);
-  border: 1px solid rgba(207, 213, 222, 0.85);
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  border: 0;
 }
 
 .pathway-workflow-header {
@@ -561,28 +594,17 @@
 
 .pathway-workflow-body {
   min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
+  gap: 16px;
 }
 
 .pathway-workflow-body.has-inspector {
-  grid-template-columns: 168px minmax(0, 1fr) minmax(228px, 248px);
-}
-
-.pathway-workflow-rail {
-  min-height: 0;
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
-
-.pathway-workflow-rail-card {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid rgba(213, 219, 229, 0.92);
-  background: rgba(255, 255, 255, 0.88);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
 }
 
 .pathway-loop-list {
@@ -633,37 +655,65 @@
 .pathway-workflow-main {
   min-height: 0;
   min-width: 0;
+  height: 100%;
+  grid-row: 1;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 10px;
+  align-content: stretch;
+  gap: 12px;
+  grid-column: 1;
 }
 
 .pathway-workflow-canvas-panel {
   min-height: 0;
   min-width: 0;
+  height: 100%;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   align-content: stretch;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid rgba(213, 219, 229, 0.92);
-  background: rgba(255, 255, 255, 0.94);
+  gap: 6px;
+  padding: 0;
+  border: 1px solid rgba(205, 212, 223, 0.96);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(29, 35, 44, 0.02);
+  position: relative;
+  overflow: hidden;
 }
 
 .pathway-canvas-cue {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
   color: #707b8b;
   font-size: 11px;
   line-height: 1.45;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  padding: 0 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(213, 219, 229, 0.92);
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .pathway-request-panel {
   display: grid;
   gap: 12px;
-  padding: 12px;
-  border: 1px solid rgba(213, 219, 229, 0.92);
-  background: rgba(255, 255, 255, 0.9);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pathway-goal-composer-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(205, 212, 223, 0.96);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(29, 35, 44, 0.02);
 }
 
 .pathway-preview-banner {
@@ -731,7 +781,7 @@
 .pathway-request-head strong {
   display: block;
   color: #1f2430;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
@@ -749,62 +799,141 @@
 }
 
 .pathway-request-textarea {
-  min-height: 88px;
+  min-height: 108px;
 }
 
 .pathway-request-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.pathway-workflow-inspector {
+.pathway-workflow-sidebar {
   position: static;
   min-height: 0;
   min-width: 0;
   width: auto;
+  grid-row: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
-  background: rgba(44, 48, 56, 0.94);
-  border: 1px solid rgba(94, 103, 120, 0.42);
-  box-shadow: none;
-  backdrop-filter: blur(10px);
+  background: #ffffff;
+  border: 1px solid rgba(205, 212, 223, 0.96);
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(29, 35, 44, 0.02);
+  grid-column: 2;
+  overflow: hidden;
 }
 
-.pathway-workflow-inspector.is-open {
+.pathway-workflow-sidebar.is-open {
   opacity: 1;
 }
 
-.pathway-workflow-inspector-head {
+.pathway-workflow-sidebar-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.pathway-workflow-inspector-head strong {
+.pathway-workflow-sidebar-head strong {
   display: block;
-  color: #f4f7fb;
-  font-size: 19px;
+  color: #1f2430;
+  font-size: 20px;
   line-height: 1.12;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
-.pathway-workflow-inspector-body {
+.pathway-icon-close-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #dce4ee;
+  border-radius: 6px;
+  background: #f6f8fb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.pathway-icon-close-button:hover {
+  background: #eef3f8;
+  border-color: #cfd9e6;
+}
+
+.pathway-icon-close-button:focus-visible {
+  outline: 2px solid rgba(66, 103, 163, 0.28);
+  outline-offset: 2px;
+}
+
+.pathway-close-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.pathway-workflow-sidebar-body {
   min-height: 0;
   overflow: auto;
   scrollbar-width: none;
   display: grid;
   align-content: start;
-  gap: 16px;
-  padding-right: 4px;
+  gap: 12px;
+  padding-right: 2px;
 }
 
-.pathway-workflow-inspector-body::-webkit-scrollbar {
+.pathway-workflow-sidebar-body::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+.pathway-workflow-sidebar-card {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pathway-workflow-sidebar-card-featured {
+  border: 0;
+  background: transparent;
+}
+
+.pathway-workflow-frame.is-canvas-fullscreen {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-workflow-body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  height: 100%;
+}
+
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-workflow-main {
+  gap: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-workflow-canvas-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-workflow-sidebar,
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-request-panel,
+.pathway-workflow-frame.is-canvas-fullscreen .pathway-canvas-cue {
+  display: none;
 }
 
 .pathway-inspector-section {
@@ -821,8 +950,9 @@
 
 .pathway-grid-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  justify-items: center;
 }
 
 .pathway-board-column,
@@ -842,6 +972,11 @@
   gap: 12px;
   padding: 14px;
   overflow: hidden;
+}
+
+.pathway-list-card {
+  width: 100%;
+  max-width: 760px;
 }
 
 .pathway-sidebar-column {
@@ -1145,45 +1280,45 @@
   word-break: break-word;
 }
 
-.pathway-workflow-inspector .pathway-detail-list li,
-.pathway-workflow-inspector .pathway-fact-list li {
-  border-color: rgba(118, 129, 151, 0.18);
-  background: rgba(20, 26, 34, 0.88);
+.pathway-workflow-sidebar .pathway-detail-list li,
+.pathway-workflow-sidebar .pathway-fact-list li {
+  border-color: rgba(213, 219, 229, 0.92);
+  background: #ffffff;
 }
 
-.pathway-workflow-inspector .pathway-fact-list li {
+.pathway-workflow-sidebar .pathway-fact-list li {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
-.pathway-workflow-inspector .pathway-detail-list strong,
-.pathway-workflow-inspector .pathway-fact-list strong {
-  color: #f1f5fa;
+.pathway-workflow-sidebar .pathway-detail-list strong,
+.pathway-workflow-sidebar .pathway-fact-list strong {
+  color: #1f2430;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.pathway-workflow-inspector .pathway-detail-list span,
-.pathway-workflow-inspector .pathway-detail-list p,
-.pathway-workflow-inspector .pathway-fact-list span {
-  color: rgba(217, 224, 237, 0.7);
+.pathway-workflow-sidebar .pathway-detail-list span,
+.pathway-workflow-sidebar .pathway-detail-list p,
+.pathway-workflow-sidebar .pathway-fact-list span {
+  color: #6e7785;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1120px) {
   .pathway-workflow-header {
     flex-direction: column;
   }
 
   .pathway-workflow-body,
   .pathway-workflow-body.has-inspector {
-    grid-template-columns: 156px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .pathway-workflow-inspector {
+  .pathway-workflow-sidebar {
     grid-column: 1 / -1;
     max-height: 320px;
   }
@@ -1198,6 +1333,10 @@
   .pathway-workflow-body.has-inspector {
     grid-template-columns: 1fr;
   }
+
+  .pathway-request-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pathway-fact-list li {
@@ -1209,12 +1348,12 @@
   text-align: right;
 }
 
-.pathway-workflow-inspector .pathway-fact-list li {
+.pathway-workflow-sidebar .pathway-fact-list li {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
-.pathway-workflow-inspector .pathway-fact-list strong {
+.pathway-workflow-sidebar .pathway-fact-list strong {
   text-align: left;
 }
 

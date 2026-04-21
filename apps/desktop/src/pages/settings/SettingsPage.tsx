@@ -1,8 +1,12 @@
-import { type ChangeEvent, useMemo, useRef } from "react";
-import FancySelect from "../../components/FancySelect";
 import { useI18n } from "../../i18n";
-import type { AppLocale } from "../../i18n";
-import { buildSettingsLocaleOptions, detectPreferredLocale } from "./settingsLocaleOptions";
+
+type CollectorDoctorStatus = {
+  id: string;
+  label: string;
+  detail: string;
+  state: "checking" | "ready" | "error";
+  message: string;
+};
 
 type SettingsPageProps = {
   compact?: boolean;
@@ -10,23 +14,19 @@ type SettingsPageProps = {
   loginCompleted: boolean;
   authModeText: string;
   cwd: string;
-  codexMultiAgentMode: string;
-  codexMultiAgentModeOptions: ReadonlyArray<{ value: string; label: string }>;
-  userBackgroundImage: string;
-  userBackgroundOpacity: number;
   status: string;
   usageInfoText: string;
   usageResultClosed: boolean;
   running: boolean;
   isGraphRunning: boolean;
   codexAuthBusy: boolean;
+  collectorDoctorStatuses: CollectorDoctorStatus[];
+  collectorDoctorPending: boolean;
   onSelectCwdDirectory: () => void;
-  onSetCodexMultiAgentMode: (next: string) => void;
-  onSetUserBackgroundImage: (next: string) => void;
-  onSetUserBackgroundOpacity: (next: number) => void;
   onToggleCodexLogin: () => void;
   onCloseUsageResult: () => void;
   onOpenRunsFolder: () => void;
+  onRefreshCollectorDoctor: () => void;
 };
 
 export default function SettingsPage({
@@ -35,54 +35,21 @@ export default function SettingsPage({
   loginCompleted,
   authModeText,
   cwd,
-  codexMultiAgentMode,
-  codexMultiAgentModeOptions,
-  userBackgroundImage,
-  userBackgroundOpacity,
   status,
   usageInfoText,
   usageResultClosed,
   running,
   isGraphRunning,
   codexAuthBusy,
+  collectorDoctorStatuses,
+  collectorDoctorPending,
   onSelectCwdDirectory,
-  onSetCodexMultiAgentMode,
-  onSetUserBackgroundImage,
-  onSetUserBackgroundOpacity,
   onToggleCodexLogin,
   onCloseUsageResult,
   onOpenRunsFolder,
+  onRefreshCollectorDoctor,
 }: SettingsPageProps) {
-  const { locale, setLocale, t } = useI18n();
-  const backgroundFileInputRef = useRef<HTMLInputElement | null>(null);
-  const selectableLocale: AppLocale = locale === "ko" ? "ko" : "en";
-  const localeOptions = useMemo(
-    () =>
-      buildSettingsLocaleOptions(
-        detectPreferredLocale(typeof navigator === "undefined" ? null : (navigator.languages?.length ? navigator.languages : navigator.language)),
-        (nextLocale) => t(`lang.${nextLocale}`),
-      ),
-    [t],
-  );
-
-  const onOpenBackgroundFilePicker = () => {
-    backgroundFileInputRef.current?.click();
-  };
-
-  const onBackgroundFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onSetUserBackgroundImage(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
-  };
+  const { t } = useI18n();
 
   return (
     <section className={`controls ${compact ? "settings-compact" : ""}`}>
@@ -128,62 +95,39 @@ export default function SettingsPage({
           </button>
         </div>
       </label>
-      <label>
-        {t("settings.multiAgentMode")}
-        <FancySelect
-          ariaLabel={t("settings.multiAgentMode")}
-          className="modern-select settings-multiagent-select"
-          onChange={onSetCodexMultiAgentMode}
-          options={[...codexMultiAgentModeOptions]}
-          value={codexMultiAgentMode}
-        />
-      </label>
-      <label className="settings-language-controls">
-        {t("nav.language")}
-        <FancySelect
-          ariaLabel={t("nav.language")}
-          className="modern-select settings-language-select"
-          onChange={(next) => setLocale(next as AppLocale)}
-          options={localeOptions}
-          value={selectableLocale}
-        />
-      </label>
-      <label className="settings-background-controls">
-        {t("settings.backgroundImage")}
-        <input
-          className="settings-background-file-input"
-          onChange={onBackgroundFileChange}
-          ref={backgroundFileInputRef}
-          type="file"
-          accept="image/*"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-        <div className="settings-background-row">
-          <input
-            className="lowercase-path-input settings-background-name"
-            placeholder="https://... / data:image..."
-            value={userBackgroundImage}
-            onChange={(event) => onSetUserBackgroundImage(event.currentTarget.value)}
-          />
-          <button className="settings-cwd-picker" onClick={onOpenBackgroundFilePicker} type="button">
-            {t("settings.backgroundImage.pick")}
+      <section className="settings-collector-doctor" aria-label="collector doctor">
+        <div className="settings-collector-doctor-head">
+          <div>
+            <span className="settings-collector-doctor-kicker">Collector Doctor</span>
+            <strong>수집기 상태</strong>
+          </div>
+          <button
+            className="settings-refresh-button"
+            disabled={collectorDoctorPending}
+            onClick={onRefreshCollectorDoctor}
+            type="button"
+          >
+            {collectorDoctorPending ? "확인 중" : "새로고침"}
           </button>
-          <button className="settings-cwd-picker" onClick={() => onSetUserBackgroundImage("")} type="button">
-            {t("common.delete")}
-          </button>
-          <input
-            aria-label={t("settings.backgroundOpacity")}
-            className="settings-opacity-input"
-            min={0}
-            max={1}
-            onChange={(event) => onSetUserBackgroundOpacity(Number(event.currentTarget.value))}
-            step={0.05}
-            type="number"
-            value={userBackgroundOpacity}
-          />
         </div>
-      </label>
+        <div className="settings-collector-doctor-list">
+          {collectorDoctorStatuses.map((collector) => (
+            <article className="settings-collector-card" key={collector.id}>
+              <div className="settings-collector-card-head">
+                <span
+                  aria-hidden="true"
+                  className={`settings-collector-dot is-${collector.state}`.trim()}
+                />
+                <div className="settings-collector-card-copy">
+                  <strong>{collector.label}</strong>
+                  <span>{collector.detail}</span>
+                </div>
+              </div>
+              <p className="settings-collector-card-message">{collector.message}</p>
+            </article>
+          ))}
+        </div>
+      </section>
       <div className="usage-method usage-method-hidden">{t("settings.recentStatus")}: {status}</div>
       {usageInfoText && !usageResultClosed && (
         <div className="usage-result">

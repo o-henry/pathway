@@ -7,7 +7,7 @@
     "dev": "tauri dev",
     "dev:web": "pnpm --filter web exec vite dev --host 127.0.0.1 --port 5173",
     "dev:web:full": "node scripts/dev-reset.mjs web",
-    "dev:desktop-ui": "pnpm --filter desktop dev",
+    "dev:desktop-ui": "pnpm --filter desktop exec vite dev --host 127.0.0.1 --port 1420",
     "dev:desktop:services": "node scripts/dev-reset.mjs desktop",
     "dev:desktop:full": "tauri dev",
     "dev:api": "UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000",

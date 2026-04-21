@@ -10,7 +10,15 @@ import {
 } from "react";
 
 import WorkflowCanvasPane from "./main/presentation/WorkflowCanvasPane";
-import { buildCanvasEdgeLines, NODE_HEIGHT, NODE_WIDTH, nodeCardSummary, turnModelLabel } from "../features/workflow/graph-utils";
+import {
+  buildCanvasEdgeLines,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  nodeCardSummary,
+  snapToLayoutGrid,
+  snapToNearbyNodeAxis,
+  turnModelLabel,
+} from "../features/workflow/graph-utils";
 import { nodeStatusLabel, nodeTypeLabel, turnRoleLabel } from "../features/workflow/labels";
 import type { GraphData, GraphNode, NodeAnchorSide } from "../features/workflow/types";
 import type { DragState, MarqueeSelection, NodeRunState } from "./main/types";
@@ -37,6 +45,11 @@ type LayoutBounds = {
   minY: number;
   maxX: number;
   maxY: number;
+};
+
+type PathwayEdgeSides = {
+  fromSide: NodeAnchorSide;
+  toSide: NodeAnchorSide;
 };
 
 type CanvasPanState = {
@@ -112,8 +125,44 @@ function measurePathwayNode(node: GraphNodeRecord, depth: number, childCount: nu
   const minWidth = isRoot ? 188 : childCount > 0 ? 184 : 196;
   const maxWidth = isRoot ? 248 : childCount > 0 ? 278 : 312;
   const measuredWidth = clamp(Math.round(baseWidth + textLength * widthPerCharacter), minWidth, maxWidth);
-  const height = isRoot ? 56 : textLength > 34 ? 58 : 48;
+  const height = 48;
   return { width: measuredWidth, height };
+}
+
+type PathwayNodeFootprint = {
+  width: number;
+  height: number;
+  childCount: number;
+  footprintWidth: number;
+  footprintHeight: number;
+};
+
+function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): PathwayEdgeSides {
+  const sourceCenterX = source.x + source.width / 2;
+  const sourceCenterY = source.y + source.height / 2;
+  const targetCenterX = target.x + target.width / 2;
+  const targetCenterY = target.y + target.height / 2;
+  const dx = targetCenterX - sourceCenterX;
+  const dy = targetCenterY - sourceCenterY;
+
+  if (target.depth > source.depth) {
+    if (Math.abs(dy) <= 52) {
+      return { fromSide: "right", toSide: "left" };
+    }
+    return dy > 0
+      ? { fromSide: "bottom", toSide: "left" }
+      : { fromSide: "top", toSide: "left" };
+  }
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { fromSide: "right", toSide: "left" }
+      : { fromSide: "left", toSide: "right" };
+  }
+
+  return dy >= 0
+    ? { fromSide: "bottom", toSide: "top" }
+    : { fromSide: "top", toSide: "bottom" };
 }
 
 function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number; height: number; bounds: LayoutBounds; progressionTypeIds: Set<string> } {
@@ -157,14 +206,37 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     }
   }
 
+  const nodeFootprintById = new Map<string, PathwayNodeFootprint>();
+  bundle.nodes.forEach((node) => {
+    const childCount = outgoing.get(node.id)?.length ?? 0;
+    const measured = measurePathwayNode(node, depth.get(node.id) ?? 0, childCount);
+    nodeFootprintById.set(node.id, {
+      ...measured,
+      childCount,
+      footprintWidth: measured.width + 124,
+      footprintHeight: measured.height + 56,
+    });
+  });
+
   const positioned: LayoutNode[] = [];
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
-  const rootBaseY = 172;
-  const rootGap = 202;
-  const horizontalGap = 274;
-  const siblingGap = 122;
-  const lanePaddingBottom = 228;
+  const rootBaseY = 118;
+  const rootGap = 170;
+  const horizontalGap = 72;
+  const siblingGap = 96;
+  const lanePaddingBottom = 24;
+  const laneStartX = new Map<number, number>();
+  let laneCursorX = 120;
+  laneDepths.forEach((laneDepth) => {
+    const laneNodes = bundle.nodes.filter((node) => (depth.get(node.id) ?? 0) === laneDepth);
+    const laneFootprintWidth = Math.max(
+      ...laneNodes.map((node) => nodeFootprintById.get(node.id)?.footprintWidth ?? 0),
+      0,
+    );
+    laneStartX.set(laneDepth, laneCursorX);
+    laneCursorX += laneFootprintWidth + horizontalGap;
+  });
 
   roots.forEach((node, index) => {
     positionedY.set(node.id, rootBaseY + index * rootGap);
@@ -211,24 +283,34 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     let previousY = Number.NEGATIVE_INFINITY;
     laneNodes.forEach((node) => {
       const current = positionedY.get(node.id) ?? rootBaseY;
-      const minimum = previousY + 162;
+      const footprint = nodeFootprintById.get(node.id);
+      const minimum = previousY === Number.NEGATIVE_INFINITY ? current : previousY;
       const next = current < minimum ? minimum : current;
       positionedY.set(node.id, next);
-      previousY = next;
+      previousY = next + (footprint?.footprintHeight ?? 132);
     });
   }
 
   laneDepths.forEach((laneDepth) => {
-    bundle.nodes
+    const laneNodes = bundle.nodes
       .filter((node) => (depth.get(node.id) ?? 0) === laneDepth)
-      .sort((left, right) => (positionedY.get(left.id) ?? 0) - (positionedY.get(right.id) ?? 0))
-      .forEach((node) => {
+      .sort((left, right) => (positionedY.get(left.id) ?? 0) - (positionedY.get(right.id) ?? 0));
+    const laneFootprintWidth = Math.max(
+      ...laneNodes.map((node) => nodeFootprintById.get(node.id)?.footprintWidth ?? 0),
+      0,
+    );
+    const laneX = laneStartX.get(laneDepth) ?? 120;
+    laneNodes.forEach((node) => {
+      const footprint = nodeFootprintById.get(node.id);
+      const width = footprint?.width ?? NODE_WIDTH;
+      const height = footprint?.height ?? NODE_HEIGHT;
       positioned.push({
         node,
         depth: laneDepth,
-        childCount: outgoing.get(node.id)?.length ?? 0,
-        ...measurePathwayNode(node, laneDepth, outgoing.get(node.id)?.length ?? 0),
-        x: 120 + laneDepth * horizontalGap + ((hashString(node.id) % 3) - 1) * 10,
+        childCount: footprint?.childCount ?? 0,
+        width,
+        height,
+        x: Math.round(laneX + Math.max(0, (laneFootprintWidth - width) / 2)),
         y: positionedY.get(node.id) ?? rootBaseY,
       });
     });
@@ -238,14 +320,30 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const minY = Math.min(...positioned.map((item) => item.y), rootBaseY);
   const maxX = Math.max(...positioned.map((item) => item.x + item.width), 0);
   const maxY = Math.max(...positioned.map((item) => item.y + item.height), 0);
-  const width = Math.max(1480, maxX + 260);
-  const height = Math.max(920, maxY + lanePaddingBottom);
+  const contentWidth = Math.max(1, maxX - minX);
+  const contentHeight = Math.max(1, maxY - minY);
+  const horizontalPadding = 84;
+  const topPadding = 92;
+  const bottomPadding = 24;
+
+  const normalized = positioned.map((item) => ({
+    ...item,
+    x: Math.round(item.x - minX + horizontalPadding),
+    y: Math.round(item.y - minY + topPadding),
+  }));
+
+  const normalizedMinX = Math.min(...normalized.map((item) => item.x), horizontalPadding);
+  const normalizedMinY = Math.min(...normalized.map((item) => item.y), topPadding);
+  const normalizedMaxX = Math.max(...normalized.map((item) => item.x + item.width), contentWidth);
+  const normalizedMaxY = Math.max(...normalized.map((item) => item.y + item.height), contentHeight);
+  const width = Math.max(560, contentWidth + horizontalPadding * 2);
+  const height = Math.max(260, contentHeight + topPadding + bottomPadding + lanePaddingBottom);
 
   return {
-    nodes: positioned,
+    nodes: normalized,
     width,
     height,
-    bounds: { minX, minY, maxX, maxY },
+    bounds: { minX: normalizedMinX, minY: normalizedMinY, maxX: normalizedMaxX, maxY: normalizedMaxY },
     progressionTypeIds,
   };
 }
@@ -266,6 +364,7 @@ type PathwayRailCanvasProps = {
   baseBundle?: GraphBundle;
   overlayActions?: ReactNode;
   overlayStats?: ReactNode;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
   revisionPreview?: RevisionProposalRecord | null;
   selectedNodeId: string | null;
   selectedRouteId: string | null;
@@ -388,6 +487,7 @@ export default function PathwayRailCanvas({
   baseBundle,
   overlayActions,
   overlayStats,
+  onFullscreenChange,
   revisionPreview = null,
   selectedNodeId,
   selectedRouteId,
@@ -395,13 +495,16 @@ export default function PathwayRailCanvas({
 }: PathwayRailCanvasProps) {
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasFullscreen, setCanvasFullscreen] = useState(false);
+  const [panMode, setPanMode] = useState(false);
   const [collapsedBranchNodeIds, setCollapsedBranchNodeIds] = useState<Set<string>>(new Set());
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(selectedNodeId ? [selectedNodeId] : []);
   const [selectedEdgeKey, setSelectedEdgeKey] = useState("");
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [marqueeSelection, setMarqueeSelection] = useState<MarqueeSelection | null>(null);
   const [panState, setPanState] = useState<CanvasPanState | null>(null);
   const graphCanvasRef = useRef<HTMLDivElement | null>(null);
   const viewportTouchedRef = useRef(false);
+  const selectedNodeIdsRef = useRef<string[]>(selectedNodeId ? [selectedNodeId] : []);
   const previewNodeMap = useMemo(() => buildPreviewNodeMap(revisionPreview), [revisionPreview]);
   const previewEdgeMap = useMemo(
     () => buildPreviewEdgeMap(bundle, baseBundle, revisionPreview),
@@ -412,6 +515,14 @@ export default function PathwayRailCanvas({
     const fallbackId = selectedNodeId ?? selectedRouteId;
     setSelectedNodeIds(fallbackId ? [fallbackId] : []);
   }, [selectedNodeId, selectedRouteId]);
+
+  useEffect(() => {
+    selectedNodeIdsRef.current = selectedNodeIds;
+  }, [selectedNodeIds]);
+
+  useEffect(() => {
+    onFullscreenChange?.(canvasFullscreen);
+  }, [canvasFullscreen, onFullscreenChange]);
 
   const adapted = useMemo(() => {
     const layout = buildLayout(bundle);
@@ -444,25 +555,15 @@ export default function PathwayRailCanvas({
     const edges = bundle.edges
       .filter((edge) => layout.progressionTypeIds.has(edge.type))
       .map((edge) => {
-        const sourceLayout = layoutNodeById.get(edge.source);
-        const targetLayout = layoutNodeById.get(edge.target);
-        const sourceDepth = sourceLayout?.depth ?? 0;
-        const targetDepth = targetLayout?.depth ?? sourceDepth + 1;
-        if (targetDepth > sourceDepth) {
-          return {
-            from: { nodeId: edge.source, port: "out" as const, side: "right" as const },
-            to: { nodeId: edge.target, port: "in" as const, side: "left" as const },
-          };
-        }
-        if ((targetLayout?.y ?? 0) >= (sourceLayout?.y ?? 0)) {
-          return {
-            from: { nodeId: edge.source, port: "out" as const, side: "bottom" as const },
-            to: { nodeId: edge.target, port: "in" as const, side: "top" as const },
-          };
-        }
+        const source = layoutNodeById.get(edge.source);
+        const target = layoutNodeById.get(edge.target);
+        const sides =
+          source && target
+            ? resolvePathwayEdgeSides(source, target)
+            : null;
         return {
-          from: { nodeId: edge.source, port: "out" as const, side: "top" as const },
-          to: { nodeId: edge.target, port: "in" as const, side: "bottom" as const },
+          from: { nodeId: edge.source, port: "out" as const, side: sides?.fromSide },
+          to: { nodeId: edge.target, port: "in" as const, side: sides?.toSide },
         };
       });
     const graph: GraphData = {
@@ -511,6 +612,31 @@ export default function PathwayRailCanvas({
     setCollapsedBranchNodeIds(new Set());
   }, [bundle.bundle_id]);
 
+  const visibleBounds = useMemo(() => {
+    if (graphData.nodes.length === 0) {
+      return adapted.bounds;
+    }
+
+    const rects = graphData.nodes.map((node) => {
+      const config = (node.config as Record<string, unknown>) ?? {};
+      const width = Number(config?.pathwayVisualWidth ?? NODE_WIDTH);
+      const height = Number(config?.pathwayVisualHeight ?? NODE_HEIGHT);
+      return {
+        minX: node.position.x,
+        minY: node.position.y,
+        maxX: node.position.x + width,
+        maxY: node.position.y + height,
+      };
+    });
+
+    return {
+      minX: Math.min(...rects.map((item) => item.minX)),
+      minY: Math.min(...rects.map((item) => item.minY)),
+      maxX: Math.max(...rects.map((item) => item.maxX)),
+      maxY: Math.max(...rects.map((item) => item.maxY)),
+    };
+  }, [adapted.bounds, graphData.nodes]);
+
   useEffect(() => {
     const canvas = graphCanvasRef.current;
     if (!canvas) {
@@ -527,14 +653,16 @@ export default function PathwayRailCanvas({
         return;
       }
 
-      const fitX = (bounds.width - 144) / adapted.width;
-      const fitY = (bounds.height - 156) / adapted.height;
-      const nextZoom = clampZoom(Math.min(1.02, fitX, fitY));
+      const contentWidth = Math.max(1, visibleBounds.maxX - visibleBounds.minX + 120);
+      const contentHeight = Math.max(1, visibleBounds.maxY - visibleBounds.minY + 120);
+      const fitX = (bounds.width - 72) / contentWidth;
+      const fitY = (bounds.height - 72) / contentHeight;
+      const nextZoom = clampZoom(Math.min(1.42, fitX, fitY));
       setCanvasZoom(nextZoom);
-      const visibleGraphWidth = (adapted.bounds.maxX - adapted.bounds.minX) * nextZoom;
-      const visibleGraphHeight = (adapted.bounds.maxY - adapted.bounds.minY) * nextZoom;
-      const targetScrollLeft = Math.max(0, adapted.bounds.minX * nextZoom - (bounds.width - visibleGraphWidth) / 2);
-      const targetScrollTop = Math.max(0, adapted.bounds.minY * nextZoom - (bounds.height - visibleGraphHeight) / 2);
+      const contentCenterX = ((visibleBounds.minX + visibleBounds.maxX) / 2) * nextZoom;
+      const contentCenterY = ((visibleBounds.minY + visibleBounds.maxY) / 2) * nextZoom;
+      const targetScrollLeft = Math.max(0, contentCenterX - bounds.width / 2);
+      const targetScrollTop = Math.max(0, contentCenterY - bounds.height / 2);
       canvas.scrollLeft = targetScrollLeft;
       canvas.scrollTop = targetScrollTop;
     };
@@ -549,7 +677,7 @@ export default function PathwayRailCanvas({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [adapted.bounds.maxX, adapted.bounds.maxY, adapted.bounds.minX, adapted.bounds.minY, adapted.height, adapted.width]);
+  }, [adapted.bounds, adapted.height, adapted.width, visibleBounds]);
 
   const edgeLines = useMemo(() => {
     const nodeMap = new Map(graphData.nodes.map((node) => [node.id, node]));
@@ -611,6 +739,14 @@ export default function PathwayRailCanvas({
     setCanvasZoom((current) => Math.max(0.55, Number((current - 0.1).toFixed(2))));
   };
 
+  const getNodeVisualSize = (node: GraphNode): { width: number; height: number } => {
+    const config = (node.config as Record<string, unknown>) ?? {};
+    return {
+      width: Number(config.pathwayVisualWidth ?? NODE_WIDTH),
+      height: Number(config.pathwayVisualHeight ?? NODE_HEIGHT),
+    };
+  };
+
   const toLogicalPoint = (event: ReactMouseEvent<HTMLDivElement>): { x: number; y: number } | null => {
     const canvas = graphCanvasRef.current;
     if (!canvas) {
@@ -623,6 +759,96 @@ export default function PathwayRailCanvas({
       x: (event.clientX - rect.left + canvas.scrollLeft - stageInsetX) / canvasZoom,
       y: (event.clientY - rect.top + canvas.scrollTop - stageInsetY) / canvasZoom,
     };
+  };
+
+  const clientToLogicalPoint = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const canvas = graphCanvasRef.current;
+    if (!canvas) {
+      return null;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const stageInsetX = 24;
+    const stageInsetY = 24;
+    return {
+      x: (clientX - rect.left + canvas.scrollLeft - stageInsetX) / canvasZoom,
+      y: (clientY - rect.top + canvas.scrollTop - stageInsetY) / canvasZoom,
+    };
+  };
+
+  const applyDragDelta = (clientX: number, clientY: number, shiftKey: boolean) => {
+    if (!dragState) {
+      return;
+    }
+    const pointer = clientToLogicalPoint(clientX, clientY);
+    if (!pointer) {
+      return;
+    }
+    const dx = pointer.x - dragState.pointerStart.x;
+    const dy = pointer.y - dragState.pointerStart.y;
+    let nextDx = dx;
+    let nextDy = dy;
+    if (shiftKey && dragState.nodeIds.length > 0) {
+      const anchorNodeId = dragState.nodeIds[0];
+      const anchorStart = dragState.startPositions[anchorNodeId];
+      if (anchorStart) {
+        const candidates = graphData.nodes.filter((node) => !dragState.nodeIds.includes(node.id));
+        const snappedX = snapToLayoutGrid(
+          snapToNearbyNodeAxis(anchorStart.x + dx, "x", candidates, 28),
+          "x",
+          28,
+        );
+        const snappedY = snapToLayoutGrid(
+          snapToNearbyNodeAxis(anchorStart.y + dy, "y", candidates, 28),
+          "y",
+          28,
+        );
+        nextDx = Math.round(snappedX - anchorStart.x);
+        nextDy = Math.round(snappedY - anchorStart.y);
+      }
+    }
+    setGraphData((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => {
+        const start = dragState.startPositions[node.id];
+        if (!start) {
+          return node;
+        }
+        return {
+          ...node,
+          position: {
+            x: Math.round(start.x + nextDx),
+            y: Math.round(start.y + nextDy),
+          },
+        };
+      }),
+    }));
+  };
+
+  const finalizeMarqueeSelection = (selection: MarqueeSelection) => {
+    const hitPadding = Math.max(4, 8 / Math.max(canvasZoom, 0.55));
+    const minX = Math.min(selection.start.x, selection.current.x) - hitPadding;
+    const maxX = Math.max(selection.start.x, selection.current.x) + hitPadding;
+    const minY = Math.min(selection.start.y, selection.current.y) - hitPadding;
+    const maxY = Math.max(selection.start.y, selection.current.y) + hitPadding;
+    const selectedByBox = graphData.nodes
+      .filter((node) => {
+        const size = getNodeVisualSize(node);
+        const nodeLeft = node.position.x;
+        const nodeTop = node.position.y;
+        const nodeRight = node.position.x + size.width;
+        const nodeBottom = node.position.y + size.height;
+        const centerX = nodeLeft + size.width / 2;
+        const centerY = nodeTop + size.height / 2;
+        const overlapsBox = !(nodeRight < minX || nodeLeft > maxX || nodeBottom < minY || nodeTop > maxY);
+        const containsCenter = centerX >= minX && centerX <= maxX && centerY >= minY && centerY <= maxY;
+        return overlapsBox || containsCenter;
+      })
+      .map((node) => node.id);
+    const nextSelected = selection.append
+      ? Array.from(new Set([...selectedNodeIdsRef.current, ...selectedByBox]))
+      : selectedByBox;
+    setNodeSelection(nextSelected, nextSelected[nextSelected.length - 1]);
+    setSelectedEdgeKey("");
   };
 
   const onNodeDragStart = (event: ReactMouseEvent<HTMLDivElement>, nodeId: string) => {
@@ -656,36 +882,27 @@ export default function PathwayRailCanvas({
       canvas.scrollTop = Math.max(0, panState.scrollTop - (event.clientY - panState.pointerClientY));
       return;
     }
+    if (marqueeSelection) {
+      const point = toLogicalPoint(event);
+      if (!point) {
+        return;
+      }
+      setMarqueeSelection((current) => (current ? { ...current, current: point } : current));
+      return;
+    }
     if (!dragState) {
       return;
     }
-    const pointer = toLogicalPoint(event);
-    if (!pointer) {
-      return;
-    }
-    const dx = pointer.x - dragState.pointerStart.x;
-    const dy = pointer.y - dragState.pointerStart.y;
-    setGraphData((current) => ({
-      ...current,
-      nodes: current.nodes.map((node) => {
-        const start = dragState.startPositions[node.id];
-        if (!start) {
-          return node;
-        }
-        return {
-          ...node,
-          position: {
-            x: Math.round(start.x + dx),
-            y: Math.round(start.y + dy),
-          },
-        };
-      }),
-    }));
+    applyDragDelta(event.clientX, event.clientY, event.shiftKey);
   };
 
   const onCanvasMouseUp = () => {
     if (panState) {
       setPanState(null);
+    }
+    if (marqueeSelection) {
+      finalizeMarqueeSelection(marqueeSelection);
+      setMarqueeSelection(null);
     }
     if (dragState) {
       setDragState(null);
@@ -707,13 +924,82 @@ export default function PathwayRailCanvas({
       return;
     }
     viewportTouchedRef.current = true;
-    setPanState({
-      pointerClientX: event.clientX,
-      pointerClientY: event.clientY,
-      scrollLeft: canvas.scrollLeft,
-      scrollTop: canvas.scrollTop,
+    if (panMode) {
+      event.preventDefault();
+      setPanState({
+        pointerClientX: event.clientX,
+        pointerClientY: event.clientY,
+        scrollLeft: canvas.scrollLeft,
+        scrollTop: canvas.scrollTop,
+      });
+      return;
+    }
+    if (!event.shiftKey) {
+      setSelectedNodeIds([]);
+    }
+    setSelectedEdgeKey("");
+    const point = toLogicalPoint(event);
+    if (!point) {
+      return;
+    }
+    event.preventDefault();
+    setMarqueeSelection({
+      start: point,
+      current: point,
+      append: event.shiftKey,
     });
   };
+
+  useEffect(() => {
+    if (!dragState && !marqueeSelection && !panState) {
+      return;
+    }
+
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      if (panState) {
+        const canvas = graphCanvasRef.current;
+        if (!canvas) {
+          return;
+        }
+        canvas.scrollLeft = Math.max(0, panState.scrollLeft - (event.clientX - panState.pointerClientX));
+        canvas.scrollTop = Math.max(0, panState.scrollTop - (event.clientY - panState.pointerClientY));
+        return;
+      }
+      if (marqueeSelection) {
+        const point = clientToLogicalPoint(event.clientX, event.clientY);
+        if (!point) {
+          return;
+        }
+        setMarqueeSelection((current) => (current ? { ...current, current: point } : current));
+        return;
+      }
+      if (dragState) {
+        applyDragDelta(event.clientX, event.clientY, event.shiftKey);
+      }
+    };
+
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      if (panState) {
+        setPanState(null);
+      }
+      if (marqueeSelection) {
+        const point = clientToLogicalPoint(event.clientX, event.clientY);
+        const nextSelection = point ? { ...marqueeSelection, current: point } : marqueeSelection;
+        finalizeMarqueeSelection(nextSelection);
+        setMarqueeSelection(null);
+      }
+      if (dragState) {
+        setDragState(null);
+      }
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+    };
+  }, [dragState, marqueeSelection, panState, graphData.nodes, selectedNodeIds]);
 
   const onCanvasWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (!event.metaKey && !event.ctrlKey) {
@@ -729,6 +1015,15 @@ export default function PathwayRailCanvas({
   };
 
   const onCanvasKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+      const keyLower = event.key.toLowerCase();
+      const isPanToggleKey = keyLower === "h" || event.key === "ㅗ" || event.code === "KeyH";
+      if (isPanToggleKey) {
+        event.preventDefault();
+        setPanMode((current) => !current);
+        return;
+      }
+    }
     if ((event.metaKey || event.ctrlKey) && event.key === "=") {
       event.preventDefault();
       setCanvasZoom((current) => clampZoom(current + 0.1));
@@ -752,7 +1047,7 @@ export default function PathwayRailCanvas({
         canvasVariant="pathway"
         pathwayOverlayActions={overlayActions}
         pathwayOverlayStats={overlayStats}
-        panMode={false}
+        panMode={panMode}
         onCanvasKeyDown={onCanvasKeyDown}
         onCanvasMouseDown={onCanvasMouseDown}
         onCanvasMouseMove={onCanvasMouseMove}
@@ -766,7 +1061,7 @@ export default function PathwayRailCanvas({
         graphViewMode="graph"
         stageInsetX={28}
         stageInsetY={28}
-        stageInsetBottom={36}
+        stageInsetBottom={18}
         edgeLines={edgeLines}
         selectedEdgeKey={selectedEdgeKey}
         selectedEdgeNodeIdSet={EMPTY_SELECTION}
@@ -806,12 +1101,12 @@ export default function PathwayRailCanvas({
         onToggleRoleInternalExpanded={() => {}}
         onAddRolePerspectivePass={() => {}}
         onAddRoleReviewPass={() => {}}
-        marqueeSelection={null as MarqueeSelection | null}
+        marqueeSelection={marqueeSelection}
         onCanvasZoomIn={zoomIn}
         onCanvasZoomOut={zoomOut}
         canvasFullscreen={canvasFullscreen}
         setCanvasFullscreen={setCanvasFullscreen}
-        setPanMode={() => {}}
+        setPanMode={setPanMode}
         canRunGraphNow={false}
         onRunGraph={async () => {}}
         isGraphRunning={false}

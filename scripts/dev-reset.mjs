@@ -20,9 +20,10 @@ const MODES = {
     ports: [1420, 8000],
     cleanupPatterns: [
       'pnpm dev:desktop-ui',
-      'pnpm dev:api',
+      'pnpm --filter desktop exec vite dev --host 127.0.0.1 --port 1420',
       'vite dev --host 127.0.0.1 --port 1420',
       'vite dev --host 0.0.0.0 --port 1420',
+      'pnpm dev:api',
       'fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000',
       'concurrently -n desktop,api',
     ],

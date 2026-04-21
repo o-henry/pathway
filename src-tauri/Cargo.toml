@@ -1,5 +1,5 @@
 [package]
-name = "pathway-desktop"
+name = "pathway"
 version = "0.1.0"
 description = "Tauri desktop shell for PATHWAY"
 authors = ["Henry"]

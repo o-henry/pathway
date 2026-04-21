@@ -301,6 +301,7 @@ export default function WorkflowCanvasPane({
             className={`graph-canvas graph-canvas-${canvasVariant} ${panMode ? "pan-mode" : ""}`.trim()}
             onKeyDown={onCanvasKeyDown}
             onMouseDown={(event) => {
+              event.currentTarget.focus();
               onActivateWorkspacePanels();
               onCanvasMouseDown(event);
             }}
@@ -308,13 +309,13 @@ export default function WorkflowCanvasPane({
             onMouseUp={onCanvasMouseUp}
             onWheel={onCanvasWheel}
             ref={graphCanvasRef}
-            tabIndex={-1}
+            tabIndex={0}
           >
             <div
               className="graph-stage-shell"
               style={{
-                width: Math.round(boundedStageWidth * canvasZoom + stageInsetX * 2),
-                height: Math.round(boundedStageHeight * canvasZoom + stageInsetY + stageInsetBottom),
+                width: Math.max(Math.round(boundedStageWidth * canvasZoom + stageInsetX * 2), 360),
+                height: Math.max(Math.round(boundedStageHeight * canvasZoom + stageInsetY + stageInsetBottom), 260),
               }}
             >
               <div
@@ -510,11 +511,15 @@ export default function WorkflowCanvasPane({
               <button className="canvas-zoom-single" onClick={() => setCanvasFullscreen((prev) => !prev)} title={canvasFullscreen ? t("workflow.canvas.defaultView") : t("workflow.canvas.fullView")} type="button">
                 <img alt="" aria-hidden="true" className="canvas-control-icon" src="/canvas-fullscreen.svg" />
               </button>
-              {canvasVariant !== "pathway" ? (
-                <button aria-label={t("workflow.canvas.move")} className={`canvas-zoom-single ${panMode ? "is-active" : ""}`} onClick={() => setPanMode((prev) => !prev)} title={t("workflow.canvas.moveCanvas")} type="button">
-                  <img alt="" aria-hidden="true" className="canvas-control-icon" src="/scroll.svg" />
-                </button>
-              ) : null}
+              <button
+                aria-label={t("workflow.canvas.move")}
+                className={`canvas-zoom-single ${panMode ? "is-active" : ""}`.trim()}
+                onClick={() => setPanMode((prev) => !prev)}
+                title={t("workflow.canvas.moveCanvas")}
+                type="button"
+              >
+                <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-move.svg" />
+              </button>
             </div>
 
             {canvasVariant === "pathway" && pathwayOverlayActions ? (
