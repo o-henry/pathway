@@ -62,6 +62,7 @@ def plan_retrieval_queries(
     goal: Goal,
     profile: Profile | None,
     limit: int,
+    extra_query_texts: tuple[str, ...] = (),
 ) -> tuple[RetrievalQuery, ...]:
     profile_context = _profile_fragments(profile)
     candidates = [
@@ -111,6 +112,15 @@ def plan_retrieval_queries(
         if len(queries) >= limit:
             break
 
+    for index, extra_query in enumerate(extra_query_texts, start=1):
+        compact = _clean_fragment(extra_query)
+        if not compact or compact in seen_texts:
+            continue
+        seen_texts.add(compact)
+        queries.append(RetrievalQuery(label=f"analysis_{index}", text=compact))
+        if len(queries) >= limit:
+            break
+
     return tuple(queries)
 
 
@@ -156,8 +166,14 @@ def build_grounding_packet(
     query_limit: int,
     hits_per_query: int,
     evidence_limit: int,
+    extra_query_texts: tuple[str, ...] = (),
 ) -> GroundingPacket:
-    queries = plan_retrieval_queries(goal=goal, profile=profile, limit=query_limit)
+    queries = plan_retrieval_queries(
+        goal=goal,
+        profile=profile,
+        limit=query_limit,
+        extra_query_texts=extra_query_texts,
+    )
     hits = _aggregate_hits(
         queries=queries,
         hits_per_query=hits_per_query,

@@ -218,10 +218,19 @@ class SourceSearchHit(DomainModel):
     similarity_score: float = Field(ge=0)
     reliability: str = Field(min_length=1, max_length=80)
     source_type: SourcePolicyState
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    source_created_at: datetime | None = None
 
 
 class SourceUrlPreviewRequest(DomainModel):
     url: str = Field(min_length=1, max_length=2000)
+
+
+class SourceUrlIngestRequest(DomainModel):
+    url: str = Field(min_length=1, max_length=2000)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    collector_preference: str | None = Field(default=None, min_length=1, max_length=80)
 
 
 class SourceUrlPreview(DomainModel):

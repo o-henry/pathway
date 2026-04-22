@@ -95,6 +95,14 @@ Run only the API:
 pnpm dev:api
 ```
 
+To enable explicit public URL ingestion in the API during local development, set:
+
+```bash
+SOURCE_FETCH_ENABLED=true pnpm dev:api
+```
+
+The new `/sources/url/ingest` path obeys URL policy checks and robots decisions, and is intended for one-off permitted public pages rather than broad crawling.
+
 Explicit desktop app commands:
 
 ```bash

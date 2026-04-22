@@ -8,8 +8,8 @@ from lifemap_api.api.dependencies import (
     get_lifemap_repository,
     get_llm_provider,
     get_profile_repository,
-    get_state_update_repository,
     get_source_search_index,
+    get_state_update_repository,
 )
 from lifemap_api.application.errors import (
     AppConfigurationError,
@@ -153,7 +153,11 @@ def read_goal_state_updates(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.post("/{goal_id}/state-updates", response_model=StateUpdate, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{goal_id}/state-updates",
+    response_model=StateUpdate,
+    status_code=status.HTTP_201_CREATED,
+)
 def post_goal_state_update(
     goal_id: str,
     payload: StateUpdateCreate,
@@ -209,6 +213,7 @@ def remove_goal(
 def post_generated_map(
     goal_id: str,
     goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
+    analysis_repo: SqliteGoalAnalysisRepository = Depends(get_goal_analysis_repository),
     profile_repo: SqliteProfileRepository = Depends(get_profile_repository),
     snapshot_repo: SqliteCurrentStateSnapshotRepository = Depends(
         get_current_state_snapshot_repository
@@ -224,6 +229,7 @@ def post_generated_map(
             goal_id=goal_id,
             goal_repo=goal_repo,
             profile_repo=profile_repo,
+            analysis_repo=analysis_repo,
             current_state_repo=snapshot_repo,
             map_repo=map_repo,
             llm_provider=llm_provider,
@@ -261,6 +267,7 @@ def post_generated_map(
 def post_generated_pathway(
     goal_id: str,
     goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
+    analysis_repo: SqliteGoalAnalysisRepository = Depends(get_goal_analysis_repository),
     profile_repo: SqliteProfileRepository = Depends(get_profile_repository),
     snapshot_repo: SqliteCurrentStateSnapshotRepository = Depends(
         get_current_state_snapshot_repository
@@ -276,6 +283,7 @@ def post_generated_pathway(
             goal_id=goal_id,
             goal_repo=goal_repo,
             profile_repo=profile_repo,
+            analysis_repo=analysis_repo,
             current_state_repo=snapshot_repo,
             map_repo=map_repo,
             llm_provider=llm_provider,

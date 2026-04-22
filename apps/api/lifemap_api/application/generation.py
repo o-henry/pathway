@@ -17,6 +17,7 @@ from lifemap_api.domain.models import CurrentStateSnapshot, Goal, LifeMap, LifeM
 from lifemap_api.domain.ports import (
     CurrentStateSnapshotRepository,
     EmbeddingProvider,
+    GoalAnalysisRepository,
     GoalRepository,
     LifeMapRepository,
     LLMProvider,
@@ -167,6 +168,7 @@ def _attempt_generation(
     goal: Goal,
     profile: Profile | None,
     current_state: CurrentStateSnapshot | None,
+    extra_query_texts: tuple[str, ...],
     query_limit: int,
     hits_per_query: int,
     evidence_limit: int,
@@ -181,6 +183,7 @@ def _attempt_generation(
         query_limit=query_limit,
         hits_per_query=hits_per_query,
         evidence_limit=evidence_limit,
+        extra_query_texts=extra_query_texts,
     )
     messages: list[dict[str, str]] = [
         {"role": "system", "content": _build_system_prompt()},
@@ -246,6 +249,7 @@ def generate_map_for_goal(
     goal_id: str,
     goal_repo: GoalRepository,
     profile_repo: ProfileRepository,
+    analysis_repo: GoalAnalysisRepository,
     current_state_repo: CurrentStateSnapshotRepository,
     map_repo: LifeMapRepository,
     llm_provider: LLMProvider,
@@ -261,6 +265,7 @@ def generate_map_for_goal(
         raise EntityNotFoundError("Goal", goal_id)
 
     profile = profile_repo.get_default()
+    analysis = analysis_repo.get(goal_id)
     current_state = current_state_repo.get_for_goal(goal_id)
     graph_bundle = _attempt_generation(
         provider=llm_provider,
@@ -269,6 +274,7 @@ def generate_map_for_goal(
         goal=goal,
         profile=profile,
         current_state=current_state,
+        extra_query_texts=tuple(analysis.research_questions) if analysis else (),
         query_limit=query_limit,
         hits_per_query=hits_per_query,
         evidence_limit=evidence_limit,

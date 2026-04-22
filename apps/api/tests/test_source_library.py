@@ -88,3 +88,65 @@ def test_blocked_url_preview_does_not_allow_fetch(client: TestClient) -> None:
     assert payload["policy_state"] == "blocked_by_policy"
     assert payload["fetch_allowed"] is False
     assert payload["metadata_only"] is False
+
+
+def test_url_ingest_fetches_and_indexes_public_page(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setenv("SOURCE_FETCH_ENABLED", "true")
+
+    from lifemap_api.application import source_pipeline
+
+    class FakeResponse:
+        def __init__(self) -> None:
+            self.url = "https://example.com/story"
+            self.text = (
+                "<html><head><title>Example Story</title></head>"
+                "<body><article><h1>Example Story</h1>"
+                "<p>English conversation partners helped me practice speaking every week.</p>"
+                "<p>Recording and listening improved my fluency.</p>"
+                "</article></body></html>"
+            )
+            self.headers = {"content-type": "text/html; charset=utf-8"}
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            del args, kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            del exc_type, exc, tb
+            return None
+
+        def get(self, url: str) -> FakeResponse:
+            assert url == "https://example.com/story"
+            return FakeResponse()
+
+    monkeypatch.setattr(source_pipeline, "check_robots_permission", lambda url: (True, "ok"))
+    monkeypatch.setattr(source_pipeline.httpx, "Client", FakeClient)
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/sources/url/ingest",
+        json={
+            "url": "https://example.com/story",
+            "metadata": {"layer": "personal_story", "publisher": "Example"},
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source_type"] == "public_url_allowed"
+    assert payload["metadata"]["collector_used"] == "trafilatura"
+
+    search_response = client.get(
+        "/sources/search",
+        params={"query": "conversation partners fluency", "limit": 3},
+    )
+    assert search_response.status_code == 200
+    hits = search_response.json()
+    assert hits
+    assert hits[0]["source_id"] == payload["id"]

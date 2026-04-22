@@ -223,10 +223,10 @@
     align-items: start;
     gap: 0.2rem;
     justify-content: flex-start;
-    border: 1px solid rgba(23, 20, 17, 0.08);
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.5);
-    padding: 0.22rem 0.34rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
     text-align: left;
   }
 
@@ -268,8 +268,8 @@
   }
 
   .goal-node .signal-chip {
-    background: rgba(255, 255, 255, 0.16);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: transparent;
+    border-color: transparent;
     color: rgba(255, 255, 255, 0.9);
   }
 

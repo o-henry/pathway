@@ -13,6 +13,7 @@ from lifemap_api.application.errors import (
 )
 from lifemap_api.application.sources import (
     create_manual_source,
+    create_url_source,
     get_source,
     list_sources,
     preview_url_source,
@@ -23,6 +24,7 @@ from lifemap_api.domain.models import (
     SourceDocument,
     SourceDocumentCreate,
     SourceSearchHit,
+    SourceUrlIngestRequest,
     SourceUrlPreview,
     SourceUrlPreviewRequest,
 )
@@ -59,6 +61,40 @@ def post_manual_source(
             payload=payload,
             settings=get_settings(),
         )
+    except AppConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ProviderInvocationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post("/url/ingest", response_model=SourceDocument, status_code=status.HTTP_201_CREATED)
+def post_url_source(
+    payload: SourceUrlIngestRequest,
+    repo: SqliteSourceRepository = Depends(get_source_repository),
+    chunk_repo: SqliteSourceChunkRepository = Depends(get_source_chunk_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
+    search_index: SourceSearchIndex = Depends(get_source_search_index),
+) -> SourceDocument:
+    try:
+        return create_url_source(
+            repo=repo,
+            chunk_repo=chunk_repo,
+            embedding_provider=embedding_provider,
+            search_index=search_index,
+            payload=payload,
+            settings=get_settings(),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
     except AppConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

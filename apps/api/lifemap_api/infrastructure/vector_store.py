@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 import lancedb
 
@@ -43,6 +44,8 @@ class LanceDBSourceSearchIndex:
                 "text": chunk.text,
                 "token_estimate": chunk.token_estimate,
                 "metadata_json": chunk.metadata,
+                "source_metadata_json": source.metadata,
+                "source_created_at": source.created_at.isoformat(),
                 "vector": embedding,
             }
             for chunk, embedding in zip(chunks, embeddings, strict=True)
@@ -51,9 +54,13 @@ class LanceDBSourceSearchIndex:
         db = self._connect()
         if self._table_exists(db):
             table = db.open_table(TABLE_NAME)
-            table.delete(f"source_id = '{source.id}'")
-            table.add(rows)
-            return
+            try:
+                table.delete(f"source_id = '{source.id}'")
+                table.add(rows)
+                return
+            except Exception:
+                # Recreate the table when the stored schema lags behind the current row shape.
+                db.drop_table(TABLE_NAME)
 
         db.create_table(TABLE_NAME, data=rows)
 
@@ -68,6 +75,15 @@ class LanceDBSourceSearchIndex:
         for row in results:
             distance = float(row.get("_distance", 0.0))
             similarity = max(0.0, 1.0 / (1.0 + distance))
+            created_at_raw = row.get("source_created_at")
+            try:
+                created_at = (
+                    datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+                    if created_at_raw
+                    else None
+                )
+            except ValueError:
+                created_at = None
             hits.append(
                 SourceSearchHit(
                     chunk_id=str(row["chunk_id"]),
@@ -78,6 +94,8 @@ class LanceDBSourceSearchIndex:
                     similarity_score=similarity,
                     reliability=str(row.get("reliability", "manual_note")),
                     source_type=str(row.get("source_type", "manual_note")),
+                    metadata=dict(row.get("source_metadata_json") or {}),
+                    source_created_at=created_at,
                 )
             )
         return hits
