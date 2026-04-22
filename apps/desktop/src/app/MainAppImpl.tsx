@@ -865,7 +865,7 @@ export default function MainApp() {
                     selectedRouteId={routeSelection?.selected_node_id ?? null}
                     onSelectNode={handleSelectNode}
                   />
-                  {activeMap ? (
+                  {hasGraph ? (
                     <section className="pathway-request-panel pathway-canvas-update-floater">
                       <div className="pathway-request-head">
                         <div>

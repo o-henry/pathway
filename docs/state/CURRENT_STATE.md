@@ -170,6 +170,22 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
+  - Restored the floating Pathway reality-update composer so it still renders over the canvas while the app is showing the demo graph, instead of disappearing until a live map exists.
+  - Reapplied goal-tab stretch rules so the left white Pathway goals island fills the full available column height instead of stopping early and exposing the gray app background below it.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This restores the intended empty/demo-state structure, but if another session changed the shell layout again we should still do one live pass to verify spacing in both the workflow and goals tabs.
+- Next recommended task:
+  - Re-open `pnpm dev` and verify that the workflow tab shows the bottom composer even on the demo graph and that the goals tab left island now reaches the bottom edge.
+
+## Latest micro-update
+
+- Completed work:
   - Removed local Playwright CLI logs and generated `output/` artifacts that were not meant to stay in the repo working tree.
   - Added `.playwright-cli/` and `output/` to `.gitignore` so future local verification runs do not keep resurfacing those temp files.
 - Changed files:

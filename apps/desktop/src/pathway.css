@@ -798,6 +798,33 @@
   text-transform: uppercase;
 }
 
+.pathway-goals-workspace {
+  align-items: stretch;
+}
+
+.pathway-goals-workspace .tasks-thread-nav {
+  height: 100%;
+  align-self: stretch;
+  align-content: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.pathway-goals-workspace .pathway-tasks-nav-island {
+  min-height: 0;
+  height: 100%;
+  align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.pathway-goals-workspace .pathway-goal-tree {
+  min-height: 0;
+  height: 100%;
+  align-content: start;
+  overflow: auto;
+}
+
 .pathway-goals-main-surface {
   grid-template-rows: auto minmax(0, 1fr);
 }
