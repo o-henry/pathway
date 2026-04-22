@@ -35,9 +35,11 @@ playwright-report/
 test-results/
 apps/web/.playwright-browsers/
 .playwright-mcp/
+.playwright-cli/
 apps/desktop/dist/
 src-tauri/target/
 pathway-*.png
+output/
 
 # OS/editor
 .DS_Store

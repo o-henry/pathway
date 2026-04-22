@@ -170,6 +170,21 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
+  - Removed local Playwright CLI logs and generated `output/` artifacts that were not meant to stay in the repo working tree.
+  - Added `.playwright-cli/` and `output/` to `.gitignore` so future local verification runs do not keep resurfacing those temp files.
+- Changed files:
+  - `.gitignore`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rm -rf .playwright-cli output`
+- Known gaps:
+  - This cleanup only ignores and deletes the current local temp artifacts; if we later want any generated reports versioned, we should move them into a deliberate tracked directory instead of `output/`.
+- Next recommended task:
+  - Leave the worktree clean and only commit `.gitignore` if we want this ignore rule persisted to the repo history.
+
+## Latest micro-update
+
+- Completed work:
   - Removed language selection, Codex multi-agent optimization, and background-image controls from the settings tab UI.
   - Simplified `SettingsPage` prop usage and cleaned up now-unused desktop settings state in `MainAppImpl`.
 - Changed files:
