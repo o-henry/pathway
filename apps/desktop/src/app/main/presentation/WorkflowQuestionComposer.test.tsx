@@ -52,4 +52,26 @@ describe("WorkflowQuestionComposer", () => {
     expect(html).toContain("질문 입력");
     expect(html).not.toContain("<textarea disabled");
   });
+
+  it("hides model and reasoning selectors from the Pathway workflow composer", () => {
+    const html = renderToStaticMarkup(
+      <WorkflowQuestionComposer
+        attachedFiles={[]}
+        canRunGraphNow={true}
+        isWorkflowBusy={false}
+        onApplyModelSelection={vi.fn()}
+        onOpenKnowledgeFilePicker={vi.fn()}
+        onRemoveKnowledgeFile={vi.fn()}
+        onRunGraph={vi.fn(async () => {})}
+        questionInputRef={createRef<HTMLTextAreaElement>()}
+        setWorkflowQuestion={vi.fn()}
+        workflowQuestion=""
+      />,
+    );
+
+    expect(html).not.toContain("agents-model-dropdown");
+    expect(html).not.toContain("agents-reason-dropdown");
+    expect(html).not.toContain("GPT-5.4");
+    expect(html).not.toContain("중간");
+  });
 });

@@ -346,7 +346,7 @@ export default function TasksPage(props: TasksPageProps) {
   return (
     <section
       aria-label="Tasks 작업 공간"
-      className={`tasks-thread-layout workspace-tab-panel${isMainSurfaceFullscreen ? " is-main-surface-fullscreen" : ""}${isThreadNavHidden ? " is-thread-nav-hidden" : ""}${isReviewPaneOpen && state.activeThread ? " is-review-pane-open" : ""}`}
+      className={`tasks-thread-layout workspace-tab-panel${props.pathwayMode ? " pathway-goals-workspace" : ""}${isMainSurfaceFullscreen ? " is-main-surface-fullscreen" : ""}${isThreadNavHidden ? " is-thread-nav-hidden" : ""}${isReviewPaneOpen && state.activeThread ? " is-review-pane-open" : ""}`}
       data-e2e="tasks-workspace"
       role="region"
     >

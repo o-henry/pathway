@@ -103,30 +103,8 @@ function toneForFamily(family: string, node: GraphNodeRecord): PathwayTone {
   return fallbackTones[hashString(`${node.type}:${node.label}`) % fallbackTones.length] ?? "sky";
 }
 
-function familyBias(family: string): number {
-  if (family === "resource" || family === "evidence") {
-    return -14;
-  }
-  if (family === "risk" || family === "constraint") {
-    return 14;
-  }
-  return 0;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function measurePathwayNode(node: GraphNodeRecord, depth: number, childCount: number): { width: number; height: number } {
-  const textLength = node.label.trim().length;
-  const isRoot = depth === 0;
-  const baseWidth = isRoot ? 128 : childCount > 0 ? 156 : 170;
-  const widthPerCharacter = isRoot ? 8.6 : 7.9;
-  const minWidth = isRoot ? 188 : childCount > 0 ? 184 : 196;
-  const maxWidth = isRoot ? 248 : childCount > 0 ? 278 : 312;
-  const measuredWidth = clamp(Math.round(baseWidth + textLength * widthPerCharacter), minWidth, maxWidth);
-  const height = 48;
-  return { width: measuredWidth, height };
+function measurePathwayNode(_node: GraphNodeRecord, _depth: number, _childCount: number): { width: number; height: number } {
+  return { width: 220, height: 56 };
 }
 
 type PathwayNodeFootprint = {
@@ -170,7 +148,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     bundle.ontology.edge_types.filter((item) => item.role === "progression").map((item) => item.id),
   );
   const progressionEdges = bundle.edges.filter((edge) => progressionTypeIds.has(edge.type));
-  const nodeTypeById = new Map(bundle.ontology.node_types.map((item) => [item.id, item]));
+  const nodeById = new Map(bundle.nodes.map((node) => [node.id, node]));
   const incoming = new Map<string, number>();
   const parents = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
@@ -185,6 +163,17 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1);
     parents.get(edge.target)?.push(edge.source);
     outgoing.get(edge.source)?.push(edge.target);
+  });
+
+  const compareNodeIds = (leftId: string, rightId: string) =>
+    (nodeById.get(leftId)?.label ?? leftId).localeCompare(nodeById.get(rightId)?.label ?? rightId);
+
+  parents.forEach((items, nodeId) => {
+    parents.set(nodeId, [...items].sort(compareNodeIds));
+  });
+
+  outgoing.forEach((items, nodeId) => {
+    outgoing.set(nodeId, [...items].sort(compareNodeIds));
   });
 
   const roots = bundle.nodes
@@ -222,9 +211,9 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
-  const rootGap = 154;
+  const rootGap = 120;
   const horizontalGap = 48;
-  const siblingGap = 82;
+  const siblingGap = 54;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
   let laneCursorX = 120;
@@ -237,59 +226,78 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     laneStartX.set(laneDepth, laneCursorX);
     laneCursorX += laneFootprintWidth + horizontalGap;
   });
-
-  roots.forEach((node, index) => {
-    positionedY.set(node.id, rootBaseY + index * rootGap);
+  const treeChildren = new Map<string, string[]>();
+  bundle.nodes.forEach((node) => {
+    treeChildren.set(node.id, []);
   });
 
-  const maxDepth = laneDepths.at(-1) ?? 0;
-  for (let laneDepth = 1; laneDepth <= maxDepth; laneDepth += 1) {
-    const laneNodes = bundle.nodes
-      .filter((node) => (depth.get(node.id) ?? 0) === laneDepth)
-      .sort((left, right) => {
-        const leftParents = parents.get(left.id) ?? [];
-        const rightParents = parents.get(right.id) ?? [];
-        const leftAnchor = leftParents.map((parentId) => positionedY.get(parentId) ?? rootBaseY).reduce((sum, value) => sum + value, 0) / Math.max(leftParents.length, 1);
-        const rightAnchor = rightParents.map((parentId) => positionedY.get(parentId) ?? rootBaseY).reduce((sum, value) => sum + value, 0) / Math.max(rightParents.length, 1);
-        if (leftAnchor !== rightAnchor) {
-          return leftAnchor - rightAnchor;
+  bundle.nodes.forEach((node) => {
+    const parentIds = parents.get(node.id) ?? [];
+    if (parentIds.length === 0) {
+      return;
+    }
+    const primaryParentId = parentIds
+      .slice()
+      .sort((leftId, rightId) => {
+        const leftDepth = depth.get(leftId) ?? 0;
+        const rightDepth = depth.get(rightId) ?? 0;
+        if (leftDepth !== rightDepth) {
+          return leftDepth - rightDepth;
         }
-        return left.label.localeCompare(right.label);
-      });
+        return compareNodeIds(leftId, rightId);
+      })[0];
+    if (!primaryParentId) {
+      return;
+    }
+    treeChildren.get(primaryParentId)?.push(node.id);
+  });
 
-    laneNodes.forEach((node) => {
-      const parentIds = parents.get(node.id) ?? [];
-      const parentAnchors = parentIds.map((parentId) => positionedY.get(parentId) ?? rootBaseY);
-      const averagedAnchor =
-        parentAnchors.length > 0 ? parentAnchors.reduce((sum, value) => sum + value, 0) / parentAnchors.length : rootBaseY + laneDepth * 120;
-      const primaryParentId = parentIds[0] ?? "";
-      const siblingIds = primaryParentId
-        ? (outgoing.get(primaryParentId) ?? [])
-            .filter((candidateId) => (depth.get(candidateId) ?? 0) === laneDepth)
-            .sort((leftId, rightId) => {
-              const leftNode = bundle.nodes.find((candidate) => candidate.id === leftId);
-              const rightNode = bundle.nodes.find((candidate) => candidate.id === rightId);
-              return (leftNode?.label ?? leftId).localeCompare(rightNode?.label ?? rightId);
-            })
-        : [];
-      const siblingIndex = Math.max(siblingIds.indexOf(node.id), 0);
-      const siblingOffset = siblingIds.length > 0
-        ? (siblingIndex - (siblingIds.length - 1) / 2) * siblingGap
-        : 0;
-      const family = nodeSemanticFamily(nodeTypeById.get(node.type), node);
-      positionedY.set(node.id, Math.round(averagedAnchor + siblingOffset + familyBias(family)));
+  treeChildren.forEach((items, nodeId) => {
+    treeChildren.set(nodeId, [...items].sort(compareNodeIds));
+  });
+
+  const visited = new Set<string>();
+  const layoutTree = (nodeId: string, startY: number): number => {
+    const footprint = nodeFootprintById.get(nodeId);
+    const nodeTop = Math.round(startY);
+    positionedY.set(nodeId, nodeTop);
+    visited.add(nodeId);
+
+    const children = treeChildren.get(nodeId) ?? [];
+    let nextChildY = nodeTop;
+    let subtreeBottom = nodeTop + (footprint?.footprintHeight ?? 132);
+
+    children.forEach((childId, index) => {
+      const childTop = index === 0 ? nodeTop : nextChildY;
+      const childBottom = layoutTree(childId, childTop);
+      nextChildY = childBottom + siblingGap;
+      subtreeBottom = Math.max(subtreeBottom, childBottom);
     });
 
-    let previousY = Number.NEGATIVE_INFINITY;
-    laneNodes.forEach((node) => {
-      const current = positionedY.get(node.id) ?? rootBaseY;
-      const footprint = nodeFootprintById.get(node.id);
-      const minimum = previousY === Number.NEGATIVE_INFINITY ? current : previousY;
-      const next = current < minimum ? minimum : current;
-      positionedY.set(node.id, next);
-      previousY = next + (footprint?.footprintHeight ?? 132);
+    return subtreeBottom;
+  };
+
+  let rootCursorY = rootBaseY;
+  roots.forEach((node) => {
+    const subtreeBottom = layoutTree(node.id, rootCursorY);
+    rootCursorY = subtreeBottom + rootGap;
+  });
+
+  let fallbackCursorY = rootCursorY;
+  bundle.nodes
+    .filter((node) => !visited.has(node.id))
+    .sort((left, right) => {
+      const leftDepth = depth.get(left.id) ?? 0;
+      const rightDepth = depth.get(right.id) ?? 0;
+      if (leftDepth !== rightDepth) {
+        return leftDepth - rightDepth;
+      }
+      return left.label.localeCompare(right.label);
+    })
+    .forEach((node) => {
+      const subtreeBottom = layoutTree(node.id, fallbackCursorY);
+      fallbackCursorY = subtreeBottom + rootGap;
     });
-  }
 
   laneDepths.forEach((laneDepth) => {
     const laneNodes = bundle.nodes
@@ -441,8 +449,8 @@ const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_DIRECT_INPUTS: Set<string> = new Set();
 const EMPTY_ANCHORS: readonly NodeAnchorSide[] = [];
 const PATHWAY_STAGE_INSET_X = 28;
-const PATHWAY_STAGE_INSET_Y = 44;
-const PATHWAY_STAGE_INSET_BOTTOM = 18;
+const PATHWAY_STAGE_INSET_Y = 168;
+const PATHWAY_STAGE_INSET_BOTTOM = 132;
 
 function clampZoom(value: number): number {
   return Math.max(0.55, Math.min(1.8, Number(value.toFixed(2))));
@@ -664,8 +672,8 @@ export default function PathwayRailCanvas({
       setCanvasZoom(nextZoom);
       const contentCenterX = ((visibleBounds.minX + visibleBounds.maxX) / 2) * nextZoom;
       const contentCenterY = ((visibleBounds.minY + visibleBounds.maxY) / 2) * nextZoom;
-      const targetScrollLeft = Math.max(0, contentCenterX - bounds.width / 2);
-      const targetScrollTop = Math.max(0, contentCenterY - bounds.height / 2);
+      const targetScrollLeft = Math.max(0, PATHWAY_STAGE_INSET_X + contentCenterX - bounds.width / 2);
+      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + contentCenterY - bounds.height / 2);
       canvas.scrollLeft = targetScrollLeft;
       canvas.scrollTop = targetScrollTop;
     };

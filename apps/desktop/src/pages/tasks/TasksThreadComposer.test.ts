@@ -151,7 +151,7 @@ describe("TasksThreadComposer", () => {
     expect(html).toContain("Unity 작업 내용을 입력하거나 @로 에이전트를 선택하세요");
   });
 
-  it("hides WEB / STEEL and WEB / LIGHTPANDA from the task model menu", () => {
+  it("does not render model or reasoning dropdown controls in the composer toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TasksThreadComposer, {
         attachedFiles: [],
@@ -167,7 +167,7 @@ describe("TasksThreadComposer", () => {
         providerStatusPending: false,
         providerStatuses: [],
         isModelMenuOpen: true,
-        isReasonMenuOpen: false,
+        isReasonMenuOpen: true,
         mentionIndex: 0,
         mentionMatch: null,
         modelMenuRef: createRef<HTMLDivElement>(),
@@ -200,13 +200,10 @@ describe("TasksThreadComposer", () => {
       }),
     );
 
-    expect(html).not.toContain("AI · GPT");
-    expect(html).not.toContain("AI · Gemini");
-    expect(html).not.toContain("AI · Grok");
-    expect(html).not.toContain("AI · Perplexity");
-    expect(html).not.toContain("AI · Claude");
-    expect(html).not.toContain("WEB / STEEL");
-    expect(html).not.toContain("WEB / LIGHTPANDA");
+    expect(html).not.toContain("tasks-model-dropdown");
+    expect(html).not.toContain("tasks-reasoning-dropdown");
+    expect(html).not.toContain("GPT-5.4");
+    expect(html).not.toContain("MEDIUM");
   });
 
   it("renders orchestrator-selected badges with a distinct auto style", () => {

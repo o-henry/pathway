@@ -865,6 +865,28 @@ export default function MainApp() {
                     selectedRouteId={routeSelection?.selected_node_id ?? null}
                     onSelectNode={handleSelectNode}
                   />
+                  {activeMap ? (
+                    <section className="pathway-request-panel pathway-canvas-update-floater">
+                      <div className="pathway-request-head">
+                        <div>
+                          <span className="pathway-panel-kicker">현실 업데이트</span>
+                          <strong>지금 상태를 반영해 그래프 다시 계산하기</strong>
+                        </div>
+                        {revisionPreview ? null : (
+                          <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
+                            미리보기
+                          </button>
+                        )}
+                      </div>
+
+                      <textarea
+                        className="pathway-textarea pathway-request-textarea"
+                        value={stateForm.progress_summary}
+                        onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
+                        placeholder="Pathway가 목표 기준으로 필요한 정보가 부족하면 되물으면서 다음 그래프에 필요한 제약, 막힘, 새 분기를 수집합니다."
+                      />
+                    </section>
+                  ) : null}
                 </section>
               ) : (
                 <section className="pathway-workflow-canvas-panel panel-card">
@@ -1016,76 +1038,6 @@ export default function MainApp() {
                     </section>
                   ) : null}
 
-                  {activeMap ? (
-                    <section className="pathway-workflow-sidebar-card pathway-request-panel">
-                      <div className="pathway-request-head">
-                        <div>
-                          <span className="pathway-panel-kicker">현실 업데이트</span>
-                          <strong>지금 상태를 반영해 그래프 다시 계산하기</strong>
-                        </div>
-                        {revisionPreview ? null : (
-                          <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
-                            미리보기
-                          </button>
-                        )}
-                      </div>
-
-                      <p className="pathway-preview-note">
-                        {revisionPreview
-                          ? '현실 기록은 먼저 저장되고, 현재 화면의 미리보기만 선택적으로 적용 또는 폐기할 수 있습니다.'
-                          : '지금 무엇이 달라졌는지 적으면 약해진 루트, 새 분기, 실제 투입 비용을 기준으로 다음 그래프를 다시 정리합니다.'}
-                      </p>
-
-                      <label className="pathway-field pathway-field-card pathway-field-card-lg">
-                        <span>현실에서 무엇이 달라졌나요?</span>
-                        <textarea
-                          className="pathway-textarea pathway-request-textarea"
-                          value={stateForm.progress_summary}
-                          onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
-                          placeholder="진행 상황, 막힌 점, 새로 불가능해진 길, 혹은 그래프에 반영할 개인적인 방식을 적어주세요."
-                        />
-                      </label>
-
-                      <div className="pathway-request-grid">
-                        <label className="pathway-field pathway-field-card">
-                          <span>막히거나 약해진 경로</span>
-                          <input
-                            className="pathway-input"
-                            value={stateForm.blockers}
-                            onChange={(event) => setStateForm((current) => ({ ...current, blockers: event.target.value }))}
-                            placeholder="어떤 루트의 실현 가능성이 떨어졌나요?"
-                          />
-                        </label>
-                        <label className="pathway-field pathway-field-card">
-                          <span>새로운 루트 또는 방법</span>
-                          <input
-                            className="pathway-input"
-                            value={stateForm.next_adjustment}
-                            onChange={(event) => setStateForm((current) => ({ ...current, next_adjustment: event.target.value }))}
-                            placeholder="새로 연결해야 할 브랜치는 무엇인가요?"
-                          />
-                        </label>
-                        <label className="pathway-field pathway-field-card">
-                          <span>사용 시간</span>
-                          <input
-                            className="pathway-input"
-                            value={stateForm.actual_time_spent}
-                            onChange={(event) => setStateForm((current) => ({ ...current, actual_time_spent: event.target.value }))}
-                            placeholder="예: 12"
-                          />
-                        </label>
-                        <label className="pathway-field pathway-field-card">
-                          <span>사용 금액</span>
-                          <input
-                            className="pathway-input"
-                            value={stateForm.actual_money_spent}
-                            onChange={(event) => setStateForm((current) => ({ ...current, actual_money_spent: event.target.value }))}
-                            placeholder="예: 450000"
-                          />
-                        </label>
-                      </div>
-                    </section>
-                  ) : null}
                 </div>
               </aside>
             ) : null}

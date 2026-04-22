@@ -1,11 +1,10 @@
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useEffect } from "react";
 import { useI18n } from "../../../i18n";
 import type { TurnExecutor } from "../../../features/workflow/domain";
 import type { KnowledgeFileRef } from "../../../features/workflow/types";
-import { DEFAULT_TURN_REASONING_LEVEL, TURN_REASONING_LEVEL_OPTIONS } from "../../../features/workflow/reasoningLevels";
+import { DEFAULT_TURN_REASONING_LEVEL } from "../../../features/workflow/reasoningLevels";
 import {
   DEFAULT_RUNTIME_MODEL_VALUE,
-  RUNTIME_MODEL_OPTIONS,
   findRuntimeModelOption,
 } from "../../../features/workflow/runtimeModelOptions";
 
@@ -43,42 +42,21 @@ export default function WorkflowQuestionComposer({
   onSubmitMessage,
 }: WorkflowQuestionComposerProps) {
   const { t } = useI18n();
-  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
-  const [isReasonMenuOpen, setIsReasonMenuOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_RUNTIME_MODEL_VALUE);
-  const [selectedReasonLevel, setSelectedReasonLevel] = useState(DEFAULT_TURN_REASONING_LEVEL);
-  const modelMenuRef = useRef<HTMLDivElement | null>(null);
-  const reasonMenuRef = useRef<HTMLDivElement | null>(null);
-  const modelOptions = useMemo(() => RUNTIME_MODEL_OPTIONS, []);
-  const selectedModelOption = useMemo(() => findRuntimeModelOption(selectedModel), [selectedModel]);
-  const isReasonLevelSelectable = selectedModelOption.allowsReasonLevel;
-  const reasonLevelOptions = useMemo(() => [...TURN_REASONING_LEVEL_OPTIONS], []);
+  const selectedModelOption = findRuntimeModelOption(DEFAULT_RUNTIME_MODEL_VALUE);
+  const selectedReasonLevel = DEFAULT_TURN_REASONING_LEVEL;
   const hasQuestion = workflowQuestion.trim().length > 0;
   const composerDisabled = isWorkflowBusy;
   const placeholder = t("workflow.question.placeholder");
 
   useEffect(() => {
-    if (isReasonLevelSelectable) {
-      return;
-    }
-    setIsReasonMenuOpen(false);
-  }, [isReasonLevelSelectable]);
-
-  useEffect(() => {
-    if (!isModelMenuOpen && !isReasonMenuOpen) {
-      return;
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!modelMenuRef.current?.contains(event.target as Node)) {
-        setIsModelMenuOpen(false);
-      }
-      if (!reasonMenuRef.current?.contains(event.target as Node)) {
-        setIsReasonMenuOpen(false);
-      }
-    };
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, [isModelMenuOpen, isReasonMenuOpen]);
+    onApplyModelSelection({
+      modelValue: selectedModelOption.value,
+      modelLabel: selectedModelOption.label,
+      executor: selectedModelOption.executor,
+      turnModel: selectedModelOption.turnModel,
+      reasoningLevel: selectedReasonLevel,
+    });
+  }, [onApplyModelSelection, selectedModelOption.executor, selectedModelOption.label, selectedModelOption.turnModel, selectedModelOption.value, selectedReasonLevel]);
 
   const onSubmitWorkflowComposer = () => {
     const text = workflowQuestion.trim();
@@ -89,8 +67,7 @@ export default function WorkflowQuestionComposer({
       return;
     }
     onSubmitMessage?.(text);
-    const reasonTag = isReasonLevelSelectable ? selectedReasonLevel : "N/A";
-    setWorkflowQuestion(`[model=${selectedModelOption.value}, reason=${reasonTag}] ${text}`);
+    setWorkflowQuestion(`[model=${selectedModelOption.value}, reason=${selectedReasonLevel}] ${text}`);
     window.setTimeout(() => {
       void onRunGraph();
     }, 0);
@@ -151,91 +128,6 @@ export default function WorkflowQuestionComposer({
           >
             <img alt="" aria-hidden="true" src="/plus-large-svgrepo-com.svg" />
           </button>
-          <div className={`agents-model-dropdown${isModelMenuOpen ? " is-open" : ""}`} ref={modelMenuRef}>
-            <button
-              aria-expanded={isModelMenuOpen}
-              aria-haspopup="listbox"
-              className="agents-model-button"
-              disabled={composerDisabled}
-              onClick={() => setIsModelMenuOpen((prev) => !prev)}
-              type="button"
-            >
-              <span>{selectedModelOption.label}</span>
-              <img alt="" aria-hidden="true" src="/down-arrow.svg" />
-            </button>
-            {isModelMenuOpen && (
-              <ul aria-label="Workflow model" className="agents-model-menu" role="listbox">
-                {modelOptions.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      aria-selected={option.value === selectedModel}
-                      className={option.value === selectedModel ? "is-selected" : ""}
-                      onClick={() => {
-                        setSelectedModel(option.value);
-                        onApplyModelSelection({
-                          modelValue: option.value,
-                          modelLabel: option.label,
-                          executor: option.executor,
-                          turnModel: option.turnModel,
-                          reasoningLevel: selectedReasonLevel,
-                        });
-                        setIsModelMenuOpen(false);
-                      }}
-                      role="option"
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className={`agents-reason-dropdown${isReasonMenuOpen ? " is-open" : ""}`} ref={reasonMenuRef}>
-            <button
-              aria-expanded={isReasonMenuOpen}
-              aria-haspopup="listbox"
-              className="agents-reason-button"
-              disabled={composerDisabled || !isReasonLevelSelectable}
-              onClick={() => {
-                if (!isReasonLevelSelectable) {
-                  return;
-                }
-                setIsReasonMenuOpen((prev) => !prev);
-              }}
-              type="button"
-            >
-              <span>{isReasonLevelSelectable ? `이성 수준 · ${selectedReasonLevel}` : "이성 수준 · 선택 불가"}</span>
-              <img alt="" aria-hidden="true" src="/down-arrow.svg" />
-            </button>
-            {isReasonMenuOpen && isReasonLevelSelectable && (
-              <ul aria-label="Workflow reasoning level" className="agents-reason-menu" role="listbox">
-                {reasonLevelOptions.map((level) => (
-                  <li key={level}>
-                    <button
-                      aria-selected={level === selectedReasonLevel}
-                      className={level === selectedReasonLevel ? "is-selected" : ""}
-                      onClick={() => {
-                        setSelectedReasonLevel(level);
-                        onApplyModelSelection({
-                          modelValue: selectedModelOption.value,
-                          modelLabel: selectedModelOption.label,
-                          executor: selectedModelOption.executor,
-                          turnModel: selectedModelOption.turnModel,
-                          reasoningLevel: level,
-                        });
-                        setIsReasonMenuOpen(false);
-                      }}
-                      role="option"
-                      type="button"
-                    >
-                      {level}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
         <button
           className="primary-action question-create-button agents-send-button"

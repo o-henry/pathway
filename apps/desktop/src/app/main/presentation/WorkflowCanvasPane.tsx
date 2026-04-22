@@ -505,8 +505,8 @@ export default function WorkflowCanvasPane({
 
             <div className="canvas-zoom-controls">
               <div className="canvas-zoom-group">
-                <button onClick={onCanvasZoomIn} title={t("workflow.canvas.zoomIn")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/pathway-plus.svg" /></button>
-                <button onClick={onCanvasZoomOut} title={t("workflow.canvas.zoomOut")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon" src="/pathway-minus.svg" /></button>
+                <button onClick={onCanvasZoomIn} title={t("workflow.canvas.zoomIn")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon is-plus" src="/pathway-plus.svg" /></button>
+                <button onClick={onCanvasZoomOut} title={t("workflow.canvas.zoomOut")} type="button"><img alt="" aria-hidden="true" className="canvas-control-icon is-minus" src="/pathway-minus.svg" /></button>
               </div>
               <button
                 aria-label={t("workflow.canvas.move")}
@@ -515,7 +515,7 @@ export default function WorkflowCanvasPane({
                 title={t("workflow.canvas.moveCanvas")}
                 type="button"
               >
-                <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-move.svg" />
+                <img alt="" aria-hidden="true" className="canvas-control-icon is-move" src="/icon-move.svg" />
               </button>
               <button
                 className="canvas-zoom-single"
@@ -523,7 +523,7 @@ export default function WorkflowCanvasPane({
                 title={canvasFullscreen ? t("workflow.canvas.defaultView") : t("workflow.canvas.fullView")}
                 type="button"
               >
-                <img alt="" aria-hidden="true" className="canvas-control-icon" src="/canvas-fullscreen.svg" />
+                <img alt="" aria-hidden="true" className="canvas-control-icon is-fullscreen" src="/canvas-fullscreen.svg" />
               </button>
             </div>
 

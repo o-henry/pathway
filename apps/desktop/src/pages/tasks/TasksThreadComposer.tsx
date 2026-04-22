@@ -1,7 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import type { CoordinationMode } from "../../features/orchestration/agentic/coordinationTypes";
-import { TURN_REASONING_LEVEL_OPTIONS } from "../../features/workflow/reasoningLevels";
-import { findRuntimeModelOption, RUNTIME_MODEL_OPTIONS } from "../../features/workflow/runtimeModelOptions";
+import { findRuntimeModelOption } from "../../features/workflow/runtimeModelOptions";
 import { useI18n } from "../../i18n";
 import type { TaskAgentMentionMatch, TaskAgentMentionOption } from "./taskAgentMentions";
 import { getTaskAgentLabel, stripCoordinationModeTags } from "./taskAgentPresets";
@@ -20,16 +19,6 @@ type RuntimeModelOption = {
   label: string;
   executor?: string;
 };
-
-const HIDDEN_TASKS_MODEL_VALUES = new Set([
-  "GPT-Web",
-  "Gemini",
-  "Grok",
-  "Perplexity",
-  "Claude",
-  "WEB / STEEL",
-  "WEB / LIGHTPANDA",
-]);
 
 type TasksThreadComposerProps = {
   pathwayMode?: boolean;
@@ -178,7 +167,6 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
   const composerPlaceholder = props.pathwayMode
     ? "현재 목표, 제약, 막힌 지점, 조사할 포인트, 그래프에 반영할 변화를 입력하세요."
     : t("tasks.composer.placeholder");
-  const visibleModelOptions = RUNTIME_MODEL_OPTIONS.filter((option) => !HIDDEN_TASKS_MODEL_VALUES.has(option.value));
   const selectedBadges = buildSelectedTasksComposerBadges({
     roleIds: props.selectedComposerRoleIds,
     autoRoleIds: props.autoSelectedComposerRoleIds ?? [],
@@ -404,78 +392,6 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
           >
             <img alt="" aria-hidden="true" src="/plus-large-svgrepo-com.svg" />
           </button>
-          <div aria-label="모델 선택 드롭다운" className={`agents-model-dropdown${props.isModelMenuOpen ? " is-open" : ""}`} data-e2e="tasks-model-dropdown" ref={props.modelMenuRef} role="group">
-            <button
-              aria-label={t("tasks.aria.modelMenu")}
-              aria-controls="tasks-model-menu"
-              aria-expanded={props.isModelMenuOpen}
-              aria-haspopup="listbox"
-              className="agents-model-button"
-              data-e2e="tasks-model-trigger"
-              disabled={composerDisabled}
-              onClick={props.onToggleModelMenu}
-              type="button"
-            >
-              <span>{props.selectedModelOption.label}</span>
-              <img alt="" aria-hidden="true" src="/down-arrow.svg" />
-            </button>
-            {props.isModelMenuOpen ? (
-              <ul aria-label={t("tasks.aria.modelMenu")} className="agents-model-menu" data-e2e="tasks-model-menu" id="tasks-model-menu" role="listbox">
-                {visibleModelOptions.map((option) => (
-                  <li data-e2e={`tasks-model-option-row-${option.value.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`} key={option.value}>
-                    <button
-                      aria-label={`${option.label} 모델 선택`}
-                      aria-selected={option.value === props.selectedModelOption.value}
-                      className={option.value === props.selectedModelOption.value ? "is-selected" : ""}
-                      data-e2e={`tasks-model-option-${option.value.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`}
-                      id={`tasks-model-option-${option.value.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`}
-                      onClick={() => props.onSetModel(option.value)}
-                      role="option"
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-          <div aria-label="추론 강도 선택 드롭다운" className={`agents-model-dropdown agents-reason-dropdown${props.isReasonMenuOpen ? " is-open" : ""}`} data-e2e="tasks-reasoning-dropdown" ref={props.reasonMenuRef} role="group">
-            <button
-              aria-label={t("tasks.aria.reasoningMenu")}
-              aria-controls="tasks-reasoning-menu"
-              aria-expanded={props.isReasonMenuOpen}
-              aria-haspopup="listbox"
-              className="agents-model-button"
-              data-e2e="tasks-reasoning-trigger"
-              disabled={composerDisabled}
-              onClick={props.onToggleReasonMenu}
-              type="button"
-            >
-              <span>{props.reasoningLabel}</span>
-              <img alt="" aria-hidden="true" src="/down-arrow.svg" />
-            </button>
-            {props.isReasonMenuOpen ? (
-              <ul aria-label={t("tasks.aria.reasoningMenu")} className="agents-model-menu" data-e2e="tasks-reasoning-menu" id="tasks-reasoning-menu" role="listbox">
-                {TURN_REASONING_LEVEL_OPTIONS.map((option) => (
-                  <li data-e2e={`tasks-reasoning-option-row-${option.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`} key={option}>
-                    <button
-                      aria-label={`${option} 추론 강도 선택`}
-                      aria-selected={option === props.reasoning}
-                      className={option === props.reasoning ? "is-selected" : ""}
-                      data-e2e={`tasks-reasoning-option-${option.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`}
-                      id={`tasks-reasoning-option-${option.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`}
-                      onClick={() => props.onSetReasoning(option)}
-                      role="option"
-                      type="button"
-                    >
-                      {option}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
         </div>
 
         <div aria-label="질문 전송 제어" className="agents-composer-actions" role="group">

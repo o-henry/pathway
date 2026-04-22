@@ -238,8 +238,10 @@
 
 .tasks-thread-project-tree .tasks-thread-empty-copy {
   font-size: 10px;
-  line-height: 1.2;
-  white-space: nowrap;
+  line-height: 1.5;
+  white-space: normal;
+  overflow: visible;
+  padding-top: 2px;
 }
 
 .tasks-thread-project-card {
@@ -378,6 +380,8 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  overflow: visible;
+  padding-top: 2px;
 }
 
 .tasks-thread-list {
@@ -678,8 +682,8 @@
   display: inline-flex;
   align-items: center;
   border-radius: 4px;
-  padding: 2px 6px;
-  background: color-mix(in srgb, var(--surface-soft) 78%, var(--surface-elevated));
+  /* padding: 2px 6px; */
+  /* background: color-mix(in srgb, var(--surface-soft) 78%, var(--surface-elevated)); */
   color: var(--text-main);
   font-size: 10px;
   line-height: 1.2;
@@ -725,7 +729,7 @@
 .tasks-thread-list-stage.is-active,
 .tasks-thread-stage-chip.is-active,
 .tasks-thread-stage-chip.is-selected {
-  background: color-mix(in srgb, rgb(238, 241, 244) 82%, rgb(196, 207, 223));
+  /* background: color-mix(in srgb, rgb(238, 241, 244) 82%, rgb(196, 207, 223)); */
   color: #1f344c;
 }
 

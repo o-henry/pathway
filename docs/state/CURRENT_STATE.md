@@ -207,6 +207,55 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
+  - Restored the Pathway workflow surface away from the regressed nested-card state by removing internal inspector borders and pushing sidebar cards/sections back onto the shared `--bg-app` tone.
+  - Re-simplified the floating reality-update composer into a single textarea again, removing the extra helper copy and field label that had reappeared.
+  - Kept the workflow update input borderless even on focus so the bottom floater reads like the intended single-surface composer instead of a form stack.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass restores the main Pathway inspector/composer direction from the reported regression, but a live visual QA pass is still recommended in case another concurrent session also touched canvas spacing or control placement.
+- Next recommended task:
+  - Re-open the workflow tab in Tauri and verify the right sidebar density plus bottom floater spacing against the intended graph-first layout before doing any further styling passes.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the remaining goal-tab composer model and reasoning dropdown UI so the toolbar no longer exposes `GPT-5.4` / `MEDIUM` selectors.
+  - Kept the underlying task execution defaults intact and updated the static composer test to assert that those dropdowns no longer render.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksThreadComposer.tsx`
+  - `apps/desktop/src/pages/tasks/TasksThreadComposer.test.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass removes the visible selectors, but a later cleanup can still prune now-unused composer props/state upstream if we want to simplify the surrounding task-thread wiring.
+- Next recommended task:
+  - Do one quick visual pass on the goal-tab composer to tighten any leftover empty toolbar spacing where the removed dropdowns used to sit.
+
+## Latest micro-update
+
+- Completed work:
+  - Reworked Pathway progression-node auto-layout into a tree-style left-to-right flow so the leftmost starting node anchors each branch family.
+  - Stacked child nodes downward at consistent spacing under their parent lane instead of averaging them around mixed parent anchors.
+  - Kept Pathway nodes on a fixed card size so the new branch geometry stays visually regular while labels truncate to one line.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass improves the default branch composition, but deeper merge-heavy graphs may still need a later routing polish pass for perfect trunk aesthetics.
+- Next recommended task:
+  - Verify the revised branch stacking against a few asymmetric real graphs in Tauri and then fine-tune sibling/root spacing if any subtree still feels too loose or too cramped.
+
+## Latest micro-update
+
+- Completed work:
   - Centered Pathway mini action button labels more accurately inside their button bounds, including the `미리보기` action.
   - Added extra vertical travel room to the Pathway graph stage shell so pan mode can move the canvas up and down instead of only feeling horizontal.
 - Changed files:
@@ -218,6 +267,121 @@ The highest-value follow-up options are now:
   - The added pan travel range is still a fixed allowance rather than being derived from viewport size or graph density.
 - Next recommended task:
   - Re-test Pathway pan mode in Tauri and, if needed, tune the vertical travel allowance so it feels generous without making the empty lower canvas look excessive.
+
+## Latest micro-update
+
+- Completed work:
+  - Prevented the small Pathway goal-nav text from clipping at the top by relaxing the empty-state copy line box and adding a small top inset for compact metadata labels.
+  - Allowed the empty goal hint to wrap instead of forcing a single-line render in the narrow sidebar.
+- Changed files:
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass fixes the compact goal-nav typography treatment only; other pixel-font labels elsewhere in the desktop shell were not retuned.
+- Next recommended task:
+  - Do a quick live visual pass in `pnpm dev` to confirm the goal count and empty-state copy now render without top-edge clipping in the Pathway sidebar.
+
+## Latest micro-update
+
+- Completed work:
+  - Normalized the Pathway canvas overlay icon sizing by giving all canvas action/zoom icons a shared frame and per-icon optical scale corrections.
+  - Matched the three upper Pathway action buttons and the lower zoom/pan/fullscreen controls so mixed SVG viewBox padding no longer makes some icons look randomly tiny or oversized.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowCanvasPane.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The sizing pass is scoped to Pathway canvas overlay controls only; other icon groups elsewhere in the desktop shell still use their existing sizing rules.
+- Next recommended task:
+  - Do a quick visual pass in `pnpm dev` and, if any one icon still feels optically off, nudge just that icon's scale token instead of changing the shared button size.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the inner border treatment from the Pathway context panel cards and list rows.
+  - Rebuilt the context panel hierarchy using only soft background tone contrast so sections read as layered paper instead of boxed subdivisions.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass keeps the outer context panel shell border and the close button border; only the interior section separators were softened.
+- Next recommended task:
+  - Do a live visual pass in `pnpm dev` to confirm the softened tonal grouping still feels clear enough when the panel is filled with denser evidence and assumption content.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the Pathway workflow composer model dropdown and reasoning-level dropdown from the visible input bar.
+  - Kept the service on a preset internal runtime configuration by applying the default model and default reasoning level automatically when the composer mounts.
+  - Added a static-render regression test that asserts the Pathway composer no longer renders those selectors.
+- Changed files:
+  - `apps/desktop/src/app/main/presentation/WorkflowQuestionComposer.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowQuestionComposer.test.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm --filter desktop exec vitest run apps/desktop/src/app/main/presentation/WorkflowQuestionComposer.test.tsx`
+- Known gaps:
+  - The desktop workspace currently does not have `vitest` installed, so the added composer test could not be executed locally in this pass even though the test file was updated.
+  - The submit path still prefixes the internal `[model=..., reason=...]` tag before execution because the existing workflow runtime expects that metadata string.
+- Next recommended task:
+  - Decide whether the workflow runtime should keep using the hidden metadata prefix or move to an out-of-band config path now that the Pathway UI no longer exposes model and reasoning controls.
+
+## Latest micro-update
+
+- Completed work:
+  - Moved the Pathway reality-update form out of the right context sidebar and into a floating bottom-of-canvas composer inside the graph stage.
+  - Removed the nested field-card framing from that composer so the update inputs no longer render as border-inside-border boxes.
+  - Lifted the canvas cue upward to avoid colliding with the new floating composer and added responsive positioning for narrower widths.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The canvas cue reserve is currently a fixed bottom offset to stay above the floating composer, so it may need one more visual tuning pass if the composer height changes again.
+- Next recommended task:
+  - Do a live visual pass in `pnpm dev` to tune the floater width and bottom cue spacing against real canvas density, especially with inspector open and on smaller desktop widths.
+
+## Latest micro-update
+
+- Completed work:
+  - Reworked the floating reality-update UI from a multi-field form into a single centered canvas composer, aligned closer to the goal-tab input pattern.
+  - Updated the copy so Pathway now frames this flow as “describe reality once, then the agent asks follow-up questions to collect missing goal-relevant constraints and route changes.”
+  - Changed revision-preview submission so the hidden extra form fields are no longer sent; only the freeform update summary is used in this Pathway flow.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The backend request shape still supports structured fields, but this Pathway UI now intentionally leaves those fields empty and relies on the single freeform update summary.
+- Next recommended task:
+  - If the agentic follow-up loop should become fully explicit, add a short conversational state strip below the single input so Pathway can show what it inferred and what it still needs to ask next.
+
+## Latest micro-update
+
+- Completed work:
+  - Increased the Pathway canvas top and bottom stage buffer so `h` pan mode now has real vertical travel room in both directions.
+  - Updated auto-fit scroll centering to account for the explicit stage insets, so the initial viewport can still center the graph while preserving draggable headroom above it.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The new pan travel range is still based on fixed inset constants, so an additional visual tuning pass may still be useful if the canvas chrome or floater heights change again.
+- Next recommended task:
+  - Verify the `h` pan feel in a live desktop session and, if needed, tune the top/bottom inset constants so the graph can travel generously without looking too detached on first load.
 
 ## Latest micro-update
 
@@ -644,3 +808,92 @@ The highest-value follow-up options are now:
   - `src-tauri/src/main.rs`
   - `src-tauri/tauri.conf.json`
   - `src-tauri/capabilities/default.json`
+- Latest bounded objective:
+  - Completed work:
+    - Ran a bounded Pathway validation pass for the goal of reaching conversational English with native speakers.
+    - Gathered six permitted public-source notes, ingested them through the local source library, and generated/exported a map bundle.
+    - Saved the run artifacts under `output/pathway-verification/` for user review and Obsidian export.
+  - Changed files:
+    - `docs/state/EXECPLAN_ENGLISH_RAG_VALIDATION.md`
+    - `output/pathway-verification/verification-report.md`
+    - `output/pathway-verification/profile.json`
+    - `output/pathway-verification/goal.json`
+    - `output/pathway-verification/goal_analysis.json`
+    - `output/pathway-verification/current_state.json`
+    - `output/pathway-verification/sources.json`
+    - `output/pathway-verification/map.json`
+    - `output/pathway-verification/map_export.json`
+    - `output/pathway-verification/map_export.md`
+    - `output/pathway-verification/run_summary.json`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
+    - `python3 <inline validation runner against http://127.0.0.1:8000>`
+  - Known gaps:
+    - The current environment still uses the repo's `stub` LLM path, so graph semantics are not yet equivalent to a real grounded Ollama/OpenAI generation pass.
+    - The user-requested Obsidian export still needs an out-of-sandbox copy step into `/Users/henry/Documents/obsidian_ai/pathway`.
+  - Next recommended task:
+    - Re-run the same validation with `LIFEMAP_LLM_PROVIDER=ollama` or `LIFEMAP_LLM_PROVIDER=openai`, then visually confirm the canvas in the desktop runtime with the grounded graph.
+- Latest bounded objective:
+  - Completed work:
+    - Ran a deeper English conversation research pass with 11 richer notes spanning official guidance, research, lived experience, and personal trajectories.
+    - Re-ingested that packet into the Pathway source library, regenerated/exported a new map, and wrote a collector audit comparing the UI/runtime collectors with the actual Pathway API flow.
+    - Confirmed an additional bottleneck: the generated graph still retrieved older shallow evidence items instead of the newly ingested deep packet.
+  - Changed files:
+    - `docs/state/EXECPLAN_DEEP_RESEARCH_AND_COLLECTOR_AUDIT.md`
+    - `output/pathway-deep-research/profile.json`
+    - `output/pathway-deep-research/goal.json`
+    - `output/pathway-deep-research/goal_analysis.json`
+    - `output/pathway-deep-research/current_state.json`
+    - `output/pathway-deep-research/sources.json`
+    - `output/pathway-deep-research/map.json`
+    - `output/pathway-deep-research/map_export.json`
+    - `output/pathway-deep-research/map_export.md`
+    - `output/pathway-deep-research/deep-research-report.md`
+    - `output/pathway-deep-research/collector-audit.md`
+    - `output/pathway-deep-research/run_summary.json`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
+    - `python3 <inline deep research validation runner against http://127.0.0.1:8000>`
+    - `rg -n "dashboard_crawl_provider_health|/sources/manual|/sources/url-preview|fetch_allowed=False" ...`
+  - Known gaps:
+    - The Pathway graph-generation flow still does not use live collector ingestion; it only used manual-note ingestion in this validation.
+    - The retrieval layer still preferred older shallow evidence over the newly ingested deeper packet.
+    - The active generator backend remains `stub`, so graph semantics are still template-like.
+  - Next recommended task:
+    - Fix retrieval ranking and source recency/quality handling first, then wire one real collector-backed `/sources/url/ingest` path and re-run the same goal with a non-stub LLM backend.
+- Latest bounded objective:
+  - Completed work:
+    - Implemented `POST /sources/url/ingest` so the Pathway API can fetch and extract permitted public pages into the same source library used by graph generation.
+    - Improved retrieval by adding metadata/freshness-aware reranking and by feeding stored goal-analysis research questions into the grounding query set.
+    - Verified the new path with an isolated collector-backed run where the final graph evidence included both a collector-fetched source and a manual lived-experience source.
+    - Built a larger public experience sample with grouped pattern percentages and saved the resulting reports to the Obsidian vault.
+  - Changed files:
+    - `apps/api/lifemap_api/domain/models.py`
+    - `apps/api/lifemap_api/application/source_pipeline.py`
+    - `apps/api/lifemap_api/application/sources.py`
+    - `apps/api/lifemap_api/application/generation_grounding.py`
+    - `apps/api/lifemap_api/application/generation.py`
+    - `apps/api/lifemap_api/api/routes_sources.py`
+    - `apps/api/lifemap_api/api/routes_goals.py`
+    - `apps/api/lifemap_api/infrastructure/vector_store.py`
+    - `apps/api/tests/test_source_library.py`
+    - `README.md`
+    - `docs/state/EXECPLAN_SOURCE_INGEST_AND_RETRIEVAL_IMPLEMENTATION.md`
+    - `output/collector-e2e-run/*`
+    - `output/experience-sample-stats/*`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=.uv-cache uv add trafilatura beautifulsoup4 --project .`
+    - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_library.py apps/api/tests/test_map_generation.py`
+    - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/source_pipeline.py apps/api/lifemap_api/application/sources.py apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/api/routes_sources.py apps/api/lifemap_api/api/routes_goals.py apps/api/lifemap_api/infrastructure/vector_store.py apps/api/lifemap_api/domain/models.py apps/api/tests/test_source_library.py`
+    - `SOURCE_FETCH_ENABLED=true LIFEMAP_SQLITE_URL=sqlite:///./output/collector-e2e.db LIFEMAP_LANCEDB_URI=./output/collector-e2e-lancedb LIFEMAP_DATA_DIR=./output/collector-e2e-data UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
+    - `python3 <inline collector e2e runner against http://127.0.0.1:8000>`
+    - `python3 <inline public experience sample clustering/statistics script>`
+  - Known gaps:
+    - robots.txt blocks many community pages, so lived-experience data still often needs manual-note ingestion unless a permitted source is available.
+    - Retrieval is improved, but full graph semantics are still bounded by the `stub` LLM backend.
+    - The desktop Collector Doctor runtime and the FastAPI collector-backed Pathway API are still only loosely related layers, not one unified ingestion framework.
+  - Next recommended task:
+    - Replace the `stub` generator with a real Ollama/OpenAI backend for the same collector-backed dataset, then tune retrieval weighting so collector-fetched lived-experience material ranks more consistently when it is policy-allowed.
