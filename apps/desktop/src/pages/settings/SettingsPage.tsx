@@ -6,6 +6,9 @@ type CollectorDoctorStatus = {
   detail: string;
   state: "checking" | "ready" | "error";
   message: string;
+  installable?: boolean;
+  installed?: boolean;
+  configured?: boolean;
 };
 
 type SettingsPageProps = {
@@ -22,11 +25,13 @@ type SettingsPageProps = {
   codexAuthBusy: boolean;
   collectorDoctorStatuses: CollectorDoctorStatus[];
   collectorDoctorPending: boolean;
+  collectorInstallPendingId: string | null;
   onSelectCwdDirectory: () => void;
   onToggleCodexLogin: () => void;
   onCloseUsageResult: () => void;
   onOpenRunsFolder: () => void;
   onRefreshCollectorDoctor: () => void;
+  onInstallCollector: (providerId: string) => void;
 };
 
 export default function SettingsPage({
@@ -43,11 +48,13 @@ export default function SettingsPage({
   codexAuthBusy,
   collectorDoctorStatuses,
   collectorDoctorPending,
+  collectorInstallPendingId,
   onSelectCwdDirectory,
   onToggleCodexLogin,
   onCloseUsageResult,
   onOpenRunsFolder,
   onRefreshCollectorDoctor,
+  onInstallCollector,
 }: SettingsPageProps) {
   const { t } = useI18n();
 
@@ -128,6 +135,18 @@ export default function SettingsPage({
               {collector.state === "checking" ? null : (
                 <p className="settings-collector-card-message">{collector.message}</p>
               )}
+              {collector.installable && collector.state !== "ready" ? (
+                <div className="settings-collector-card-actions">
+                  <button
+                    className="settings-refresh-button settings-collector-install-button"
+                    disabled={collectorDoctorPending || collectorInstallPendingId === collector.id}
+                    onClick={() => onInstallCollector(collector.id)}
+                    type="button"
+                  >
+                    {collectorInstallPendingId === collector.id ? "설치 중" : "설치"}
+                  </button>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

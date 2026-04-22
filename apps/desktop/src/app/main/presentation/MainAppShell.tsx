@@ -357,6 +357,9 @@ export function MainAppShell(props: any) {
           codexAuthCheckPending={codexAuthCheckPending}
           codexMultiAgentMode={codexMultiAgentMode}
           codexMultiAgentModeOptions={codexMultiAgentModeOptions}
+          collectorDoctorPending={props.collectorDoctorPending}
+          collectorDoctorStatuses={props.collectorDoctorStatuses}
+          collectorInstallPendingId={props.collectorInstallPendingId}
           connectedProviderCount={webBridgeStatus.connectedProviders.length}
           cwd={props.cwd}
           hasTauriRuntime={props.hasTauriRuntime}
@@ -388,6 +391,8 @@ export function MainAppShell(props: any) {
           onLoginCodex={onLoginCodex}
           onOpenBriefingDocumentFromData={onOpenBriefingDocumentFromData}
           onOpenRunsFolder={onOpenRunsFolder}
+          onInstallCollector={props.onInstallCollector}
+          onRefreshCollectorDoctor={props.onRefreshCollectorDoctor}
           onRestartWebBridge={onRestartWebBridge}
           onRunDashboardTopicFromAgents={onRunDashboardTopicFromAgents}
           onRunDashboardTopicFromData={onRunDashboardTopicFromData}

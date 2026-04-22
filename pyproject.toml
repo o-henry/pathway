@@ -6,10 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "beautifulsoup4>=4.14.3",
+  "browser-use>=0.12.6",
+  "crawl4ai>=0.8.6",
   "fastapi[standard]>=0.115,<1.0",
   "httpx>=0.28,<0.29",
   "lancedb>=0.25,<0.26",
   "pydantic-settings>=2.8,<3.0",
+  "scrapling>=0.2.99",
+  "scrapy>=2.15.0",
+  "scrapy-playwright>=0.0.46",
   "sqlmodel>=0.0.27,<0.0.28",
   "trafilatura>=2.0.0",
 ]

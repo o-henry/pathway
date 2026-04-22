@@ -66,6 +66,7 @@ pnpm dev
 This is the main development command.
 It launches the Tauri desktop app and starts the desktop UI dev server on `1420` plus the local API on `8000`.
 The reset script clears stale listeners before booting the workspace.
+The desktop/web Vite scripts automatically prefer a modern Node runtime from `~/.nvm/versions/node/` because `vite@7` does not run on the older system Node.
 The default local AI path is now `stub`, so the workflow canvas opens without requiring Ollama.
 Set `LIFEMAP_LLM_PROVIDER=ollama` or `LIFEMAP_LLM_PROVIDER=openai` only when you explicitly want a real model backend.
 

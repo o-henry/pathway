@@ -62,6 +62,9 @@ def _build_system_prompt() -> str:
         - Use retrieved evidence only through the evidence IDs provided in the grounding packet.
         - Never invent evidence IDs, source titles, or quotes.
         - If a claim is not supported by the grounding packet, express it as an assumption instead.
+        - When the grounding packet contains different evidence families such as lived experience,
+          official guidance, failure cases, or alternative routes,
+          reflect that breadth in the graph.
         - Do not use generic filler nodes or empty placeholder text.
         - Prefer 4 to 9 nodes and 3 to 12 edges for this phase.
         - At least one assumption is required whenever profile information is missing or uncertain.
@@ -107,6 +110,8 @@ def _build_user_prompt(
         - Use assumptions when information is missing.
         - If evidence exists, connect it to specific nodes with `evidence_refs`.
         - If evidence does not exist for a claim, do not disguise it as evidence.
+        - Prefer route families that show tradeoffs and switching conditions
+          instead of collapsing everything into one default path.
         - Use node summaries that explain tradeoffs, not just labels.
         - Keep scores within 0 and 1.
         """
@@ -178,6 +183,7 @@ def _attempt_generation(
     grounding_packet = build_grounding_packet(
         goal=goal,
         profile=profile,
+        current_state=current_state,
         embedding_provider=embedding_provider,
         search_index=search_index,
         query_limit=query_limit,

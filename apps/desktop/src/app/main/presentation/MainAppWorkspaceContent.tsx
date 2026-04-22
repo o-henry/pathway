@@ -221,15 +221,17 @@ export function MainAppWorkspaceContent(props: any) {
         authModeText={props.authModeText}
         codexAuthBusy={props.codexAuthBusy}
         compact={false}
-        collectorDoctorPending={false}
-        collectorDoctorStatuses={[]}
+        collectorDoctorPending={props.collectorDoctorPending}
+        collectorDoctorStatuses={props.collectorDoctorStatuses}
+        collectorInstallPendingId={props.collectorInstallPendingId ?? null}
         cwd={props.cwd}
         engineStarted={props.engineStarted}
         isGraphRunning={props.isGraphRunning}
         loginCompleted={props.loginCompleted}
         onCloseUsageResult={() => props.setUsageResultClosed(true)}
         onOpenRunsFolder={() => void props.onOpenRunsFolder()}
-        onRefreshCollectorDoctor={() => {}}
+        onRefreshCollectorDoctor={() => void props.onRefreshCollectorDoctor?.()}
+        onInstallCollector={(providerId) => void props.onInstallCollector?.(providerId)}
         onSelectCwdDirectory={() => void props.onSelectCwdDirectory()}
         onToggleCodexLogin={() => void props.onLoginCodex()}
         running={props.running}

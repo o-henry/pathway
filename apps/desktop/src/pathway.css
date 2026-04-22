@@ -1474,6 +1474,7 @@
 .pathway-fact-list strong {
   color: var(--text-main);
   font-size: 13px;
+  line-height: 1.52;
   letter-spacing: -0.01em;
 }
 
@@ -1515,6 +1516,7 @@
 .pathway-workflow-sidebar .pathway-detail-list strong,
 .pathway-workflow-sidebar .pathway-fact-list strong {
   color: #1f2430;
+  line-height: 1.56;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -1524,6 +1526,7 @@
 .pathway-workflow-sidebar .pathway-detail-list p,
 .pathway-workflow-sidebar .pathway-fact-list span {
   color: #6e7785;
+  line-height: 1.64;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;

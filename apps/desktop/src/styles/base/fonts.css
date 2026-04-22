@@ -8,8 +8,35 @@
 }
 
 @font-face {
+  font-family: "Pathway1984Body";
+  src: url("/fonts/1984-body-light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1100-11FF, U+3130-318F, U+AC00-D7A3, U+A960-A97F, U+D7B0-D7FF;
+}
+
+@font-face {
+  font-family: "Pathway1984Body";
+  src: url("/fonts/1984-body-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1100-11FF, U+3130-318F, U+AC00-D7A3, U+A960-A97F, U+D7B0-D7FF;
+}
+
+@font-face {
+  font-family: "Pathway1984Body";
+  src: url("/fonts/1984-body-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1100-11FF, U+3130-318F, U+AC00-D7A3, U+A960-A97F, U+D7B0-D7FF;
+}
+
+@font-face {
   font-family: "GalmuriPathway";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -17,7 +44,7 @@
 
 @font-face {
   font-family: "DialogNanumBody1984";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-light.otf") format("opentype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -26,7 +53,7 @@
 
 @font-face {
   font-family: "DialogNanumBody1984";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -35,7 +62,7 @@
 
 @font-face {
   font-family: "DialogNanumBody1984";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-bold.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -116,7 +143,7 @@
 
 @font-face {
   font-family: "Galmuri11";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -124,7 +151,7 @@
 
 @font-face {
   font-family: "Galmuri14";
-  src: url("/fonts/galmuri14.ttf") format("truetype");
+  src: url("/fonts/1984-body-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

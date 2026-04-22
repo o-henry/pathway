@@ -1,6 +1,6 @@
 :root {
   --font-latin: "HomeVideoPathway";
-  --font-ko: "GalmuriPathway";
+  --font-ko: "DialogNanumBody1984";
   --font-ja: "MPlus2Rail";
   --font-stack-default: var(--font-latin), var(--font-ko), "IBM Plex Sans", "Noto Sans KR", sans-serif;
   --font-stack-ja: var(--font-latin), var(--font-ja), "Noto Sans JP", "Hiragino Sans", sans-serif;

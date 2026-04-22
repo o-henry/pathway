@@ -168,6 +168,458 @@ def _extract_evidence_ids(content: str) -> list[str]:
     return list(dict.fromkeys(re.findall(r'"id"\s*:\s*"(ev_[^"]+)"', content)))
 
 
+def _extract_grounding_packet(content: str) -> dict[str, Any]:
+    return _extract_json_block(content, "Retrieved evidence packet:", "JSON Schema:") or {}
+
+
+def _extract_profile(content: str) -> dict[str, Any]:
+    return _extract_json_block(content, "Default profile:", "Current state snapshot:") or {}
+
+
+def _extract_current_state(content: str) -> dict[str, Any]:
+    return _extract_json_block(content, "Current state snapshot:", "Retrieved evidence packet:") or {}
+
+
+def _normalize_text(value: object | None) -> str:
+    return " ".join(str(value or "").split()).strip()
+
+
+def _goal_family(goal: dict[str, Any]) -> str:
+    text = " ".join(
+        [
+            _normalize_text(goal.get("title")),
+            _normalize_text(goal.get("description")),
+            _normalize_text(goal.get("category")),
+            _normalize_text(goal.get("success_criteria")),
+        ]
+    ).lower()
+    if any(token in text for token in ["일본어", "영어", "회화", "conversation", "language", "speak", "speaking", "fluency", "native speaker", "원어민"]):
+        return "language"
+    if any(token in text for token in ["workspace", "product", "build", "planning", "app", "service", "saas", "tool"]):
+        return "product"
+    if any(token in text for token in ["fitness", "diet", "weight", "muscle", "injury", "workout", "run"]):
+        return "fitness"
+    if any(token in text for token in ["career", "job", "interview", "resume", "portfolio", "hiring"]):
+        return "career"
+    if any(token in text for token in ["move", "relocation", "visa", "city", "country", "immigration"]):
+        return "relocation"
+    return "general"
+
+
+def _build_stub_evidence(content: str) -> list[dict[str, Any]]:
+    grounding_packet = _extract_grounding_packet(content)
+    evidence_items = grounding_packet.get("evidence_items")
+    if isinstance(evidence_items, list) and evidence_items:
+        normalized: list[dict[str, Any]] = []
+        for item in evidence_items:
+            if not isinstance(item, dict):
+                continue
+            evidence_id = _normalize_text(item.get("id"))
+            if not evidence_id:
+                continue
+            normalized.append(
+                {
+                    "id": evidence_id,
+                    "source_id": _normalize_text(item.get("source_id")) or evidence_id.replace("ev_", "src_"),
+                    "title": _normalize_text(item.get("title")) or evidence_id,
+                    "quote_or_summary": _normalize_text(item.get("quote_or_summary")) or "검색된 근거가 요약 없이 연결되었습니다.",
+                    "url": item.get("url"),
+                    "reliability": _normalize_text(item.get("reliability")) or "retrieved_note",
+                }
+            )
+        if normalized:
+            return normalized
+
+    evidence_ids = _extract_evidence_ids(content)
+    return [
+        {
+            "id": evidence_id,
+            "source_id": f"source-{index}",
+            "title": f"로컬 근거 {index}",
+            "quote_or_summary": "현재는 로컬 스텁 생성 경로이므로 실제 검색 근거 대신 확인용 근거 슬롯을 노출합니다.",
+            "url": None,
+            "reliability": "stub_preview",
+        }
+        for index, evidence_id in enumerate(evidence_ids[:4], start=1)
+    ]
+
+
+def _base_node_types() -> dict[str, dict[str, Any]]:
+    return {
+        "goal": {
+            "id": "goal",
+            "label": "목표",
+            "description": "사용자가 도달하려는 상태",
+            "default_style": {"tone": "mist", "shape": "rounded_card"},
+            "fields": [{"key": "success_criteria", "label": "성공 기준", "value_type": "markdown", "required": True}],
+        },
+        "route": {
+            "id": "route",
+            "label": "루트",
+            "description": "달성 경로",
+            "default_style": {"tone": "iris", "shape": "rounded_card"},
+            "fields": [{"key": "fit_reason", "label": "적합 이유", "value_type": "markdown", "required": False}],
+        },
+        "practice_system": {
+            "id": "practice_system",
+            "label": "연습 시스템",
+            "description": "반복 구조와 실천 루프",
+            "default_style": {"tone": "sky", "shape": "rounded_card"},
+            "fields": [{"key": "cadence", "label": "반복 리듬", "value_type": "markdown", "required": False}],
+        },
+        "checkpoint": {
+            "id": "checkpoint",
+            "label": "체크포인트",
+            "description": "경로 검증 지점",
+            "default_style": {"tone": "sky", "shape": "rounded_card"},
+            "fields": [{"key": "checkpoint", "label": "검증 기준", "value_type": "markdown", "required": False}],
+        },
+        "constraint": {
+            "id": "constraint",
+            "label": "제약",
+            "description": "진행을 약화시키는 압력",
+            "default_style": {"tone": "mist", "shape": "rounded_card"},
+            "fields": [{"key": "impact", "label": "영향", "value_type": "markdown", "required": False}],
+        },
+        "fallback_route": {
+            "id": "fallback_route",
+            "label": "전환 루트",
+            "description": "기존 경로가 약해질 때의 대안",
+            "default_style": {"tone": "sky", "shape": "rounded_card"},
+            "fields": [{"key": "trigger", "label": "전환 조건", "value_type": "markdown", "required": False}],
+        },
+        "milestone": {
+            "id": "milestone",
+            "label": "마일스톤",
+            "description": "중간 성취 지점",
+            "default_style": {"tone": "sky", "shape": "rounded_card"},
+            "fields": [{"key": "exit_test", "label": "통과 기준", "value_type": "markdown", "required": False}],
+        },
+        "environment": {
+            "id": "environment",
+            "label": "환경 설계",
+            "description": "실행 환경과 노출 구조",
+            "default_style": {"tone": "mist", "shape": "rounded_card"},
+            "fields": [{"key": "setup", "label": "환경 세팅", "value_type": "markdown", "required": False}],
+        },
+    }
+
+
+def _language_stub_bundle(goal: dict[str, Any], profile: dict[str, Any], current_state: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:
+    title = _normalize_text(goal.get("title")) or "새 목표"
+    success_criteria = _normalize_text(goal.get("success_criteria")) or "목표 달성 조건을 정의합니다."
+    goal_id = _normalize_text(goal.get("id")) or "stub-goal"
+    evidence_ids = [item["id"] for item in evidence]
+    weekly_hours = profile.get("weekly_free_hours")
+    budget = profile.get("monthly_budget_amount")
+    energy = _normalize_text(profile.get("energy_level")) or "unknown"
+    constraints = current_state.get("active_constraints") if isinstance(current_state.get("active_constraints"), list) else []
+
+    use_guided_route = isinstance(budget, (int, float)) and budget >= 80000
+    route_direct_label = "회화 직행 루트"
+    route_support_label = "교정 루트" if use_guided_route else "입력 보강 루트"
+    fallback_label = "범위 축소 루트" if (isinstance(weekly_hours, (int, float)) and weekly_hours < 6) else "출력 유지 루트"
+    constraint_label = "에너지 변동 압력" if energy in {"low", "medium"} else "일정 충돌 압력"
+
+    nodes = [
+        {
+            "id": "goal",
+            "type": "goal",
+            "label": title,
+            "summary": "원어민과의 실제 대화를 감당할 수 있을 만큼 출력·이해·복구 능력을 함께 키우는 지도를 만듭니다.",
+            "data": {"success_criteria": success_criteria},
+            "scores": {"time_load": 0.52, "money_load": 0.34, "uncertainty": 0.41},
+            "evidence_refs": [],
+            "assumption_refs": ["assumption_consistency"],
+        },
+        {
+            "id": "route_output",
+            "type": "route",
+            "label": route_direct_label,
+            "summary": "초반부터 말하기 비중을 올려 회화 감각을 빠르게 붙이는 루트입니다.",
+            "data": {"fit_reason": "대화 가능 수준이 목표라면 출력 루프를 뒤로 미루지 않는 편이 유리합니다."},
+            "scores": {"time_load": 0.72, "money_load": 0.28, "uncertainty": 0.46},
+            "evidence_refs": evidence_ids[:1],
+            "assumption_refs": [],
+        },
+        {
+            "id": "route_support",
+            "type": "route",
+            "label": route_support_label,
+            "summary": "직행 루트의 이탈 위험을 줄이기 위해 입력 보강이나 교정을 붙이는 안정화 루트입니다.",
+            "data": {"fit_reason": "혼자 공부하다 막히는 구간을 줄여 지속성을 확보합니다."},
+            "scores": {"time_load": 0.58, "money_load": 0.48 if use_guided_route else 0.22, "uncertainty": 0.31},
+            "evidence_refs": evidence_ids[1:2],
+            "assumption_refs": [],
+        },
+        {
+            "id": "practice_loop",
+            "type": "practice_system",
+            "label": "주간 회화 루프",
+            "summary": "암기·입력·출력을 한 주 안에서 순환시키는 실전 루프입니다.",
+            "data": {"cadence": "어휘/패턴 누적 → 짧은 독백 → 실제 대화/모의 대화 → 복기"},
+            "scores": {"time_load": 0.63, "money_load": 0.18, "uncertainty": 0.27},
+            "evidence_refs": evidence_ids[:1],
+            "assumption_refs": [],
+        },
+        {
+            "id": "environment",
+            "type": "environment",
+            "label": "원어민 노출 환경",
+            "summary": "실제 원어민 반응을 주기적으로 받아야 회화 복구력이 붙습니다.",
+            "data": {"setup": "주 1회 이상 원어민 대화, 언어교환, 튜터링, 혹은 음성 피드백 경로를 확보합니다."},
+            "scores": {"time_load": 0.34, "money_load": 0.39 if use_guided_route else 0.16, "uncertainty": 0.33},
+            "evidence_refs": evidence_ids[2:3],
+            "assumption_refs": [],
+        },
+        {
+            "id": "checkpoint",
+            "type": "checkpoint",
+            "label": "원어민 15분 점검",
+            "summary": "실제 대화를 15분 이상 이어가며 막히는 지점을 수집하는 첫 검증 지점입니다.",
+            "data": {"checkpoint": "모르는 표현이 나와도 일본어로 우회 설명하며 대화를 끊지 않는지 확인합니다."},
+            "scores": {"uncertainty": 0.19},
+            "evidence_refs": evidence_ids[3:4],
+            "assumption_refs": [],
+        },
+        {
+            "id": "constraint",
+            "type": "constraint",
+            "label": constraint_label,
+            "summary": "회화형 목표는 집중 시간이 흔들리면 먼저 출력 루프가 무너지는 경향이 있습니다.",
+            "data": {"impact": "복습만 남고 실제 말하기가 밀리면 체감 성장이 느려져 동기 저하가 커집니다."},
+            "scores": {"uncertainty": 0.44},
+            "evidence_refs": [],
+            "assumption_refs": [],
+        },
+        {
+            "id": "fallback",
+            "type": "fallback_route",
+            "label": fallback_label,
+            "summary": "목표를 버리지 않고 대화 범위를 줄여서 출력 감각만은 유지하는 우회 루트입니다.",
+            "data": {"trigger": "주 2회 이상 출력 세션이 깨지면 자유회화 대신 짧은 주제 회화나 스크립트 회화로 축소합니다."},
+            "scores": {"time_load": 0.29, "money_load": 0.15, "uncertainty": 0.24},
+            "evidence_refs": [],
+            "assumption_refs": [],
+        },
+    ]
+
+    if isinstance(weekly_hours, (int, float)) and weekly_hours >= 8:
+        nodes.append(
+            {
+                "id": "milestone",
+                "type": "milestone",
+                "label": "30분 대화 마일스톤",
+                "summary": "짧은 대화가 아니라 체력과 복구력이 필요한 중간 길이 회화를 통과시키는 구간입니다.",
+                "data": {"exit_test": "원어민과 30분 동안 일상·흥미·계획 주제를 오가며 대화합니다."},
+                "scores": {"uncertainty": 0.22},
+                "evidence_refs": evidence_ids[1:2],
+                "assumption_refs": [],
+            }
+        )
+
+    edges = [
+        {"id": "e1", "type": "progresses_to", "source": "goal", "target": "route_output", "label": "출력 우선"},
+        {"id": "e2", "type": "progresses_to", "source": "goal", "target": "route_support", "label": "안정화 보조"},
+        {"id": "e3", "type": "progresses_to", "source": "route_output", "target": "practice_loop"},
+        {"id": "e4", "type": "progresses_to", "source": "route_support", "target": "environment"},
+        {"id": "e5", "type": "progresses_to", "source": "practice_loop", "target": "checkpoint"},
+        {"id": "e6", "type": "progresses_to", "source": "practice_loop", "target": "constraint"},
+        {"id": "e7", "type": "progresses_to", "source": "constraint", "target": "fallback"},
+        {"id": "e8", "type": "progresses_to", "source": "environment", "target": "checkpoint"},
+    ]
+
+    if any(node["id"] == "milestone" for node in nodes):
+        edges.append({"id": "e9", "type": "progresses_to", "source": "checkpoint", "target": "milestone", "label": "유지 성공"})
+
+    assumptions = [
+        {
+            "id": "assumption_consistency",
+            "text": "사용자는 주간 루프를 최소 몇 주 이상 유지할 수 있고, 일본어 출력 시간을 완전히 0으로 만들지는 않습니다.",
+            "risk_if_false": "회화형 목표보다 범위 축소 루트나 입력 중심 유지 전략이 더 현실적이 됩니다.",
+        }
+    ]
+    if constraints:
+        assumptions.append(
+            {
+                "id": "assumption_constraints",
+                "text": "현재 활성 제약이 고정된 영구 조건이 아니라 조정 가능한 운영 제약입니다.",
+                "risk_if_false": "목표 시점을 늦추거나 회화 목표를 더 작은 대화 범위로 다시 정의해야 합니다.",
+            }
+        )
+
+    type_defs = _base_node_types()
+    used_types = []
+    for node in nodes:
+        node_type = node["type"]
+        if node_type not in used_types:
+            used_types.append(node_type)
+
+    return {
+        "schema_version": "1.0.0",
+        "bundle_id": f"stub-{goal_id}",
+        "map": {
+            "title": f"{title} 경로 초안",
+            "goal_id": goal_id,
+            "summary": "언어 학습 목표용 로컬 스텁 그래프입니다. 회화 루프, 노출 환경, 제약 압력, fallback을 함께 드러냅니다.",
+        },
+        "ontology": {
+            "node_types": [type_defs[node_type] for node_type in used_types],
+            "edge_types": [
+                {"id": "progresses_to", "label": "진행", "role": "progression", "default_style": {"line": "curved"}},
+                {"id": "supported_by", "label": "근거", "role": "reference", "default_style": {"line": "dotted"}},
+            ],
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "evidence": evidence,
+        "assumptions": assumptions,
+        "warnings": [
+            "이 그래프는 예측이 아니라 로컬 스텁 기반 시나리오 지도입니다.",
+            "실제 Codex 기반 생성 경로가 연결되면 회화 루프와 전환 조건이 더 근거 중심으로 세분화됩니다.",
+        ],
+    }
+
+
+def _generic_stub_bundle(goal: dict[str, Any], evidence: list[dict[str, Any]], family: str) -> dict[str, Any]:
+    title = _normalize_text(goal.get("title")) or "새 목표"
+    success_criteria = _normalize_text(goal.get("success_criteria")) or "목표 달성 조건을 명확히 정의합니다."
+    goal_id = _normalize_text(goal.get("id")) or "stub-goal"
+    evidence_ids = [item["id"] for item in evidence]
+    route_labels_by_family = {
+        "product": ("핵심 구조 루트", "검증 루트", "스코프 축소 루트"),
+        "fitness": ("적응 루트", "회복 루트", "부하 축소 루트"),
+        "career": ("직접 도전 루트", "포트폴리오 보강 루트", "범위 재설계 루트"),
+        "relocation": ("준비 루트", "행정 보강 루트", "우회 정착 루트"),
+        "general": ("직행 루트", "가이드 루트", "범위 축소 루트"),
+    }
+    route_primary, route_secondary, route_fallback = route_labels_by_family.get(family, route_labels_by_family["general"])
+
+    nodes = [
+        {
+            "id": "goal",
+            "type": "goal",
+            "label": title,
+            "summary": "현재 목표를 기준으로 실행 가능한 루트 후보를 정렬합니다.",
+            "data": {"success_criteria": success_criteria},
+            "scores": {"time_load": 0.45, "money_load": 0.33, "uncertainty": 0.39},
+            "evidence_refs": [],
+            "assumption_refs": ["assumption_capacity"],
+        },
+        {
+            "id": "route_primary",
+            "type": "route",
+            "label": route_primary,
+            "summary": "목표를 정면으로 밀어붙이는 주 경로입니다.",
+            "data": {"fit_reason": "핵심 진전을 가장 빨리 만들지만 유지 조건이 흔들리면 리스크가 커집니다."},
+            "scores": {"time_load": 0.67, "money_load": 0.31, "uncertainty": 0.43},
+            "evidence_refs": evidence_ids[:1],
+            "assumption_refs": [],
+        },
+        {
+            "id": "route_secondary",
+            "type": "route",
+            "label": route_secondary,
+            "summary": "직행 경로의 실패 확률을 낮추기 위한 안정화 경로입니다.",
+            "data": {"fit_reason": "속도보다 유지 가능성과 시행착오 축소를 우선할 때 유리합니다."},
+            "scores": {"time_load": 0.54, "money_load": 0.42, "uncertainty": 0.29},
+            "evidence_refs": evidence_ids[1:2],
+            "assumption_refs": [],
+        },
+        {
+            "id": "checkpoint",
+            "type": "checkpoint",
+            "label": "첫 검증 시점",
+            "summary": "지금 선택한 루트가 유지 가능한지 확인하는 첫 지점입니다.",
+            "data": {"checkpoint": "실제 투입량과 반복 가능성을 함께 확인합니다."},
+            "scores": {"uncertainty": 0.2},
+            "evidence_refs": [],
+            "assumption_refs": [],
+        },
+        {
+            "id": "constraint",
+            "type": "constraint",
+            "label": "핵심 제약 압력",
+            "summary": "시간, 예산, 에너지, 맥락 중 하나가 줄면 주 경로가 먼저 흔들립니다.",
+            "data": {"impact": "전환 신호를 늦게 보면 전체 계획이 무너질 수 있습니다."},
+            "scores": {"uncertainty": 0.46},
+            "evidence_refs": [],
+            "assumption_refs": [],
+        },
+        {
+            "id": "fallback",
+            "type": "fallback_route",
+            "label": route_fallback,
+            "summary": "목표 전체를 버리지 않고 범위나 속도를 조정하는 우회 경로입니다.",
+            "data": {"trigger": "두 차례 이상 계획 리듬이 깨지면 이 전환 루트를 검토합니다."},
+            "scores": {"time_load": 0.32, "money_load": 0.18, "uncertainty": 0.25},
+            "evidence_refs": [],
+            "assumption_refs": [],
+        },
+    ]
+
+    if evidence_ids[2:3]:
+        nodes.append(
+            {
+                "id": "milestone",
+                "type": "milestone",
+                "label": "중간 마일스톤",
+                "summary": "목표가 계속 유효한지 판단하는 중간 성취 지점입니다.",
+                "data": {"exit_test": "실제 사용 환경에서 한 단계 더 긴 검증을 통과합니다."},
+                "scores": {"uncertainty": 0.24},
+                "evidence_refs": evidence_ids[2:3],
+                "assumption_refs": [],
+            }
+        )
+
+    edges = [
+        {"id": "e1", "type": "progresses_to", "source": "goal", "target": "route_primary", "label": "빠른 시작"},
+        {"id": "e2", "type": "progresses_to", "source": "goal", "target": "route_secondary", "label": "안정적 시작"},
+        {"id": "e3", "type": "progresses_to", "source": "route_primary", "target": "checkpoint"},
+        {"id": "e4", "type": "progresses_to", "source": "route_primary", "target": "constraint"},
+        {"id": "e5", "type": "progresses_to", "source": "constraint", "target": "fallback"},
+    ]
+    if any(node["id"] == "milestone" for node in nodes):
+        edges.append({"id": "e6", "type": "progresses_to", "source": "checkpoint", "target": "milestone", "label": "중간 통과"})
+
+    type_defs = _base_node_types()
+    used_types = []
+    for node in nodes:
+        if node["type"] not in used_types:
+            used_types.append(node["type"])
+
+    return {
+        "schema_version": "1.0.0",
+        "bundle_id": f"stub-{goal_id}",
+        "map": {
+            "title": f"{title} 경로 초안",
+            "goal_id": goal_id,
+            "summary": "고정 6노드 템플릿 대신 목표 가족과 근거 수에 따라 달라지는 로컬 스텁 그래프입니다.",
+        },
+        "ontology": {
+            "node_types": [type_defs[node_type] for node_type in used_types],
+            "edge_types": [
+                {"id": "progresses_to", "label": "진행", "role": "progression", "default_style": {"line": "curved"}},
+                {"id": "supported_by", "label": "근거", "role": "reference", "default_style": {"line": "dotted"}},
+            ],
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "evidence": evidence,
+        "assumptions": [
+            {
+                "id": "assumption_capacity",
+                "text": "사용자는 이 목표를 유지할 최소한의 반복 블록을 계속 확보할 수 있습니다.",
+                "risk_if_false": "직행 루트보다 범위 조정 루트가 먼저 현실화됩니다.",
+            }
+        ],
+        "warnings": [
+            "이 그래프는 예측이 아니라 로컬 스텁 기반 시나리오 지도입니다.",
+            "실제 Codex 기반 생성 경로가 연결되면 노드 의미와 근거 연결이 더 정교해집니다.",
+        ],
+    }
+
+
 class StubPathwayProvider:
     """Local deterministic fallback until a real model backend is wired in."""
 
@@ -191,156 +643,15 @@ class StubPathwayProvider:
 
     def _build_generation_bundle(self, content: str) -> dict[str, Any]:
         goal = _extract_json_block(content, "Goal:", "Default profile:") or {}
-        title = str(goal.get("title") or "새 목표").strip()
-        success_criteria = str(goal.get("success_criteria") or "목표 달성에 필요한 조건을 명확히 정의합니다.").strip()
-        goal_id = str(goal.get("id") or "stub-goal").strip()
-        evidence_ids = _extract_evidence_ids(content)
-        evidence = [
-            {
-                "id": evidence_id,
-                "source_id": f"source-{index}",
-                "title": f"로컬 근거 {index}",
-                "quote_or_summary": "현재는 로컬 스텁 생성 경로이므로 실제 검색 근거 대신 확인용 근거 슬롯을 노출합니다.",
-                "url": None,
-                "reliability": "stub_preview",
-            }
-            for index, evidence_id in enumerate(evidence_ids[:2], start=1)
-        ]
-        bundle_id = f"stub-{goal_id}"
+        profile = _extract_profile(content)
+        current_state = _extract_current_state(content)
+        evidence = _build_stub_evidence(content)
+        family = _goal_family(goal)
 
-        return {
-            "schema_version": "1.0.0",
-            "bundle_id": bundle_id,
-            "map": {
-                "title": f"{title} 경로 초안",
-                "goal_id": goal_id,
-                "summary": "로컬 스텁 생성 경로입니다. 실제 모델이 연결되면 이 자리에 근거 기반 그래프가 생성됩니다.",
-            },
-            "ontology": {
-                "node_types": [
-                    {
-                        "id": "goal",
-                        "label": "목표",
-                        "description": "사용자가 도달하려는 상태",
-                        "default_style": {"tone": "mist", "shape": "rounded_card"},
-                        "fields": [{"key": "success_criteria", "label": "성공 기준", "value_type": "markdown", "required": True}],
-                    },
-                    {
-                        "id": "route",
-                        "label": "루트",
-                        "description": "달성 경로",
-                        "default_style": {"tone": "iris", "shape": "rounded_card"},
-                        "fields": [{"key": "fit_reason", "label": "적합 이유", "value_type": "markdown", "required": False}],
-                    },
-                    {
-                        "id": "checkpoint",
-                        "label": "체크포인트",
-                        "description": "경로 검증 지점",
-                        "default_style": {"tone": "sky", "shape": "rounded_card"},
-                        "fields": [{"key": "checkpoint", "label": "검증 기준", "value_type": "markdown", "required": False}],
-                    },
-                    {
-                        "id": "pressure",
-                        "label": "압력",
-                        "description": "진행을 약화시키는 제약",
-                        "default_style": {"tone": "mist", "shape": "rounded_card"},
-                        "fields": [{"key": "impact", "label": "영향", "value_type": "markdown", "required": False}],
-                    },
-                    {
-                        "id": "switch",
-                        "label": "전환 루트",
-                        "description": "기존 경로가 약해질 때의 대안",
-                        "default_style": {"tone": "sky", "shape": "rounded_card"},
-                        "fields": [{"key": "trigger", "label": "전환 조건", "value_type": "markdown", "required": False}],
-                    },
-                ],
-                "edge_types": [
-                    {"id": "progresses_to", "label": "진행", "role": "progression", "default_style": {"line": "curved"}},
-                    {"id": "supported_by", "label": "근거", "role": "reference", "default_style": {"line": "dotted"}},
-                ],
-            },
-            "nodes": [
-                {
-                    "id": "goal",
-                    "type": "goal",
-                    "label": title,
-                    "summary": "현재 목표를 기준으로 실행 가능한 루트 후보를 정렬합니다.",
-                    "data": {"success_criteria": success_criteria},
-                    "scores": {"time_load": 0.42, "money_load": 0.31, "uncertainty": 0.38},
-                    "evidence_refs": [],
-                    "assumption_refs": ["assumption_capacity"],
-                },
-                {
-                    "id": "route_direct",
-                    "type": "route",
-                    "label": "직행 루트",
-                    "summary": "속도는 빠르지만 현재 제약이 흔들리면 바로 리스크가 드러납니다.",
-                    "data": {"fit_reason": "시간과 집중을 안정적으로 확보할 수 있을 때 유리합니다."},
-                    "scores": {"time_load": 0.71, "money_load": 0.28, "uncertainty": 0.44},
-                    "evidence_refs": evidence_ids[:1],
-                    "assumption_refs": [],
-                },
-                {
-                    "id": "route_guided",
-                    "type": "route",
-                    "label": "가이드 루트",
-                    "summary": "교정 비용이 있지만 시행착오를 줄일 수 있습니다.",
-                    "data": {"fit_reason": "혼자 밀어붙일 때 이탈 가능성이 높다면 초기 안정성이 더 좋습니다."},
-                    "scores": {"time_load": 0.56, "money_load": 0.52, "uncertainty": 0.29},
-                    "evidence_refs": evidence_ids[1:2],
-                    "assumption_refs": [],
-                },
-                {
-                    "id": "checkpoint",
-                    "type": "checkpoint",
-                    "label": "첫 검증 시점",
-                    "summary": "지금 선택한 루트가 유지 가능한지 가장 먼저 확인합니다.",
-                    "data": {"checkpoint": "이번 주 실제 투입 시간과 반복 가능성을 함께 확인합니다."},
-                    "scores": {"uncertainty": 0.21},
-                    "evidence_refs": [],
-                    "assumption_refs": [],
-                },
-                {
-                    "id": "pressure",
-                    "type": "pressure",
-                    "label": "가용 자원 축소",
-                    "summary": "시간, 예산, 에너지 중 하나라도 줄면 직행 루트가 먼저 약해집니다.",
-                    "data": {"impact": "경로 전환 신호를 늦게 보면 전체 계획이 무너질 수 있습니다."},
-                    "scores": {"uncertainty": 0.47},
-                    "evidence_refs": [],
-                    "assumption_refs": [],
-                },
-                {
-                    "id": "switch",
-                    "type": "switch",
-                    "label": "범위 축소 루트",
-                    "summary": "목표 전체를 버리지 않고 더 작은 범위로 우회합니다.",
-                    "data": {"trigger": "2회 이상 연속으로 계획 시간을 못 채우면 이 루트를 검토합니다."},
-                    "scores": {"time_load": 0.33, "money_load": 0.19, "uncertainty": 0.24},
-                    "evidence_refs": [],
-                    "assumption_refs": [],
-                },
-            ],
-            "edges": [
-                {"id": "e1", "type": "progresses_to", "source": "goal", "target": "route_direct", "label": "빠른 시작"},
-                {"id": "e2", "type": "progresses_to", "source": "goal", "target": "route_guided", "label": "안정적 시작"},
-                {"id": "e3", "type": "progresses_to", "source": "route_direct", "target": "checkpoint"},
-                {"id": "e4", "type": "progresses_to", "source": "route_direct", "target": "pressure"},
-                {"id": "e5", "type": "progresses_to", "source": "pressure", "target": "switch"},
-            ],
-            "evidence": evidence,
-            "assumptions": [
-                {
-                    "id": "assumption_capacity",
-                    "text": "사용자는 매주 최소 한 번은 목표에 집중할 블록을 확보할 수 있습니다.",
-                    "risk_if_false": "직행 루트보다 범위 축소 루트가 더 현실적이 됩니다.",
-                }
-            ],
-            "warnings": [
-                "이 그래프는 예측이 아니라 로컬 스텁 기반 시나리오 지도입니다.",
-                "실제 Codex 기반 생성 경로가 연결되면 근거와 노드 의미가 더 구체화됩니다.",
-            ],
-        }
+        if family == "language":
+            return _language_stub_bundle(goal, profile, current_state, evidence)
+
+        return _generic_stub_bundle(goal, evidence, family)
 
     def _build_revision_bundle(self, content: str) -> dict[str, Any]:
         current_bundle = _extract_json_block(content, "Current graph bundle:", "Recent state updates:") or {}

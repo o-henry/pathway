@@ -170,6 +170,25 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
+  - Ran a bounded Pathway generation pass for the goal of learning Japanese to the point of conversing with native speakers.
+  - Created a new goal, generated goal analysis, built a map, exported JSON/Markdown artifacts, and assembled a small report/note bundle.
+  - Copied the resulting archive into `/Users/henry/Documents/obsidian_ai/pathway/requests/japanese-conversation-native-level/2026-04-22/` and added the new request link to the Obsidian `INDEX.md`.
+- Changed files:
+  - `docs/state/EXECPLAN_JAPANESE_CONVERSATION_PATHWAY_RUN.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `curl -sS http://127.0.0.1:8000/health`
+  - `python3 <inline pathway run against http://127.0.0.1:8000>`
+  - `python3 <out-of-sandbox copy into /Users/henry/Documents/obsidian_ai/pathway>`
+- Known gaps:
+  - The active generator backend still appears to be the local stub/template path, so this run produced a usable archive but not a fully grounded production-quality graph.
+  - The generated evidence snapshot still surfaced an older existing source title instead of a newly assembled Japanese-specific research packet.
+- Next recommended task:
+  - Re-run the same request after ingesting Japanese-learning source notes and with a non-stub provider enabled, then replace the archived run if a more grounded graph is desired.
+
+## Latest micro-update
+
+- Completed work:
   - Restored the floating Pathway reality-update composer so it still renders over the canvas while the app is showing the demo graph, instead of disappearing until a live map exists.
   - Reapplied goal-tab stretch rules so the left white Pathway goals island fills the full available column height instead of stopping early and exposing the gray app background below it.
 - Changed files:
@@ -928,3 +947,217 @@ The highest-value follow-up options are now:
     - The desktop Collector Doctor runtime and the FastAPI collector-backed Pathway API are still only loosely related layers, not one unified ingestion framework.
   - Next recommended task:
     - Replace the `stub` generator with a real Ollama/OpenAI backend for the same collector-backed dataset, then tune retrieval weighting so collector-fetched lived-experience material ranks more consistently when it is policy-allowed.
+- Latest bounded objective:
+  - Completed work:
+    - Reworked the default `StubPathwayProvider` so graph generation now reads goal, profile, current-state, and retrieved evidence packet sections instead of always returning the same near-fixed six-node template.
+    - Added a language-goal stub bundle with language-specific node types and extra milestones, and kept non-language goals on a smaller alternate topology so graph shape varies by goal family.
+    - Preserved retrieved evidence items in the stub response instead of replacing them with generic placeholder titles.
+    - Added endpoint regression tests proving that language goals and non-language goals now produce different graph topologies under the stub backend.
+  - Changed files:
+    - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+    - `apps/api/tests/test_map_generation.py`
+    - `docs/state/EXECPLAN_DYNAMIC_STUB_GRAPH_VARIATION.md`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py`
+  - Known gaps:
+    - The stub path is now goal-sensitive, but it is still a deterministic fallback and not yet equivalent to a real grounded Ollama/OpenAI graph builder.
+    - Goal-family detection is currently keyword-based, so odd mixed-domain goals may still land in a coarse family bucket.
+  - Next recommended task:
+    - Re-run the Japanese conversation goal through the live API so the saved map refreshes with the new topology, then continue replacing the stub path with a real model-backed graph builder.
+- Latest micro-update:
+  - Completed work:
+    - Re-ran a live Pathway generation pass for the goal `일본어를 원어민과 대화할 수준까지 학습` against the local API after the dynamic stub update.
+    - Created a fresh goal/profile/current-state/source packet, generated a new map, exported JSON/Markdown artifacts, and synced the refreshed archive back into the Obsidian request folder.
+    - Confirmed that the regenerated map now uses a 9-node language-specific topology instead of the earlier near-fixed six-node template.
+  - Changed files:
+    - `output/japanese-native-conversation-regenerated/profile.json`
+    - `output/japanese-native-conversation-regenerated/goal.json`
+    - `output/japanese-native-conversation-regenerated/goal_analysis.json`
+    - `output/japanese-native-conversation-regenerated/current_state.json`
+    - `output/japanese-native-conversation-regenerated/sources.json`
+    - `output/japanese-native-conversation-regenerated/map.json`
+    - `output/japanese-native-conversation-regenerated/map_export.json`
+    - `output/japanese-native-conversation-regenerated/map_export.md`
+    - `output/japanese-native-conversation-regenerated/pathway.md`
+    - `output/japanese-native-conversation-regenerated/pathway-run-report.md`
+    - `output/japanese-native-conversation-regenerated/run_summary.json`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=../.uv-cache uv run python -m uvicorn lifemap_api.main:app --host 127.0.0.1 --port 8000`
+    - `python3 <inline regeneration runner against http://127.0.0.1:8000>`
+    - `cp <regenerated outputs> /Users/henry/Documents/obsidian_ai/pathway/requests/japanese-conversation-native-level/2026-04-22/...`
+  - Known gaps:
+    - This refreshed run still uses the improved local `stub` backend, so topology now varies but it is not yet a full real-model graph synthesis pass.
+    - The new run created a fresh goal/map in the local DB rather than updating an older empty DB record.
+  - Next recommended task:
+    - Open the desktop app on the refreshed local API data and verify that the regenerated Japanese goal appears with the new 9-node graph in the workflow canvas.
+- Latest micro-update:
+  - Completed work:
+    - Tightened Pathway goal selection in the desktop shell so picking a goal from the left goals island immediately refreshes the active workspace instead of only changing the selected goal id and waiting on a later effect.
+    - Clearing the selection now also clears the active map, current state, route selection, revision preview, and inspector state in one path.
+  - Changed files:
+    - `apps/desktop/src/app/MainAppImpl.tsx`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `pnpm --filter desktop exec tsc --noEmit` (hung without returning output in this shell)
+    - `pnpm exec tsc --noEmit -p apps/desktop/tsconfig.json` (hung without returning output in this shell)
+  - Known gaps:
+    - The typecheck command did not finish in the current shell session, so this pass is code-reviewed but not fully compiler-verified.
+  - Next recommended task:
+    - Click between two different goals in the left Pathway list and confirm the workflow canvas swaps to the newly selected goal's active map immediately.
+- Latest micro-update:
+  - Completed work:
+    - Swapped the desktop app's Korean font faces over to the provided `1984-body` OTF family by rewiring the existing Korean body aliases in `fonts.css`.
+    - Updated the global Korean font token so default UI copy now resolves to `DialogNanumBody1984`, which now points at the `1984-body` regular/light/bold files.
+  - Changed files:
+    - `apps/desktop/src/styles/base/fonts.css`
+    - `apps/desktop/src/styles/tokens/theme.css`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `rg -n "font-family|@font-face|DM Mono|Pretendard|font-display|--font" apps/desktop/src apps/desktop/public -g '*.css' -g '*.ts' -g '*.tsx'`
+  - Known gaps:
+    - This pass rewires the font aliases but does not yet include a live visual QA sweep across every desktop screen.
+  - Next recommended task:
+    - Reopen the desktop shell and spot-check Tasks, Workflow, and Settings to confirm the new 1984 Korean body font reads cleanly at current sizes.
+- Latest micro-update:
+  - Completed work:
+    - Regenerated the existing Japanese conversation goal already visible in the desktop app, creating a new language-specific map with the updated stub topology.
+    - Fixed workflow map selection so when a goal has multiple maps, the desktop shell now sorts them by newest `updated_at/created_at` first before picking the active map.
+  - Changed files:
+    - `apps/desktop/src/app/MainAppImpl.tsx`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `curl -sS http://127.0.0.1:8000/goals/goal_b20f8b0948ed467092411317c0973dc6/maps`
+    - `curl -sS -X POST http://127.0.0.1:8000/goals/goal_b20f8b0948ed467092411317c0973dc6/maps/generate`
+  - Known gaps:
+    - A live desktop visual verification pass is still recommended to confirm the newly generated map is what the workflow canvas now opens first.
+  - Next recommended task:
+    - Re-click the Japanese goal in the left list and confirm the workflow canvas opens the latest regenerated map instead of the older six-node map.
+- Latest bounded objective:
+  - Completed work:
+    - Implemented real Tauri-side `dashboard_crawl_provider_health` and `dashboard_crawl_provider_install` commands so the desktop Settings collector cards can query actual runtime readiness instead of calling missing commands.
+    - Wired provider-specific health checks for local Python, Node, env-configured, and command-based collectors, including readiness metadata used by the existing desktop UI.
+    - Confirmed the Rust desktop shell still compiles and also confirmed that the current machine does not yet have any of the checked collector runtimes installed/configured, so green status is now possible but currently not expected.
+  - Changed files:
+    - `src-tauri/src/main.rs`
+    - `docs/state/EXECPLAN_COLLECTOR_HEALTH_COMMANDS.md`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `cargo check --manifest-path src-tauri/Cargo.toml`
+    - `python3 <inline provider environment probe>`
+  - Known gaps:
+    - The Settings screen now reflects truth, but it still does not expose an install button for installable providers.
+    - On the current machine, `scrapling`, `crawl4ai`, `scrapy_playwright`, `browser_use`, `lightpanda`, `steel`, and local `playwright` are all currently unavailable or unconfigured, so the collector cards will remain non-green until one is installed/configured.
+  - Next recommended task:
+    - Add Settings-side install actions for installable collectors or preinstall `scrapling`/`crawl4ai` so the section can surface a real green-ready state without leaving the app.
+- Latest bounded objective:
+  - Completed work:
+    - Added per-collector install buttons to the desktop Settings collector cards and wired them through `MainAppImpl` so installable providers can be installed in-app and then immediately rechecked.
+    - Expanded Tauri auto-install support to `playwright_local`, `browser_use`, and `scrapy_playwright` in addition to `scrapling` and `crawl4ai`.
+    - Installed the currently feasible local providers in this environment: `scrapling`, `crawl4ai`, `browser_use`, `scrapy`, `scrapy_playwright`, and desktop `playwright`.
+    - Verified post-install readiness at the package/runtime level: Python-side providers now resolve under `uv run`, and `playwright_local` now reports a real CLI version.
+  - Changed files:
+    - `apps/desktop/src/app/MainAppImpl.tsx`
+    - `apps/desktop/src/pages/settings/SettingsPage.tsx`
+    - `apps/desktop/src/styles/layout/shell/settings-hub.css`
+    - `apps/desktop/package.json`
+    - `src-tauri/src/main.rs`
+    - `pyproject.toml`
+    - `uv.lock`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `cargo check --manifest-path src-tauri/Cargo.toml`
+    - `UV_CACHE_DIR=.uv-cache uv add scrapling crawl4ai browser-use scrapy scrapy-playwright --project .`
+    - `UV_CACHE_DIR=.uv-cache uv sync`
+    - `PNPM_STORE_DIR=/Users/henry/Library/pnpm/store/v10 pnpm --filter desktop add -D playwright`
+    - `UV_CACHE_DIR=.uv-cache uv run python3 <inline import checks>`
+    - `PNPM_STORE_DIR=/Users/henry/Library/pnpm/store/v10 pnpm --filter desktop exec playwright --version`
+    - `PNPM_STORE_DIR=/Users/henry/Library/pnpm/store/v10 pnpm --filter desktop exec tsc --noEmit` (hung without returning output in this shell)
+  - Known gaps:
+    - `steel` still requires external env configuration, so it will remain non-ready until credentials or a CDP endpoint are set.
+    - `lightpanda_experimental` remains outside the current auto-install path because it is treated as an external runtime/binary rather than a repo-local package dependency.
+    - The desktop typecheck command again hung in this shell, so this pass is runtime-checked and Rust-checked but not fully TypeScript-verified.
+  - Next recommended task:
+    - Open Settings in the Tauri app, hit refresh once, and confirm `scrapling`, `crawl4ai`, `browser_use`, `scrapy_playwright`, and `playwright_local` now surface as green-ready while `steel` and `lightpanda_experimental` stay non-ready.
+- Latest micro-update:
+  - Completed work:
+    - Raised line-height for Pathway inspector/detail strong text and supporting body copy so wrapped Korean text no longer looks vertically cramped in multi-line blocks.
+  - Changed files:
+    - `apps/desktop/src/pathway.css`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `rg -n "pathway-panel-copy|pathway-detail|pathway-fact|line-height|node-summary|inspector" apps/desktop/src/pathway.css apps/desktop/src/styles -g '*.css'`
+  - Known gaps:
+    - This pass targets Pathway inspector/detail typography specifically; other non-Pathway screens still use their existing line-height rules.
+  - Next recommended task:
+    - Recheck the Pathway inspector with longer Korean summaries and decide whether the main workflow banner and goal-list descriptions should get the same spacing treatment.
+- Latest bounded objective:
+  - Completed work:
+    - Fixed the real reason the refreshed collector/settings UI appeared not to change: root `pnpm dev` was still launching the desktop Vite server under Node `18.16.1`, so `vite@7` crashed before serving the latest frontend and the user kept seeing an older stale desktop window.
+    - Added `scripts/with-modern-node.sh` and routed desktop/web Vite plus desktop build/typecheck scripts through it so frontend commands prefer the available `~/.nvm` Node `v24.13.1` runtime.
+    - Re-ran `pnpm dev` and confirmed the desktop stack now boots successfully with `VITE v7.3.2 ready` on `http://127.0.0.1:1420/` instead of failing with the old `crypto.hash is not a function` error.
+    - Documented the modern-Node requirement in `README.md` so local desktop runs explain why the helper exists.
+  - Changed files:
+    - `scripts/with-modern-node.sh`
+    - `package.json`
+    - `README.md`
+    - `docs/state/EXECPLAN_MODERN_NODE_DESKTOP_DEV.md`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `zsh scripts/with-modern-node.sh node -v`
+    - `cargo check --manifest-path src-tauri/Cargo.toml`
+    - `pnpm dev`
+    - `curl -sS http://127.0.0.1:1420/`
+    - `osascript -e 'tell application "System Events" to get properties of window 1 of process "pathway"'`
+  - Known gaps:
+    - The helper currently uses explicit `~/.nvm` candidate paths and is tailored to this local machine rather than being fully environment-agnostic.
+    - macOS screen capture in this session kept grabbing a different visible Space, so live verification relied on the successful desktop boot logs instead of a clean screenshot of the running Pathway window.
+  - Next recommended task:
+    - Reopen Settings in the freshly booted Tauri app and confirm the collector cards now reflect the current runtime instead of the previously stale desktop window.
+- Latest bounded objective:
+  - Completed work:
+    - Found a second real bug in the collector status flow: one settings render path was still passing empty collector arrays and no-op refresh handlers, which made `새로고침` appear dead even after the desktop app was freshly rebuilt.
+    - Broadened desktop runtime detection in `MainAppImpl` so the current Tauri shell is less likely to false-negative and stay stuck in `checking`.
+    - Wired live collector props and handlers through `MainAppWorkspaceContent` and `MainAppShell` so both settings mount paths now use the real collector refresh/install state instead of placeholder values.
+    - Restarted `pnpm dev` again and confirmed the desktop/UI/API stack boots successfully with the patched settings wiring.
+  - Changed files:
+    - `apps/desktop/src/app/MainAppImpl.tsx`
+    - `apps/desktop/src/app/main/presentation/MainAppWorkspaceContent.tsx`
+    - `apps/desktop/src/app/main/presentation/MainAppShell.tsx`
+    - `docs/state/EXECPLAN_COLLECTOR_STATUS_LIVE_WIRING.md`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `cargo check --manifest-path src-tauri/Cargo.toml`
+    - `pnpm dev`
+    - `curl -sS http://127.0.0.1:1420/`
+    - `pnpm typecheck` (did not finish within this shell window)
+  - Known gaps:
+    - I still could not get a trustworthy macOS screenshot of the active Tauri window in this session because window capture kept landing on another visible Space.
+    - Typecheck did not finish before handoff, so this pass is runtime-verified and Rust-verified first.
+  - Next recommended task:
+    - Reopen the freshly restarted Settings tab and verify that collector cards now leave the inert blank `checking` state when `새로고침` is pressed.
+- Latest bounded objective:
+  - Completed work:
+    - Expanded the RAG grounding query planner beyond the earlier shallow goal/profile templates so it now actively searches for route patterns, lived experience, failure modes, switching conditions, and alternative routes.
+    - Folded current-state constraints into retrieval planning so changed reality can influence which evidence families are searched before graph generation.
+    - Added diversity-aware grounding selection that prefers varied evidence layers and sources instead of only the top similarity cluster, which should reduce the “everything turns into the same 6-step route” problem when richer sources exist.
+    - Added grounding warnings when retrieved evidence is still too narrow or lacks lived-experience material, so the system is more honest when route diversity is under-supported.
+    - Increased default grounding breadth from 4 retrieval queries / 6 evidence items to 6 retrieval queries / 8 evidence items.
+    - Added focused tests for query-family expansion and evidence-family diversity.
+  - Changed files:
+    - `apps/api/lifemap_api/application/generation_grounding.py`
+    - `apps/api/lifemap_api/application/generation.py`
+    - `apps/api/lifemap_api/config.py`
+    - `apps/api/tests/test_generation_grounding.py`
+    - `docs/state/EXECPLAN_RESEARCH_BREADTH_DIVERSITY_GROUNDING.md`
+    - `docs/state/CURRENT_STATE.md`
+  - Commands run:
+    - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py`
+    - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/config.py apps/api/tests/test_generation_grounding.py`
+    - `pnpm secret-scan`
+  - Known gaps:
+    - This pass deepens use of ingested evidence, but it does not yet build a full web-search scout/orchestration loop that automatically seeks many public lived-experience sources.
+    - Diversity quality still depends on source metadata quality; if imported notes/URLs are not tagged with useful `layer` information, breadth gains are smaller.
+  - Next recommended task:
+    - Implement a bounded public-source scout layer that populates `official`, `research`, `lived_experience`, and `personal_story` evidence families automatically for a goal, while still honoring source policy and robots constraints.

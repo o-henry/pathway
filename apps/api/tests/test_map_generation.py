@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from lifemap_api.api.dependencies import get_embedding_provider, get_llm_provider
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
+from lifemap_api.infrastructure.llm_providers import StubPathwayProvider
 from lifemap_api.main import create_app
 
 from .fake_embeddings import FakeEmbeddingProvider
@@ -52,15 +53,22 @@ def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     get_settings.cache_clear()
 
 
-def _create_goal(client: TestClient) -> str:
+def _create_goal(
+    client: TestClient,
+    *,
+    title: str = "Learn Japanese for travel",
+    description: str = "Need a focused route",
+    category: str = "language",
+    success_criteria: str = "Handle food orders and directions in Japan",
+) -> str:
     response = client.post(
         "/goals",
         json={
             "profile_id": "default",
-            "title": "Learn Japanese for travel",
-            "description": "Need a focused route",
-            "category": "language",
-            "success_criteria": "Handle food orders and directions in Japan",
+            "title": title,
+            "description": description,
+            "category": category,
+            "success_criteria": success_criteria,
             "status": "active",
         },
     )
@@ -78,6 +86,28 @@ def _put_profile(client: TestClient) -> None:
             "monthly_budget_currency": "KRW",
             "energy_level": "medium",
             "preference_tags": ["solo", "easily_bored"],
+            "constraints": {"timebox": "evenings"},
+        },
+    )
+    assert response.status_code == 200
+
+
+def _put_profile_custom(
+    client: TestClient,
+    *,
+    weekly_free_hours: float,
+    monthly_budget_amount: float,
+    energy_level: str,
+) -> None:
+    response = client.put(
+        "/profiles/default",
+        json={
+            "display_name": "Henry",
+            "weekly_free_hours": weekly_free_hours,
+            "monthly_budget_amount": monthly_budget_amount,
+            "monthly_budget_currency": "KRW",
+            "energy_level": energy_level,
+            "preference_tags": ["solo"],
             "constraints": {"timebox": "evenings"},
         },
     )
@@ -234,5 +264,95 @@ def test_generate_map_endpoint_rejects_nonexistent_evidence_refs(client: TestCli
 
     assert response.status_code == 422
     assert "outside the retrieved evidence packet" in response.json()["detail"]
+
+    client.app.dependency_overrides.clear()
+
+
+def test_stub_provider_varies_language_goal_topology_and_preserves_grounding(client: TestClient) -> None:
+    _put_profile_custom(
+        client,
+        weekly_free_hours=10,
+        monthly_budget_amount=120000,
+        energy_level="medium",
+    )
+    goal_id = _create_goal(
+        client,
+        title="일본어를 원어민과 대화할 수준까지 학습",
+        description="회화 위주로 실전 대화가 가능해지고 싶다.",
+        category="language",
+        success_criteria="원어민과 30분 동안 막혀도 일본어로 복구하며 대화를 이어간다.",
+    )
+    _create_manual_source(
+        client,
+        title="Speaking loop note",
+        content_text="회화 목표면 초반부터 말하기 루프를 만들고 복기해야 유지된다.",
+    )
+    _create_manual_source(
+        client,
+        title="Tutor feedback note",
+        content_text="주기적인 피드백이 있을수록 잘못 굳는 표현을 빨리 고친다.",
+    )
+    _create_manual_source(
+        client,
+        title="Immersion environment note",
+        content_text="실제 원어민 반응을 받는 환경이 있어야 회화 복구력이 빨리 붙는다.",
+    )
+
+    client.app.dependency_overrides[get_llm_provider] = lambda: StubPathwayProvider()
+    response = client.post(f"/goals/{goal_id}/maps/generate")
+
+    assert response.status_code == 201
+    graph_bundle = response.json()["graph_bundle"]
+    labels = {node["label"] for node in graph_bundle["nodes"]}
+
+    assert len(graph_bundle["nodes"]) >= 8
+    assert "주간 회화 루프" in labels
+    assert "원어민 노출 환경" in labels
+    assert "30분 대화 마일스톤" in labels
+    evidence_titles = {item["title"] for item in graph_bundle["evidence"]}
+    assert {"Speaking loop note", "Tutor feedback note", "Immersion environment note"} & evidence_titles
+    assert any(node_type["id"] == "practice_system" for node_type in graph_bundle["ontology"]["node_types"])
+    assert "직행 루트" not in labels
+
+    client.app.dependency_overrides.clear()
+
+
+def test_stub_provider_changes_node_count_for_non_language_goal(client: TestClient) -> None:
+    _put_profile_custom(
+        client,
+        weekly_free_hours=4,
+        monthly_budget_amount=20000,
+        energy_level="high",
+    )
+    goal_id = _create_goal(
+        client,
+        title="백엔드 포트폴리오로 취업하기",
+        description="실무형 포트폴리오와 인터뷰 준비를 병행하고 싶다.",
+        category="career",
+        success_criteria="지원 가능한 포트폴리오 2개와 인터뷰 대응 스토리를 만든다.",
+    )
+    _create_manual_source(
+        client,
+        title="Portfolio evidence",
+        content_text="직무 전환 목표는 직접 지원 루트와 포트폴리오 보강 루트를 분리해 관리하는 편이 좋다.",
+    )
+    _create_manual_source(
+        client,
+        title="Interview evidence",
+        content_text="면접 스토리 보강은 빠른 지원 루트의 실패 비용을 낮춘다.",
+    )
+
+    client.app.dependency_overrides[get_llm_provider] = lambda: StubPathwayProvider()
+    response = client.post(f"/goals/{goal_id}/maps/generate")
+
+    assert response.status_code == 201
+    graph_bundle = response.json()["graph_bundle"]
+    labels = {node["label"] for node in graph_bundle["nodes"]}
+
+    assert len(graph_bundle["nodes"]) == 6
+    assert "직접 도전 루트" in labels
+    assert "포트폴리오 보강 루트" in labels
+    assert "주간 회화 루프" not in labels
+    assert all(node_type["id"] != "practice_system" for node_type in graph_bundle["ontology"]["node_types"])
 
     client.app.dependency_overrides.clear()

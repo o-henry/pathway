@@ -398,6 +398,15 @@
   line-height: 1.45;
 }
 
+.settings-collector-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-collector-install-button {
+  min-width: 72px;
+}
+
 .settings-collector-card-detail {
   margin-left: auto;
   text-align: right;

@@ -56,6 +56,9 @@ type CollectorDoctorStatus = {
   detail: string;
   state: CollectorDoctorState;
   message: string;
+  installable?: boolean;
+  installed?: boolean;
+  configured?: boolean;
 };
 
 type CollectorHealthResult = {
@@ -67,6 +70,12 @@ type CollectorHealthResult = {
   installable?: boolean;
   message?: string;
   capabilities?: string[];
+};
+
+type CollectorInstallResult = {
+  provider?: string;
+  installed?: boolean;
+  message?: string;
 };
 
 const COLLECTOR_DOCTOR_DEFINITIONS: ReadonlyArray<{
@@ -210,7 +219,11 @@ function formatUiError(error: unknown, fallback: string): string {
 export default function MainApp() {
   const hasTauriRuntime =
     typeof window !== 'undefined' &&
-    typeof (window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined';
+    (
+      typeof (window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined' ||
+      typeof (window as typeof window & { __TAURI__?: unknown }).__TAURI__ !== 'undefined' ||
+      /tauri/i.test(window.navigator.userAgent)
+    );
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('tasks');
   const [showWorkflowInspector, setShowWorkflowInspector] = useState(true);
   const [workflowCanvasFullscreen, setWorkflowCanvasFullscreen] = useState(false);
@@ -245,6 +258,7 @@ export default function MainApp() {
     })),
   );
   const [collectorDoctorPending, setCollectorDoctorPending] = useState(false);
+  const [collectorInstallPendingId, setCollectorInstallPendingId] = useState<string | null>(null);
 
   const [stateForm, setStateForm] = useState({
     progress_summary: '',
@@ -333,7 +347,13 @@ export default function MainApp() {
     if (nextGoals.length === 0) {
       setActiveGoalId(null);
       setActiveGoal(null);
-      return;
+      setActiveMap(null);
+      setActiveMapId(null);
+      setCurrentState(null);
+      setStateUpdates([]);
+      setRouteSelection(null);
+      setRevisionPreview(null);
+      return null;
     }
 
     const preferredGoalId =
@@ -341,6 +361,19 @@ export default function MainApp() {
         ? activeGoalId
         : nextGoals[0]?.id;
     setActiveGoalId(preferredGoalId ?? null);
+    return preferredGoalId ?? null;
+  }
+
+  async function syncPathwayWorkspace(preserveSelection = true) {
+    const nextGoalId = await refreshGoals(preserveSelection);
+    if (!nextGoalId) {
+      return;
+    }
+    const preferredMapId =
+      preserveSelection && activeGoalId === nextGoalId
+        ? activeMapId
+        : null;
+    await refreshGoalWorkspace(nextGoalId, preferredMapId);
   }
 
   async function refreshGoalWorkspace(goalId: string, preferredMapId?: string | null) {
@@ -349,11 +382,16 @@ export default function MainApp() {
     const goal = goals.find((item) => item.id === goalId) ?? (await fetchGoals()).find((item) => item.id === goalId) ?? null;
     setActiveGoal(goal);
 
-    const [nextMaps, nextUpdates, nextCurrentState] = await Promise.all([
+    const [rawMaps, nextUpdates, nextCurrentState] = await Promise.all([
       fetchGoalMaps(goalId),
       fetchStateUpdates(goalId),
       fetchCurrentState(goalId)
     ]);
+    const nextMaps = [...rawMaps].sort((left, right) => {
+      const leftTime = Date.parse(left.updated_at ?? left.created_at ?? '') || 0;
+      const rightTime = Date.parse(right.updated_at ?? right.created_at ?? '') || 0;
+      return rightTime - leftTime;
+    });
 
     setMaps(nextMaps);
     setStateUpdates(nextUpdates);
@@ -376,10 +414,32 @@ export default function MainApp() {
     }
   }
 
+  async function handleSelectPathwayGoal(goalId: string | null) {
+    setActiveGoalId(goalId);
+    setErrorMessage('');
+
+    if (!goalId) {
+      setActiveGoal(null);
+      setActiveMap(null);
+      setActiveMapId(null);
+      setCurrentState(null);
+      setStateUpdates([]);
+      setRouteSelection(null);
+      setRevisionPreview(null);
+      setSelectedNodeId(null);
+      setShowWorkflowInspector(false);
+      return;
+    }
+
+    const nextGoal = goals.find((item) => item.id === goalId) ?? null;
+    setActiveGoal(nextGoal);
+    await refreshGoalWorkspace(goalId);
+  }
+
   useEffect(() => {
     void (async () => {
       try {
-        await refreshGoals(false);
+        await syncPathwayWorkspace(false);
       } catch (error) {
         setErrorMessage(formatUiError(error, '목표를 불러오지 못했습니다.'));
       }
@@ -399,6 +459,46 @@ export default function MainApp() {
       }
     })();
   }, [activeGoalId]);
+
+  useEffect(() => {
+    if (workspaceTab !== 'tasks' && workspaceTab !== 'workflow') {
+      return;
+    }
+    void (async () => {
+      try {
+        setErrorMessage('');
+        await syncPathwayWorkspace(true);
+      } catch (error) {
+        setErrorMessage(formatUiError(error, '목표 작업공간을 새로고침하지 못했습니다.'));
+      }
+    })();
+  }, [workspaceTab]);
+
+  useEffect(() => {
+    const syncIfPathwayVisible = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      if (workspaceTab !== 'tasks' && workspaceTab !== 'workflow') {
+        return;
+      }
+      void (async () => {
+        try {
+          setErrorMessage('');
+          await syncPathwayWorkspace(true);
+        } catch (error) {
+          setErrorMessage(formatUiError(error, '목표 작업공간을 새로고침하지 못했습니다.'));
+        }
+      })();
+    };
+
+    window.addEventListener('focus', syncIfPathwayVisible);
+    document.addEventListener('visibilitychange', syncIfPathwayVisible);
+    return () => {
+      window.removeEventListener('focus', syncIfPathwayVisible);
+      document.removeEventListener('visibilitychange', syncIfPathwayVisible);
+    };
+  }, [workspaceTab, activeGoalId, activeMapId, goals]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -473,6 +573,9 @@ export default function MainApp() {
           ...collector,
           state: 'checking',
           message: 'Tauri 앱에서 확인할 수 있습니다.',
+          installable: false,
+          installed: false,
+          configured: false,
         })),
       );
       return;
@@ -488,6 +591,9 @@ export default function MainApp() {
           ...collector,
           state: 'checking',
           message: 'Tauri 앱에서 확인할 수 있습니다.',
+          installable: false,
+          installed: false,
+          configured: false,
         })),
       );
       return;
@@ -520,12 +626,18 @@ export default function MainApp() {
               ...collector,
               state: ready ? 'ready' : 'error',
               message: message || fallback,
+              installable: Boolean(health?.installable),
+              installed: Boolean(health?.installed),
+              configured: Boolean(health?.configured),
             } satisfies CollectorDoctorStatus;
           } catch (error) {
             return {
               ...collector,
               state: 'error',
               message: formatUiError(error, '상태 확인 실패'),
+              installable: false,
+              installed: false,
+              configured: false,
             } satisfies CollectorDoctorStatus;
           }
         }),
@@ -533,6 +645,30 @@ export default function MainApp() {
       setCollectorDoctorStatuses(results);
     } finally {
       setCollectorDoctorPending(false);
+    }
+  }
+
+  async function handleInstallCollector(providerId: string) {
+    if (!hasTauriRuntime) {
+      setStatusMessage('수집기 설치는 Tauri 앱에서만 실행할 수 있습니다.');
+      return;
+    }
+    setCollectorInstallPendingId(providerId);
+    setStatusMessage(`${providerId} 설치를 시작합니다...`);
+    try {
+      await ensureEngineStarted();
+      const result = await invoke<CollectorInstallResult>('dashboard_crawl_provider_install', {
+        cwd,
+        provider: providerId,
+      });
+      const installMessage = String(result?.message ?? '').trim();
+      setStatusMessage(installMessage || `${providerId} 설치를 마쳤습니다.`);
+      await refreshCollectorDoctor();
+    } catch (error) {
+      setStatusMessage(formatUiError(error, `${providerId} 설치 실패`));
+      await refreshCollectorDoctor();
+    } finally {
+      setCollectorInstallPendingId(null);
     }
   }
 
@@ -1062,10 +1198,7 @@ export default function MainApp() {
         onOpenWorkflow={() => setWorkspaceTab('workflow')}
         onOpenSettings={() => setWorkspaceTab('settings')}
         onSelectGoal={(goalId) => {
-          setActiveGoalId(goalId);
-          if (!goalId) {
-            setActiveGoal(null);
-          }
+          void handleSelectPathwayGoal(goalId);
         }}
         pathwayGoals={goals}
         pathwayMode
@@ -1084,6 +1217,7 @@ export default function MainApp() {
           compact={false}
           collectorDoctorPending={collectorDoctorPending}
           collectorDoctorStatuses={collectorDoctorStatuses}
+          collectorInstallPendingId={collectorInstallPendingId}
           cwd={cwd}
           engineStarted={engineStarted}
           isGraphRunning={false}
@@ -1091,6 +1225,7 @@ export default function MainApp() {
           onCloseUsageResult={() => setUsageResultClosed(true)}
           onOpenRunsFolder={() => void handleOpenRunsFolder()}
           onRefreshCollectorDoctor={() => void refreshCollectorDoctor()}
+          onInstallCollector={(providerId) => void handleInstallCollector(providerId)}
           onSelectCwdDirectory={() => void handleSelectCwdDirectory()}
           onToggleCodexLogin={() => void handleToggleCodexLogin()}
           running={isBusy}
