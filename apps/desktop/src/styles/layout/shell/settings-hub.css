@@ -390,8 +390,7 @@
   line-height: 1.25;
 }
 
-.settings-collector-card-detail,
-.settings-collector-card-message {
+.settings-collector-card-detail {
   margin: 0;
   color: #667284;
   font-size: 12px;

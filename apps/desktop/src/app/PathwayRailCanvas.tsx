@@ -59,7 +59,26 @@ type CanvasPanState = {
   scrollTop: number;
 };
 
-type PathwayTone = "sky" | "iris" | "mist";
+type PathwayTone = "sky" | "iris" | "mist" | "goal";
+
+const TERMINAL_GOAL_DATA_ROLE = "terminal_goal";
+
+function normalizeGraphSearchText(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function semanticTextIncludesGoal(value: string): boolean {
+  return value.includes("goal") || value.includes("objective") || value.includes("목표");
+}
+
+function nodeLooksLikeGoal(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): boolean {
+  const dataRole = normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role);
+  if (dataRole === TERMINAL_GOAL_DATA_ROLE) {
+    return true;
+  }
+  const value = normalizeGraphSearchText(`${definition?.id ?? ""} ${definition?.label ?? ""} ${node.type} ${node.label}`);
+  return semanticTextIncludesGoal(value);
+}
 
 function hashString(value: string): number {
   let hash = 0;
@@ -71,6 +90,9 @@ function hashString(value: string): number {
 
 function nodeSemanticFamily(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): string {
   const value = `${definition?.id ?? ""} ${definition?.label ?? ""} ${node.type} ${node.label}`.toLowerCase();
+  if (nodeLooksLikeGoal(definition, node)) {
+    return "goal";
+  }
   if (value.includes("risk") || value.includes("warning")) {
     return "risk";
   }
@@ -91,6 +113,9 @@ function nodeSemanticFamily(definition: GraphNodeTypeDefinition | undefined, nod
 
 function toneForFamily(family: string, node: GraphNodeRecord): PathwayTone {
   const fallbackTones: PathwayTone[] = ["sky", "iris", "mist"];
+  if (family === "goal") {
+    return "goal";
+  }
   if (family === "decision") {
     return "iris";
   }
@@ -104,7 +129,144 @@ function toneForFamily(family: string, node: GraphNodeRecord): PathwayTone {
 }
 
 function measurePathwayNode(_node: GraphNodeRecord, _depth: number, _childCount: number): { width: number; height: number } {
+  if (
+    normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
+    TERMINAL_GOAL_DATA_ROLE
+  ) {
+    return { width: 280, height: 64 };
+  }
   return { width: 220, height: 56 };
+}
+
+function makeUniqueNodeId(baseId: string, existingIds: Set<string>): string {
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+  let index = 2;
+  while (existingIds.has(`${baseId}_${index}`)) {
+    index += 1;
+  }
+  return `${baseId}_${index}`;
+}
+
+function makeUniqueEdgeId(baseId: string, existingIds: Set<string>): string {
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+  let index = 2;
+  while (existingIds.has(`${baseId}_${index}`)) {
+    index += 1;
+  }
+  return `${baseId}_${index}`;
+}
+
+function ensureGoalNodeType(bundle: GraphBundle): string {
+  const existingGoalType = bundle.ontology.node_types.find((definition) => {
+    const value = normalizeGraphSearchText(`${definition.id} ${definition.label}`);
+    return semanticTextIncludesGoal(value);
+  });
+  if (existingGoalType) {
+    return existingGoalType.id;
+  }
+
+  bundle.ontology.node_types.push({
+    id: "goal",
+    label: "GOAL",
+    description: "사용자가 기입한 최종 목표",
+    default_style: { tone: "goal", shape: "rounded_card" },
+    fields: [{ key: "source", label: "Source", value_type: "text", required: false }],
+  });
+  return "goal";
+}
+
+function ensureProgressionEdgeType(bundle: GraphBundle): string {
+  const existingProgressionType = bundle.ontology.edge_types.find((item) => item.role === "progression");
+  if (existingProgressionType) {
+    return existingProgressionType.id;
+  }
+  bundle.ontology.edge_types.push({
+    id: "progresses_to",
+    label: "진행",
+    role: "progression",
+    default_style: { line: "curved" },
+  });
+  return "progresses_to";
+}
+
+export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitle?: string | null): GraphBundle {
+  const next = structuredClone(bundle);
+  const progressionTypeId = ensureProgressionEdgeType(next);
+  const goalTypeId = ensureGoalNodeType(next);
+  const nodeTypes = new Map(next.ontology.node_types.map((item) => [item.id, item]));
+  const existingNodeIds = new Set(next.nodes.map((node) => node.id));
+  const userGoalLabel = String(userGoalTitle ?? "").trim();
+  const fallbackGoalLabel =
+    userGoalLabel ||
+    next.nodes.find((node) => nodeLooksLikeGoal(nodeTypes.get(node.type), node))?.label ||
+    next.map.title ||
+    "GOAL";
+
+  let goalNode = next.nodes.find((node) => nodeLooksLikeGoal(nodeTypes.get(node.type), node));
+  if (!goalNode) {
+    const goalNodeId = makeUniqueNodeId("goal", existingNodeIds);
+    goalNode = {
+      id: goalNodeId,
+      type: goalTypeId,
+      label: fallbackGoalLabel,
+      summary: "사용자가 기입한 최종 목표입니다. 모든 진행 루트는 이 노드로 수렴합니다.",
+      data: {
+        source: "user_goal",
+        pathway_display_role: TERMINAL_GOAL_DATA_ROLE,
+      },
+      evidence_refs: [],
+      assumption_refs: [],
+    };
+    next.nodes.push(goalNode);
+    existingNodeIds.add(goalNodeId);
+  } else {
+    goalNode.type = goalTypeId;
+    goalNode.label = fallbackGoalLabel;
+    goalNode.summary = goalNode.summary || "사용자가 기입한 최종 목표입니다.";
+    goalNode.data = {
+      ...goalNode.data,
+      source: (goalNode.data as Record<string, unknown> | undefined)?.source ?? "user_goal",
+      pathway_display_role: TERMINAL_GOAL_DATA_ROLE,
+    };
+  }
+
+  const goalNodeId = goalNode.id;
+  const nonGoalNodeIds = new Set(
+    next.nodes.filter((node) => node.id !== goalNodeId).map((node) => node.id),
+  );
+  const nonProgressionEdges = next.edges.filter((edge) => edge.type !== progressionTypeId);
+  const nonGoalProgressionEdges = next.edges.filter(
+    (edge) => edge.type === progressionTypeId && edge.source !== goalNodeId && edge.target !== goalNodeId,
+  );
+  const outgoing = new Map<string, number>();
+  nonGoalNodeIds.forEach((nodeId) => outgoing.set(nodeId, 0));
+  nonGoalProgressionEdges.forEach((edge) => {
+    if (nonGoalNodeIds.has(edge.source) && nonGoalNodeIds.has(edge.target)) {
+      outgoing.set(edge.source, (outgoing.get(edge.source) ?? 0) + 1);
+    }
+  });
+
+  const terminalNodeIds = [...nonGoalNodeIds].filter((nodeId) => (outgoing.get(nodeId) ?? 0) === 0);
+  const existingEdgeIds = new Set(next.edges.map((edge) => edge.id));
+  const terminalGoalEdges = terminalNodeIds.map((nodeId) => {
+    const baseId = `terminal_goal_${nodeId}`;
+    const edgeId = makeUniqueEdgeId(baseId, existingEdgeIds);
+    existingEdgeIds.add(edgeId);
+    return {
+      id: edgeId,
+      type: progressionTypeId,
+      source: nodeId,
+      target: goalNodeId,
+      label: "GOAL",
+    };
+  });
+
+  next.edges = [...nonProgressionEdges, ...nonGoalProgressionEdges, ...terminalGoalEdges];
+  return next;
 }
 
 type PathwayNodeFootprint = {

@@ -132,9 +132,6 @@ export default function SettingsPage({
                 </div>
                 <span className="settings-collector-card-detail">{collector.detail}</span>
               </div>
-              {collector.state === "checking" ? null : (
-                <p className="settings-collector-card-message">{collector.message}</p>
-              )}
               {collector.installable && collector.state !== "ready" ? (
                 <div className="settings-collector-card-actions">
                   <button

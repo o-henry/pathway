@@ -1161,3 +1161,40 @@ The highest-value follow-up options are now:
     - Diversity quality still depends on source metadata quality; if imported notes/URLs are not tagged with useful `layer` information, breadth gains are smaller.
   - Next recommended task:
     - Implement a bounded public-source scout layer that populates `official`, `research`, `lived_experience`, and `personal_story` evidence families automatically for a goal, while still honoring source policy and robots constraints.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the visible collector readiness message text from the Settings Collector Doctor rows, so the status is communicated by the existing colored dot while the collector name and detail remain visible.
+  - Cleaned up the now-unused collector-card message CSS selector.
+- Changed files:
+  - `apps/desktop/src/pages/settings/SettingsPage.tsx`
+  - `apps/desktop/src/styles/layout/shell/settings-hub.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This was verified by typecheck only; a live Settings screenshot pass is still useful if the row height or spacing needs another visual nudge.
+- Next recommended task:
+  - Reopen Settings in the desktop app and confirm the Collector Doctor rows now rely on the colored status dot without the extra success/failure text line.
+
+## Latest bounded objective
+
+- Completed work:
+  - Added a Pathway display-bundle normalization step so the user's GOAL node renders as the rightmost terminal node instead of the starting node.
+  - The normalized canvas removes displayed outgoing progression edges from GOAL and connects every final non-goal branch node into GOAL, so visible routes converge on the user's stated objective.
+  - Passed the active goal title into the graph display normalization, added a visible `GOAL` marker, and gave terminal goal nodes a distinct dark green treatment.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowCanvasNodesLayer.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_PATHWAY_TERMINAL_GOAL_NODE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This is currently a desktop display normalization; stored graph bundles and backend generation prompts can still preserve their original edge direction until a follow-up backend pass.
+  - No live screenshot verification was run for this turn.
+- Next recommended task:
+  - Open the workflow canvas and verify the GOAL terminal spacing with both the demo graph and a generated live map, then decide whether backend generation should emit goal-as-sink bundles natively.

@@ -161,6 +161,7 @@ export default function WorkflowCanvasNodesLayer({
         const pathwayTone = String((node.config as Record<string, unknown>)?.pathwayTone ?? "").trim().toLowerCase();
         const pathwayFamily = String((node.config as Record<string, unknown>)?.pathwayFamily ?? "").trim().toLowerCase();
         const isPathwayNode = sourceKind === "pathway";
+        const isPathwayGoalNode = isPathwayNode && pathwayFamily === "goal";
         const pathwayTitle = String((node.config as Record<string, unknown>)?.model ?? node.id).trim();
         const pathwayDepth = Number((node.config as Record<string, unknown>)?.pathwayDepth ?? -1);
         const pathwayChildCount = Number((node.config as Record<string, unknown>)?.pathwayChildCount ?? 0);
@@ -234,6 +235,7 @@ export default function WorkflowCanvasNodesLayer({
                 {isPathwayNode ? (
                   <div className="pathway-branch-chip">
                     <span className="pathway-branch-dot" aria-hidden="true" />
+                    {isPathwayGoalNode ? <span className="pathway-goal-kicker">GOAL</span> : null}
                     <span className="pathway-branch-label" title={pathwayTitle}>
                       {pathwayTitle}
                     </span>

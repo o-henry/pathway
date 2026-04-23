@@ -22,7 +22,7 @@ import {
   updateRouteSelection
 } from '../lib/api';
 import { buildExampleGraphBundle } from '../lib/exampleGraphBundle';
-import PathwayRailCanvas from './PathwayRailCanvas';
+import PathwayRailCanvas, { buildTerminalGoalDisplayBundle } from './PathwayRailCanvas';
 import {
   extractAuthMode,
   isEngineAlreadyStartedError,
@@ -216,6 +216,11 @@ function formatUiError(error: unknown, fallback: string): string {
   return message || fallback;
 }
 
+function isTauriUnavailableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /tauri runtime unavailable|__tauri|tauri|ipc|invoke/i.test(message);
+}
+
 export default function MainApp() {
   const hasTauriRuntime =
     typeof window !== 'undefined' &&
@@ -277,7 +282,15 @@ export default function MainApp() {
   const visibleBundle = activeBundle && revisionPreview
     ? mergePreviewBundle(activeBundle, revisionPreview)
     : activeBundle;
-  const displayBundle = visibleBundle ?? demoBundle;
+  const rawDisplayBundle = visibleBundle ?? demoBundle;
+  const displayBundle = useMemo(
+    () => buildTerminalGoalDisplayBundle(rawDisplayBundle, activeGoal?.title),
+    [activeGoal?.title, rawDisplayBundle],
+  );
+  const displayBaseBundle = useMemo(
+    () => (activeBundle ? buildTerminalGoalDisplayBundle(activeBundle, activeGoal?.title) : undefined),
+    [activeBundle, activeGoal?.title],
+  );
   const effectiveSelectedNodeId =
     selectedNodeId ?? (activeBundle ? routeSelection?.selected_node_id ?? null : null);
   const selectedNode = findSelectedNode(displayBundle, effectiveSelectedNodeId);
@@ -298,9 +311,6 @@ export default function MainApp() {
   }
 
   async function ensureEngineStarted() {
-    if (!hasTauriRuntime) {
-      throw new Error('Tauri runtime unavailable');
-    }
     try {
       await invoke('engine_start', { cwd });
       setEngineStarted(true);
@@ -311,6 +321,19 @@ export default function MainApp() {
       }
       throw error;
     }
+  }
+
+  function setCollectorDoctorPreviewFallback(message = 'Tauri 앱에서 확인할 수 있습니다.') {
+    setCollectorDoctorStatuses(
+      COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
+        ...collector,
+        state: 'error',
+        message,
+        installable: false,
+        installed: false,
+        configured: false,
+      })),
+    );
   }
 
   async function refreshAuthStateFromEngine(showStatus = false): Promise<AuthProbeResult | null> {
@@ -567,37 +590,13 @@ export default function MainApp() {
       return;
     }
     if (!hasTauriRuntime) {
-      setStatusMessage('브라우저 프리뷰에서는 CODEX 로그인 브리지를 확인할 수 없습니다. Tauri 앱에서 설정을 열어주세요.');
-      setCollectorDoctorStatuses(
-        COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
-          ...collector,
-          state: 'checking',
-          message: 'Tauri 앱에서 확인할 수 있습니다.',
-          installable: false,
-          installed: false,
-          configured: false,
-        })),
-      );
-      return;
+      setStatusMessage('브라우저 프리뷰에서는 일부 설정 연결이 제한될 수 있습니다. 가능하면 Tauri 앱에서 확인하세요.');
     }
     void refreshAuthStateFromEngine(true);
     void refreshCollectorDoctor();
   }, [hasTauriRuntime, workspaceTab]);
 
   async function refreshCollectorDoctor() {
-    if (!hasTauriRuntime) {
-      setCollectorDoctorStatuses(
-        COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
-          ...collector,
-          state: 'checking',
-          message: 'Tauri 앱에서 확인할 수 있습니다.',
-          installable: false,
-          installed: false,
-          configured: false,
-        })),
-      );
-      return;
-    }
     setCollectorDoctorPending(true);
     try {
       await ensureEngineStarted();
@@ -643,16 +642,27 @@ export default function MainApp() {
         }),
       );
       setCollectorDoctorStatuses(results);
+    } catch (error) {
+      if (isTauriUnavailableError(error)) {
+        setCollectorDoctorPreviewFallback('브라우저 프리뷰에서는 수집기 상태를 확인할 수 없습니다. Tauri 앱에서 다시 확인하세요.');
+      } else {
+        setCollectorDoctorStatuses(
+          COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
+            ...collector,
+            state: 'error',
+            message: formatUiError(error, '상태 확인 실패'),
+            installable: false,
+            installed: false,
+            configured: false,
+          })),
+        );
+      }
     } finally {
       setCollectorDoctorPending(false);
     }
   }
 
   async function handleInstallCollector(providerId: string) {
-    if (!hasTauriRuntime) {
-      setStatusMessage('수집기 설치는 Tauri 앱에서만 실행할 수 있습니다.');
-      return;
-    }
     setCollectorInstallPendingId(providerId);
     setStatusMessage(`${providerId} 설치를 시작합니다...`);
     try {
@@ -665,7 +675,12 @@ export default function MainApp() {
       setStatusMessage(installMessage || `${providerId} 설치를 마쳤습니다.`);
       await refreshCollectorDoctor();
     } catch (error) {
-      setStatusMessage(formatUiError(error, `${providerId} 설치 실패`));
+      if (isTauriUnavailableError(error)) {
+        setStatusMessage('수집기 설치는 Tauri 앱에서만 실행할 수 있습니다.');
+        setCollectorDoctorPreviewFallback('브라우저 프리뷰에서는 설치를 실행할 수 없습니다. Tauri 앱에서 다시 시도하세요.');
+      } else {
+        setStatusMessage(formatUiError(error, `${providerId} 설치 실패`));
+      }
       await refreshCollectorDoctor();
     } finally {
       setCollectorInstallPendingId(null);
@@ -992,7 +1007,7 @@ export default function MainApp() {
                   ) : null}
                   <PathwayRailCanvas
                     bundle={displayBundle}
-                    baseBundle={activeBundle ?? undefined}
+                    baseBundle={displayBaseBundle}
                     overlayActions={workflowCanvasActions}
                     overlayStats={workflowCanvasStats}
                     onFullscreenChange={setWorkflowCanvasFullscreen}
