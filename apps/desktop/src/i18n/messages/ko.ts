@@ -8,6 +8,7 @@ export const KO_MESSAGES: Dictionary = {
     "nav.workflow.short": "경로",
     "nav.workflow.title": "워크플로우",
     "nav.tasks": "목표",
+    "nav.learning": "학습",
     "nav.shell": "터미널",
     "nav.workbench": "워크스페이스",
     "nav.dashboard": "홈",

@@ -436,6 +436,20 @@
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(152, 220, 185, 0.12) 100%);
 }
 
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="learning"] .pathway-branch-chip {
+  --branch-bg: linear-gradient(90deg, rgba(222, 244, 248, 0.96) 0%, rgba(239, 251, 253, 0.98) 100%);
+  --branch-text: #244d58;
+  --branch-dot-bg: rgba(249, 254, 255, 0.98);
+  --branch-dot-border: rgba(51, 150, 170, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(51, 150, 170, 0.16),
+    0 18px 34px rgba(44, 118, 136, 0.12);
+}
+
+.pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-family="learning"] .pathway-branch-chip::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.52) 0%, rgba(207, 241, 248, 0.34) 100%);
+}
+
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"] .pathway-branch-dot {
   position: relative;
   z-index: 1;
@@ -873,6 +887,446 @@
   width: 100%;
   max-width: min(760px, 100%);
   box-shadow: none;
+}
+
+.pathway-learning {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px 12px;
+  box-sizing: border-box;
+}
+
+.pathway-learning-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 2px 0;
+}
+
+.pathway-learning-head > div:first-child {
+  min-width: 0;
+}
+
+.pathway-learning-head strong {
+  display: block;
+  color: #1f2430;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.pathway-learning .pathway-panel-kicker {
+  margin-bottom: 5px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.pathway-learning-goal {
+  min-width: 240px;
+  max-width: 360px;
+  padding: 10px 12px;
+  border: 1px solid rgba(39, 48, 63, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.pathway-learning-goal span {
+  display: block;
+  color: #687285;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.pathway-learning-goal strong {
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #243134;
+  font-size: 13px;
+}
+
+.pathway-learning-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(246px, 0.72fr) minmax(360px, 1.28fr) minmax(320px, 0.92fr);
+  gap: 12px;
+}
+
+.pathway-learning-calendar,
+.pathway-learning-agenda,
+.pathway-learning-review {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(36, 44, 57, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+}
+
+.pathway-learning-calendar {
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  gap: 10px;
+}
+
+.pathway-learning-calendar-head,
+.pathway-learning-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pathway-learning-section-head > div {
+  min-width: 0;
+}
+
+.pathway-learning .mini-action-button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid rgba(36, 44, 57, 0.14);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #2d3544;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pathway-learning .mini-action-button:disabled {
+  opacity: 0.44;
+}
+
+.pathway-learning .mini-action-button.pathway-primary-button {
+  border-color: #202631;
+  background: #202631;
+  color: #ffffff;
+}
+
+.pathway-learning-calendar-head {
+  align-items: center;
+}
+
+.pathway-learning-calendar-head button {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid rgba(39, 48, 63, 0.12);
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #2e3644;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.pathway-learning-calendar-head strong,
+.pathway-learning-section-head strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #202838;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.pathway-learning-weekdays,
+.pathway-learning-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+.pathway-learning-weekdays span {
+  text-align: center;
+  color: #748195;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.pathway-learning-month-grid button {
+  aspect-ratio: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(38, 47, 62, 0.08);
+  border-radius: 3px;
+  background: #fbfcfe;
+  color: #2f3848;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  position: relative;
+}
+
+.pathway-learning-month-grid button.is-muted {
+  opacity: 0.36;
+}
+
+.pathway-learning-month-grid button.is-selected {
+  border-color: rgba(36, 77, 88, 0.42);
+  background: #e8f6f8;
+  box-shadow: inset 0 0 0 1px rgba(36, 77, 88, 0.18);
+}
+
+.pathway-learning-month-grid button span {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.pathway-learning-month-grid button em {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  color: #287483;
+  font-size: 9px;
+  line-height: 1;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pathway-learning-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pathway-learning-stats div {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid rgba(38, 47, 62, 0.08);
+  border-radius: 4px;
+  background: #fbfcfe;
+}
+
+.pathway-learning-stats span,
+.pathway-learning-result span {
+  display: block;
+  color: #687285;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.pathway-learning-stats strong {
+  display: block;
+  margin-top: 4px;
+  color: #23303a;
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.pathway-learning-agenda,
+.pathway-learning-review {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.pathway-learning-review {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pathway-learning-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) 74px;
+  gap: 8px;
+}
+
+.pathway-learning-form input,
+.pathway-learning-form textarea,
+.pathway-learning-quiz textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 44, 57, 0.12);
+  border-radius: 4px;
+  background: #fbfcfe;
+  color: #202838;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 9px 10px;
+  outline: none;
+}
+
+.pathway-learning-form textarea {
+  grid-column: 1 / -1;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.pathway-learning-task-list,
+.pathway-learning-quiz {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.pathway-learning-task {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid rgba(36, 44, 57, 0.08);
+  border-radius: 4px;
+  background: #fbfcfe;
+}
+
+.pathway-learning-task.is-active {
+  border-color: rgba(36, 77, 88, 0.34);
+  background: #f3fbfc;
+}
+
+.pathway-learning-task.is-complete {
+  border-color: rgba(51, 150, 170, 0.22);
+}
+
+.pathway-learning-check {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(36, 77, 88, 0.28);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #287483;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pathway-learning-task-body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.pathway-learning-task-body strong {
+  overflow: hidden;
+  color: #202838;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pathway-learning-task-body span,
+.pathway-learning-task-body small,
+.pathway-learning-empty,
+.pathway-learning-result p {
+  color: #657184;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.pathway-learning-task-body span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pathway-learning-delete {
+  border: 1px solid rgba(36, 44, 57, 0.12);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #667284;
+  font-size: 11px;
+  line-height: 1;
+  padding: 7px 8px;
+}
+
+.pathway-learning-empty {
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px dashed rgba(36, 44, 57, 0.16);
+  border-radius: 4px;
+  background: rgba(251, 252, 254, 0.76);
+}
+
+.pathway-learning-quiz-target {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(51, 150, 170, 0.16);
+  border-radius: 4px;
+  background: #f3fbfc;
+}
+
+.pathway-learning-quiz-target span {
+  color: #5d6a7a;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.pathway-learning-quiz-target strong {
+  color: #1f2d35;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.pathway-learning-quiz label {
+  display: grid;
+  gap: 6px;
+}
+
+.pathway-learning-quiz label > span {
+  color: #2f3848;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pathway-learning-quiz textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.pathway-learning-result {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(51, 150, 170, 0.18);
+  border-radius: 4px;
+  background: #fbfcfe;
+}
+
+.pathway-learning-result strong {
+  color: #244d58;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.pathway-learning-result p {
+  margin: 0;
 }
 
 .pathway-tasks-nav .tasks-thread-project-tree {

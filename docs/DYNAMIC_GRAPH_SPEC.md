@@ -214,6 +214,14 @@ assert is_directed_acyclic_graph(nodes, progression_edges)
 
 Use NetworkX or a small local topological-sort implementation.
 
+## 7.1 Preservation rule
+
+Revisions, task-completion updates, and learning-route updates must preserve existing graph material by default.
+
+Do not remove prior nodes, edges, evidence, assumptions, or route history unless the user explicitly asks for deletion or invokes a clear delete control for those exact graph elements.
+
+Prefer appending new personal-route nodes, adding updated evidence, marking older routes as weakened/superseded, or connecting new branches to the preserved graph.
+
 ## 8. LLM generation contract
 
 The generator must output only JSON matching the schema.

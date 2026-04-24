@@ -1198,3 +1198,118 @@ The highest-value follow-up options are now:
   - No live screenshot verification was run for this turn.
 - Next recommended task:
   - Open the workflow canvas and verify the GOAL terminal spacing with both the demo graph and a generated live map, then decide whether backend generation should emit goal-as-sink bundles natively.
+
+## Latest bounded objective
+
+- Completed work:
+  - Committed and pushed the prior collector/terminal-GOAL work to `origin/main` as `1b2f7bf` (`Polish collector status and terminal goal graph`).
+  - Added a new left-nav `학습` tab using `apps/desktop/public/icon-learning-stack.svg`, copied from the user-provided SVG.
+  - Built a Pathway-style task calendar inspired by Dribbble task-calendar dashboard patterns: compact month grid, selected-day agenda, completion stats, task cards, and a right-side quiz/review rail.
+  - Added local-first learning task persistence per active goal, completion checks, deterministic quiz prompts, answer feedback, and resource suggestions.
+  - Completed learning tasks now augment the displayed graph as distinct light-blue personal learning route nodes connected into GOAL while preserving the existing graph.
+  - Added the absolute graph preservation rule to `AGENTS.md` and `docs/DYNAMIC_GRAPH_SPEC.md`.
+- Changed files:
+  - `AGENTS.md`
+  - `apps/desktop/public/icon-learning-stack.svg`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/hooks/useWorkflowShortcuts.ts`
+  - `apps/desktop/src/app/hooks/useWorkspaceQuickPanel.ts`
+  - `apps/desktop/src/app/mainAppGraphHelpers.tsx`
+  - `apps/desktop/src/components/AppNav.tsx`
+  - `apps/desktop/src/i18n/messages/en.ts`
+  - `apps/desktop/src/i18n/messages/ja.ts`
+  - `apps/desktop/src/i18n/messages/ko.ts`
+  - `apps/desktop/src/i18n/messages/zh.ts`
+  - `apps/desktop/src/pages/learning/LearningTasksPage.tsx`
+  - `apps/desktop/src/pages/learning/learningTasks.ts`
+  - `apps/desktop/src/pathway.css`
+  - `docs/DYNAMIC_GRAPH_SPEC.md`
+  - `docs/state/EXECPLAN_PATHWAY_LEARNING_TASK_CALENDAR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `git commit -m "Polish collector status and terminal goal graph"`
+  - `git push origin main`
+  - `cp /Users/henry/Downloads/square-stack-3d-up-svgrepo-com.svg apps/desktop/public/icon-learning-stack.svg`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm --filter desktop dev -- --host 127.0.0.1 --port 1420`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e10`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh fill e182 "문법 패턴 복습"`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e180`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e198`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e13`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-learning-graph.png`
+- Known gaps:
+  - Quiz generation and grading are deterministic/local in this pass, not yet backed by the intended multi-agent/LLM review loop.
+  - Learning tasks are currently localStorage data rather than first-class FastAPI/SQLite records.
+  - Completed learning routes are display-layer graph augmentation; backend revision generation should later ingest the tasks as current-state evidence and generate durable graph revisions.
+  - Browser verification ran with the FastAPI backend unavailable, so it validated the demo-graph path and frontend behavior only.
+- Next recommended task:
+  - Promote learning tasks into backend persistence and feed completed task/quiz evidence into revision-preview generation so personal learning routes become durable graph snapshots.
+
+## Latest micro-update
+
+- Completed work:
+  - Changed Pathway canvas edge rendering to use straight line segments instead of the shared orthogonal/bundled routing used by the general workflow graph.
+  - Kept the default workflow renderer behavior unchanged by adding a `routeStyle` option and only opting Pathway into `straight`.
+  - Verified in the browser that the GOAL convergence and mid-graph branch joins no longer form stair-step trunks.
+- Changed files:
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/EXECPLAN_PATHWAY_STRAIGHT_EDGE_ROUTING.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e13`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-straight-edges.png`
+- Known gaps:
+  - Dense graphs can still have crossing straight lines; if that becomes noisy, the next pass should use subtle direct curves or per-target fan-out while avoiding stair-step shared trunks.
+- Next recommended task:
+  - Do a live pass on a deeper generated graph and decide whether straight lines should get small per-edge vertical offsets near GOAL to reduce overlap without introducing right-angle routing.
+
+## Latest micro-update
+
+- Completed work:
+  - Refined the new `학습` tab spacing after screenshot review: learning panels now have consistent internal padding, section headings no longer sit against panel walls, month navigation buttons center their chevrons, and task/quiz form controls use explicit box sizing.
+  - Added Pathway-local mini action button styling for the learning surface so action labels stay centered and single-line.
+  - Verified the adjusted learning layout in a browser screenshot.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `zsh -lc './scripts/with-modern-node.sh pnpm --filter desktop dev -- --host 127.0.0.1 --port 1420'`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e10`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-learning-spacing.png`
+- Known gaps:
+  - This pass only fixes learning-tab spacing and control alignment; it does not redesign the task calendar information model.
+- Next recommended task:
+  - Verify the learning tab once more in the packaged Tauri window size, then commit the learning-tab and graph-routing batch when ready.
+
+## Latest micro-update
+
+- Completed work:
+  - Repaired the Pathway edge-routing interpretation after screenshot review: Pathway no longer uses diagonal straight-line edges.
+  - Restored orthogonal/right-angle graph routing while adding a target-anchor separation option for nodes that should not bundle incoming edges.
+  - Applied that separation only to Pathway GOAL-family nodes, so final routes enter GOAL as independent right-angle lines instead of a shared GOAL trunk.
+- Changed files:
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/EXECPLAN_PATHWAY_GOAL_EDGE_ROUTING_REPAIR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `zsh -lc './scripts/with-modern-node.sh pnpm --filter desktop dev -- --host 127.0.0.1 --port 1420'`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e13`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-goal-orthogonal-detached.png`
+- Known gaps:
+  - Dense graphs can still produce visual crossings because this preserves orthogonal routing without running an edge-crossing optimizer.
+- Next recommended task:
+  - Test the repaired routing on the user's active generated graph in Tauri and tune GOAL anchor spacing if the number of terminal branches gets high.

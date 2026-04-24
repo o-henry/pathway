@@ -62,6 +62,17 @@ type CanvasPanState = {
 type PathwayTone = "sky" | "iris" | "mist" | "goal";
 
 const TERMINAL_GOAL_DATA_ROLE = "terminal_goal";
+const PERSONAL_LEARNING_DATA_ROLE = "personal_learning";
+
+export type PersonalLearningDisplayTask = {
+  id: string;
+  date: string;
+  title: string;
+  notes?: string;
+  minutes?: number;
+  completed?: boolean;
+  quizScore?: number | null;
+};
 
 function normalizeGraphSearchText(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
@@ -90,8 +101,12 @@ function hashString(value: string): number {
 
 function nodeSemanticFamily(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): string {
   const value = `${definition?.id ?? ""} ${definition?.label ?? ""} ${node.type} ${node.label}`.toLowerCase();
+  const dataRole = normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role);
   if (nodeLooksLikeGoal(definition, node)) {
     return "goal";
+  }
+  if (dataRole === PERSONAL_LEARNING_DATA_ROLE || value.includes("learning") || value.includes("학습")) {
+    return "learning";
   }
   if (value.includes("risk") || value.includes("warning")) {
     return "risk";
@@ -122,6 +137,9 @@ function toneForFamily(family: string, node: GraphNodeRecord): PathwayTone {
   if (family === "evidence") {
     return "sky";
   }
+  if (family === "learning") {
+    return "sky";
+  }
   if (family === "resource" || family === "constraint" || family === "risk") {
     return "mist";
   }
@@ -134,6 +152,12 @@ function measurePathwayNode(_node: GraphNodeRecord, _depth: number, _childCount:
     TERMINAL_GOAL_DATA_ROLE
   ) {
     return { width: 280, height: 64 };
+  }
+  if (
+    normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
+    PERSONAL_LEARNING_DATA_ROLE
+  ) {
+    return { width: 250, height: 58 };
   }
   return { width: 220, height: 56 };
 }
@@ -266,6 +290,79 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
   });
 
   next.edges = [...nonProgressionEdges, ...nonGoalProgressionEdges, ...terminalGoalEdges];
+  return next;
+}
+
+function ensureLearningNodeType(bundle: GraphBundle): string {
+  const existingType = bundle.ontology.node_types.find((definition) => definition.id === "personal_learning_task");
+  if (existingType) {
+    return existingType.id;
+  }
+  bundle.ontology.node_types.push({
+    id: "personal_learning_task",
+    label: "개인 학습 TASK",
+    description: "사용자가 실제로 완료하고 퀴즈로 점검한 개인 학습 경로",
+    default_style: { tone: "learning", shape: "rounded_card" },
+    fields: [
+      { key: "date", label: "날짜", value_type: "date", required: true },
+      { key: "minutes", label: "학습 시간", value_type: "number", required: false },
+      { key: "quiz_score", label: "퀴즈 점수", value_type: "number", required: false },
+    ],
+  });
+  return "personal_learning_task";
+}
+
+export function buildLearningRouteDisplayBundle(
+  bundle: GraphBundle,
+  learningTasks: PersonalLearningDisplayTask[],
+): GraphBundle {
+  const completedTasks = learningTasks.filter((task) => task.completed && task.title.trim());
+  if (completedTasks.length === 0) {
+    return bundle;
+  }
+
+  const next = structuredClone(bundle);
+  const progressionTypeId = ensureProgressionEdgeType(next);
+  const learningTypeId = ensureLearningNodeType(next);
+  const nodeTypes = new Map(next.ontology.node_types.map((item) => [item.id, item]));
+  const goalNode = next.nodes.find((node) => nodeLooksLikeGoal(nodeTypes.get(node.type), node));
+  if (!goalNode) {
+    return next;
+  }
+
+  const existingNodeIds = new Set(next.nodes.map((node) => node.id));
+  const existingEdgeIds = new Set(next.edges.map((edge) => edge.id));
+  completedTasks.forEach((task, index) => {
+    const baseNodeId = `personal_learning_${String(task.id).replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
+    const nodeId = makeUniqueNodeId(baseNodeId, existingNodeIds);
+    existingNodeIds.add(nodeId);
+    const scoreText = typeof task.quizScore === "number" ? ` · quiz ${task.quizScore}점` : "";
+    next.nodes.push({
+      id: nodeId,
+      type: learningTypeId,
+      label: task.title,
+      summary: `${task.date}에 완료한 개인 학습 TASK${scoreText}. ${task.notes ?? ""}`.trim(),
+      data: {
+        pathway_display_role: PERSONAL_LEARNING_DATA_ROLE,
+        date: task.date,
+        minutes: task.minutes ?? null,
+        quiz_score: task.quizScore ?? null,
+        route_label: "개인 학습 루트",
+      },
+      evidence_refs: [],
+      assumption_refs: [],
+    });
+    const edgeId = makeUniqueEdgeId(`personal_learning_to_goal_${index + 1}_${task.id}`, existingEdgeIds);
+    existingEdgeIds.add(edgeId);
+    next.edges.push({
+      id: edgeId,
+      type: progressionTypeId,
+      source: nodeId,
+      target: goalNode.id,
+      label: "학습 누적",
+    });
+  });
+
   return next;
 }
 
@@ -861,6 +958,10 @@ export default function PathwayRailCanvas({
         readOnly: false,
       })),
       nodeMap,
+      separateIncomingTargetAnchors: (node) => {
+        const config = node.config as Record<string, unknown> | undefined;
+        return String(config?.sourceKind ?? "").trim() === "pathway" && String(config?.pathwayFamily ?? "").trim() === "goal";
+      },
       getNodeVisualSize: (nodeId) => {
         const node = nodeMap.get(nodeId);
         const config = node?.config as Record<string, unknown> | undefined;

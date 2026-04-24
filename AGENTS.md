@@ -188,6 +188,12 @@ New constraints, reduced budget, lost time, changed motivation, or new evidence 
 - mark previously viable routes as out of reach
 - recover routes that become viable again
 
+Absolute graph preservation rule:
+
+- Existing graph nodes, edges, evidence, assumptions, and prior route history must not be deleted or overwritten during normal recalculation, research, revision, task completion, or learning-route updates.
+- Updates should append, annotate, weaken, hide, supersede, or connect new material while preserving the prior graph.
+- Destructive removal is allowed only after the user explicitly requests deletion or uses a clear delete interaction for the specific graph element.
+
 ## 8. AI/RAG rules
 
 Generated content must distinguish:

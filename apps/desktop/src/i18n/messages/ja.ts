@@ -8,6 +8,7 @@ export const JA_MESSAGES: Dictionary = {
     "nav.workflow.short": "フロー",
     "nav.workflow.title": "ワークフロー",
     "nav.tasks": "タスク",
+    "nav.learning": "学習",
     "nav.shell": "ターミナル",
     "nav.workbench": "ワークスペース",
     "nav.dashboard": "ホーム",

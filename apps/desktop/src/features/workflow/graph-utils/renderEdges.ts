@@ -29,6 +29,8 @@ type BuildCanvasEdgeLinesParams = {
   entries: CanvasEdgeEntry[];
   nodeMap: Map<string, GraphNode>;
   getNodeVisualSize: (nodeId: string) => NodeVisualSize;
+  routeStyle?: "orthogonal" | "straight";
+  separateIncomingTargetAnchors?: (node: GraphNode) => boolean;
 };
 
 function buildOrthogonalPolylinePath(points: LogicalPoint[]): string {
@@ -66,8 +68,25 @@ function compressCollinear(points: LogicalPoint[]): LogicalPoint[] {
   return next;
 }
 
+function buildStraightPath(start: LogicalPoint, end: LogicalPoint): string {
+  return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+}
+
+function offsetAnchorPoint(point: LogicalPoint, side: NodeAnchorSide, offset: number): LogicalPoint {
+  if (side === "left" || side === "right") {
+    return { x: point.x, y: Math.round(point.y + offset) };
+  }
+  return { x: Math.round(point.x + offset), y: point.y };
+}
+
 export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): CanvasEdgeLine[] {
-  const { entries, nodeMap, getNodeVisualSize } = params;
+  const {
+    entries,
+    nodeMap,
+    getNodeVisualSize,
+    routeStyle = "orthogonal",
+    separateIncomingTargetAnchors,
+  } = params;
 
   const groupedFrom = new Map<string, CanvasEdgeEntry[]>();
   const groupedTo = new Map<string, CanvasEdgeEntry[]>();
@@ -126,6 +145,9 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
     }
     const toNode = nodeMap.get(toId);
     if (!toNode) {
+      return;
+    }
+    if (separateIncomingTargetAnchors?.(toNode)) {
       return;
     }
     const toSize = getNodeVisualSize(toNode.id);
@@ -231,6 +253,35 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
         ? (bundledToAnchorByNodeId.get(toNode.id) ?? snapPoint(getNodeAnchorPoint(toNode, resolvedToSide, toSize)))
         : snapPoint(getNodeAnchorPoint(toNode, resolvedToSide, toSize));
 
+      if (!bundledToSide && separateIncomingTargetAnchors?.(toNode)) {
+        const incomingRows = groupedTo.get(toNode.id) ?? [];
+        if (incomingRows.length > 1) {
+          const orderedRows = [...incomingRows].sort((left, right) => {
+            const leftNode = nodeMap.get(left.edge.from.nodeId);
+            const rightNode = nodeMap.get(right.edge.from.nodeId);
+            const leftSize = leftNode ? getNodeVisualSize(leftNode.id) : { width: 0, height: 0 };
+            const rightSize = rightNode ? getNodeVisualSize(rightNode.id) : { width: 0, height: 0 };
+            const leftCenter =
+              resolvedToSide === "left" || resolvedToSide === "right"
+                ? (leftNode?.position.y ?? 0) + leftSize.height / 2
+                : (leftNode?.position.x ?? 0) + leftSize.width / 2;
+            const rightCenter =
+              resolvedToSide === "left" || resolvedToSide === "right"
+                ? (rightNode?.position.y ?? 0) + rightSize.height / 2
+                : (rightNode?.position.x ?? 0) + rightSize.width / 2;
+            return leftCenter - rightCenter;
+          });
+          const rowIndex = orderedRows.findIndex((row) => row === entry);
+          if (rowIndex >= 0) {
+            const axisLength = resolvedToSide === "left" || resolvedToSide === "right" ? toSize.height : toSize.width;
+            const maxSpread = Math.max(0, axisLength - 24);
+            const step = incomingRows.length > 1 ? Math.min(24, maxSpread / (incomingRows.length - 1)) : 0;
+            const offset = (rowIndex - (incomingRows.length - 1) / 2) * step;
+            toPoint = offsetAnchorPoint(toPoint, resolvedToSide, offset);
+          }
+        }
+      }
+
       const routeFromSide = bundledFromSide ?? resolvedFromSide;
       const routeToSide = bundledToSide ?? resolvedToSide;
       const fromHorizontal = routeFromSide === "left" || routeFromSide === "right";
@@ -259,7 +310,9 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
       const hasBundledRouting = !hasManualControl && Boolean(bundledFromSide || bundledToSide);
 
       let path: string;
-      if (hasBundledRouting && toHorizontal) {
+      if (routeStyle === "straight") {
+        path = buildStraightPath(fromPoint, toPoint);
+      } else if (hasBundledRouting && toHorizontal) {
         const fromCenterX = fromNode.position.x + fromSize.width / 2;
         const virtualFromSide: NodeAnchorSide = toPoint.x >= fromCenterX ? "right" : "left";
         const virtualFromPoint = fromHorizontal

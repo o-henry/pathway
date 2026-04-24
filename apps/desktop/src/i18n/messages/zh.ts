@@ -8,6 +8,7 @@ export const ZH_MESSAGES: Dictionary = {
     "nav.workflow.short": "流程",
     "nav.workflow.title": "工作流",
     "nav.tasks": "任务",
+    "nav.learning": "学习",
     "nav.shell": "终端",
     "nav.workbench": "工作区",
     "nav.dashboard": "首页",
