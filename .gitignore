@@ -21,6 +21,7 @@ __pycache__/
 data/*.db
 data/*.sqlite
 data/lancedb/
+data/collector_artifacts/
 data/uploads/
 data/exports/
 data/logs/

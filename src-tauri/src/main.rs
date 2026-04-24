@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 const API_HOST: &str = "127.0.0.1";
@@ -31,7 +31,10 @@ fn apply_dev_app_icon(app: &AppHandle) {
 
     let data = NSData::with_bytes(&bytes);
     let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
-        eprintln!("PATHWAY dev icon skipped: failed to decode {}", icon_path.display());
+        eprintln!(
+            "PATHWAY dev icon skipped: failed to decode {}",
+            icon_path.display()
+        );
         return;
     };
 
@@ -65,6 +68,20 @@ struct CollectorInstallResult {
     message: String,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+struct CollectorFetchResult {
+    provider: String,
+    status: String,
+    url: String,
+    fetched_at: String,
+    summary: String,
+    content: String,
+    markdown_path: Option<String>,
+    json_path: Option<String>,
+    source_meta: serde_json::Value,
+    error: Option<String>,
+}
+
 struct CollectorDefinition {
     id: &'static str,
     capabilities: &'static [&'static str],
@@ -84,7 +101,11 @@ const COLLECTOR_DEFINITIONS: [CollectorDefinition; 7] = [
     },
     CollectorDefinition {
         id: "steel",
-        capabilities: &["extract_document", "interactive_browser", "stateful_session"],
+        capabilities: &[
+            "extract_document",
+            "interactive_browser",
+            "stateful_session",
+        ],
         installable: false,
     },
     CollectorDefinition {
@@ -126,7 +147,9 @@ fn api_entry(root: &Path) -> PathBuf {
 }
 
 fn collector_definition(provider: &str) -> Option<&'static CollectorDefinition> {
-    COLLECTOR_DEFINITIONS.iter().find(|definition| definition.id == provider)
+    COLLECTOR_DEFINITIONS
+        .iter()
+        .find(|definition| definition.id == provider)
 }
 
 fn collector_root(app: &AppHandle, cwd: Option<String>) -> PathBuf {
@@ -199,13 +222,20 @@ fn build_health_result(
         installed,
         installable: definition.installable,
         message: message.into(),
-        capabilities: definition.capabilities.iter().map(|value| value.to_string()).collect(),
+        capabilities: definition
+            .capabilities
+            .iter()
+            .map(|value| value.to_string())
+            .collect(),
     }
 }
 
-fn inspect_collector_provider(root: &Path, provider: &str) -> Result<CollectorHealthResult, String> {
-    let definition =
-        collector_definition(provider).ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
+fn inspect_collector_provider(
+    root: &Path,
+    provider: &str,
+) -> Result<CollectorHealthResult, String> {
+    let definition = collector_definition(provider)
+        .ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
 
     let result = match provider {
         "scrapling" => {
@@ -239,7 +269,8 @@ fn inspect_collector_provider(root: &Path, provider: &str) -> Result<CollectorHe
             }
         }
         "steel" => {
-            let configured = env_configured(&["STEEL_API_KEY", "STEEL_BROWSER_API_KEY", "STEEL_CDP_URL"]);
+            let configured =
+                env_configured(&["STEEL_API_KEY", "STEEL_BROWSER_API_KEY", "STEEL_CDP_URL"]);
             if configured {
                 build_health_result(definition, true, true, true, true, "steel ready")
             } else {
@@ -254,7 +285,10 @@ fn inspect_collector_provider(root: &Path, provider: &str) -> Result<CollectorHe
             }
         }
         "playwright_local" => {
-            let installed = node_cli_available(root, &["--filter", "desktop", "exec", "playwright", "--version"]);
+            let installed = node_cli_available(
+                root,
+                &["--filter", "desktop", "exec", "playwright", "--version"],
+            );
             if installed {
                 build_health_result(definition, true, true, true, true, "playwright local ready")
             } else {
@@ -284,10 +318,17 @@ fn inspect_collector_provider(root: &Path, provider: &str) -> Result<CollectorHe
             }
         }
         "scrapy_playwright" => {
-            let installed =
-                python_module_installed(root, "scrapy") && python_module_installed(root, "scrapy_playwright");
+            let installed = python_module_installed(root, "scrapy")
+                && python_module_installed(root, "scrapy_playwright");
             if installed {
-                build_health_result(definition, true, true, true, true, "scrapy_playwright ready")
+                build_health_result(
+                    definition,
+                    true,
+                    true,
+                    true,
+                    true,
+                    "scrapy_playwright ready",
+                )
             } else {
                 build_health_result(
                     definition,
@@ -320,9 +361,12 @@ fn inspect_collector_provider(root: &Path, provider: &str) -> Result<CollectorHe
     Ok(result)
 }
 
-fn install_collector_provider(root: &Path, provider: &str) -> Result<CollectorInstallResult, String> {
-    let definition =
-        collector_definition(provider).ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
+fn install_collector_provider(
+    root: &Path,
+    provider: &str,
+) -> Result<CollectorInstallResult, String> {
+    let definition = collector_definition(provider)
+        .ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
 
     if !definition.installable {
         return Ok(CollectorInstallResult {
@@ -335,7 +379,11 @@ fn install_collector_provider(root: &Path, provider: &str) -> Result<CollectorIn
     let success = match provider {
         "scrapling" => run_status("uv", &["add", "scrapling", "--project", "."], root),
         "crawl4ai" => run_status("uv", &["add", "crawl4ai", "--project", "."], root),
-        "playwright_local" => run_status("pnpm", &["--filter", "desktop", "add", "-D", "playwright"], root),
+        "playwright_local" => run_status(
+            "pnpm",
+            &["--filter", "desktop", "add", "-D", "playwright"],
+            root,
+        ),
         "browser_use" => run_status("uv", &["add", "browser-use", "--project", "."], root),
         "scrapy_playwright" => run_status(
             "uv",
@@ -354,6 +402,342 @@ fn install_collector_provider(root: &Path, provider: &str) -> Result<CollectorIn
     } else {
         Err(format!("Failed to install {provider}"))
     }
+}
+
+const COLLECTOR_FETCH_SCRIPT: &str = r##"
+from __future__ import annotations
+
+import asyncio
+import datetime as dt
+import hashlib
+import ipaddress
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import urllib.request
+from urllib import robotparser
+from urllib.parse import urlparse
+
+USER_AGENT = "PathwayBot/0.1 (+local-first research workspace)"
+API_BASE_URL = "http://127.0.0.1:8000"
+
+
+def emit(payload):
+    print(json.dumps(payload, ensure_ascii=False))
+
+
+def fail(provider, url, message):
+    emit({
+        "provider": provider,
+        "status": "error",
+        "url": url,
+        "fetched_at": dt.datetime.now(dt.UTC).isoformat(),
+        "summary": "",
+        "content": "",
+        "markdown_path": None,
+        "json_path": None,
+        "source_meta": {},
+        "error": message,
+    })
+    return 0
+
+
+def normalize_text(value):
+    return "\n".join(line.strip() for line in str(value or "").splitlines() if line.strip()).strip()
+
+
+def compact_text(value):
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def validate_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("Only http and https URLs are allowed.")
+    if not parsed.hostname:
+        raise ValueError("URL is missing a hostname.")
+    host = parsed.hostname.lower()
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        raise ValueError("Localhost URLs are blocked.")
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            raise ValueError("Private-network URLs are blocked.")
+    except ValueError as error:
+        if "blocked" in str(error):
+            raise
+
+
+def check_robots(url):
+    parsed = urlparse(url)
+    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+    parser = robotparser.RobotFileParser()
+    parser.set_url(robots_url)
+    try:
+        request = urllib.request.Request(robots_url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=8) as response:
+            parser.parse(response.read().decode("utf-8", errors="ignore").splitlines())
+        if not parser.can_fetch(USER_AGENT, url):
+            raise ValueError("robots.txt disallows this URL for PathwayBot.")
+        return "robots.txt allows fetch."
+    except ValueError:
+        raise
+    except Exception:
+        return "robots.txt unavailable; proceeding with explicit one-off fetch."
+
+
+def title_from_html(html, fallback):
+    match = re.search(r"<title[^>]*>(.*?)</title>", html or "", flags=re.I | re.S)
+    if not match:
+        return fallback
+    return compact_text(re.sub(r"<[^>]+>", " ", match.group(1))) or fallback
+
+
+def extract_with_trafilatura(url, html):
+    import trafilatura
+    from bs4 import BeautifulSoup
+
+    extracted = trafilatura.extract(
+        html,
+        url=url,
+        output_format="txt",
+        include_links=False,
+        include_images=False,
+        include_tables=False,
+        favor_recall=True,
+    )
+    if extracted:
+        metadata = trafilatura.extract_metadata(html, default_url=url)
+        title = metadata.title.strip() if metadata and metadata.title else title_from_html(html, urlparse(url).netloc)
+        return normalize_text(extracted), title
+
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    return normalize_text(soup.get_text("\n")), title_from_html(html, urlparse(url).netloc)
+
+
+def fetch_with_httpx(url):
+    import httpx
+
+    response = httpx.get(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        },
+        follow_redirects=True,
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    final_url = str(response.url)
+    content_type = response.headers.get("content-type", "").lower()
+    if "text/plain" in content_type:
+        return normalize_text(response.text), title_from_html("", urlparse(final_url).netloc), final_url
+    content, title = extract_with_trafilatura(final_url, response.text)
+    return content, title, final_url
+
+
+async def fetch_with_crawl4ai(url):
+    from crawl4ai import AsyncWebCrawler
+    try:
+        from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
+        browser_config = BrowserConfig(headless=True, user_agent=USER_AGENT)
+        run_config = CrawlerRunConfig(check_robots_txt=True)
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            result = await crawler.arun(url=url, config=run_config)
+    except Exception:
+        async with AsyncWebCrawler() as crawler:
+            result = await crawler.arun(url)
+    markdown = getattr(result, "markdown", None) or getattr(result, "cleaned_html", None) or getattr(result, "html", "")
+    final_url = str(getattr(result, "url", "") or url)
+    title = urlparse(final_url).netloc
+    metadata = getattr(result, "metadata", None)
+    if isinstance(metadata, dict):
+        title = compact_text(metadata.get("title")) or title
+    return normalize_text(markdown), title, final_url
+
+
+def fetch_with_scrapling(url):
+    from scrapling.fetchers import Fetcher
+
+    page = Fetcher.get(url, headers={"User-Agent": USER_AGENT})
+    final_url = str(getattr(page, "url", "") or url)
+    html = str(getattr(page, "html", "") or page)
+    content, title = extract_with_trafilatura(final_url, html)
+    return content, title, final_url
+
+
+def fetch_with_lightpanda(url):
+    command = [
+        "lightpanda",
+        "fetch",
+        "--dump",
+        "markdown",
+        "--strip-mode",
+        "js,css",
+        url,
+    ]
+    result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=35)
+    lines = [line for line in result.stdout.splitlines() if not line.startswith("info(")]
+    content = normalize_text("\n".join(lines))
+    return content, urlparse(url).netloc, url
+
+
+def fetch_with_provider(provider, url):
+    if provider == "crawl4ai":
+        return asyncio.run(fetch_with_crawl4ai(url))
+    if provider == "scrapling":
+        return fetch_with_scrapling(url)
+    if provider == "lightpanda_experimental":
+        return fetch_with_lightpanda(url)
+    if provider in {"playwright_local", "browser_use", "scrapy_playwright", "steel"}:
+        raise ValueError(f"{provider} fetch is not implemented in the local source bridge yet.")
+    return fetch_with_httpx(url)
+
+
+def write_artifacts(root, provider, url, title, content, payload):
+    digest = hashlib.sha256(f"{provider}:{url}".encode("utf-8")).hexdigest()[:16]
+    artifact_dir = pathlib.Path(root) / "data" / "collector_artifacts"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    markdown_path = artifact_dir / f"{digest}.md"
+    json_path = artifact_dir / f"{digest}.json"
+    markdown_path.write_text(f"# {title}\n\nSource: {url}\nProvider: {provider}\n\n{content}\n", encoding="utf-8")
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return str(markdown_path), str(json_path)
+
+
+def upsert_source(provider, topic, url, title, content, robots_status):
+    import httpx
+
+    metadata = {
+        "collector_used": provider,
+        "collector_topic": topic,
+        "layer": topic,
+        "fetched_at": dt.datetime.now(dt.UTC).isoformat(),
+        "robots_status": robots_status,
+        "ingested_by": "dashboard_crawl_provider_fetch_url",
+    }
+    response = httpx.post(
+        f"{API_BASE_URL}/sources/manual",
+        json={
+            "title": title[:200] or urlparse(url).netloc,
+            "content_text": content,
+            "url": url,
+            "source_type": "public_url_allowed",
+            "metadata": metadata,
+        },
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def main():
+    provider = sys.argv[1].strip()
+    url = sys.argv[2].strip()
+    topic = sys.argv[3].strip() if len(sys.argv) > 3 else "pathway_research"
+    root = os.getcwd()
+    try:
+        validate_url(url)
+        robots_status = check_robots(url)
+        try:
+            content, title, final_url = fetch_with_provider(provider, url)
+            provider_used = provider
+        except Exception as provider_error:
+            if provider in {"crawl4ai", "scrapling", "lightpanda_experimental"}:
+                content, title, final_url = fetch_with_httpx(url)
+                provider_used = f"{provider}:httpx_fallback"
+                robots_status = f"{robots_status}; provider fallback: {provider_error}"
+            else:
+                raise
+        if not content:
+            raise ValueError("Fetched page did not yield readable content.")
+        source_payload = {}
+        source_error = None
+        try:
+            source_payload = upsert_source(provider_used, topic, final_url, title, content, robots_status)
+        except Exception as error:
+            source_error = str(error)
+        fetched_at = dt.datetime.now(dt.UTC).isoformat()
+        meta = {
+            "title": title,
+            "source_id": source_payload.get("id") if isinstance(source_payload, dict) else None,
+            "word_count": len(content.split()),
+            "provider_used": provider_used,
+            "robots_status": robots_status,
+            "source_library_error": source_error,
+        }
+        payload = {
+            "provider": provider_used,
+            "status": "ok",
+            "url": final_url,
+            "fetched_at": fetched_at,
+            "summary": compact_text(content)[:420],
+            "content": content[:6000],
+            "markdown_path": None,
+            "json_path": None,
+            "source_meta": meta,
+            "error": source_error,
+        }
+        markdown_path, json_path = write_artifacts(root, provider_used, final_url, title, content, payload)
+        payload["markdown_path"] = markdown_path
+        payload["json_path"] = json_path
+        emit(payload)
+        return 0
+    except Exception as error:
+        return fail(provider, url, str(error))
+
+
+raise SystemExit(main())
+"##;
+
+fn fetch_url_with_collector(
+    root: &Path,
+    provider: &str,
+    url: &str,
+    topic: &str,
+) -> Result<CollectorFetchResult, String> {
+    if !command_available("uv") {
+        return Err("uv is required to run local collector fetches".into());
+    }
+
+    let output = Command::new("uv")
+        .current_dir(root)
+        .env("UV_CACHE_DIR", ".uv-cache")
+        .arg("run")
+        .arg("python3")
+        .arg("-c")
+        .arg(COLLECTOR_FETCH_SCRIPT)
+        .arg(provider)
+        .arg(url)
+        .arg(topic)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|error| format!("Failed to run collector fetch: {error}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !output.status.success() {
+        return Err(format!(
+            "Collector fetch failed{}{}",
+            if stderr.is_empty() { "" } else { ": " },
+            stderr
+        ));
+    }
+
+    let last_json_line = stdout
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .ok_or_else(|| format!("Collector fetch returned no JSON output: {stdout}"))?;
+    serde_json::from_str::<CollectorFetchResult>(last_json_line).map_err(|error| {
+        format!("Collector fetch returned invalid JSON: {error}; stderr: {stderr}")
+    })
 }
 
 fn can_spawn_local_api(root: &Path) -> bool {
@@ -435,12 +819,33 @@ fn dashboard_crawl_provider_install(
     install_collector_provider(&root, provider.trim())
 }
 
+#[tauri::command]
+fn dashboard_crawl_provider_fetch_url(
+    app: AppHandle,
+    cwd: Option<String>,
+    provider: String,
+    url: String,
+    topic: Option<String>,
+) -> Result<CollectorFetchResult, String> {
+    let root = collector_root(&app, cwd);
+    let provider = provider.trim();
+    collector_definition(provider)
+        .ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
+    fetch_url_with_collector(
+        &root,
+        provider,
+        url.trim(),
+        topic.as_deref().unwrap_or("pathway_research"),
+    )
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(ApiProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             dashboard_crawl_provider_health,
-            dashboard_crawl_provider_install
+            dashboard_crawl_provider_install,
+            dashboard_crawl_provider_fetch_url
         ])
         .setup(|app| {
             apply_dev_app_icon(app.handle());
@@ -463,10 +868,7 @@ fn main() {
                 let app = window.app_handle();
                 let api_process = app.state::<ApiProcess>();
                 let child = {
-                    let mut guard = api_process
-                        .0
-                        .lock()
-                        .expect("api process mutex poisoned");
+                    let mut guard = api_process.0.lock().expect("api process mutex poisoned");
                     guard.take()
                 };
 

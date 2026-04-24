@@ -34,6 +34,11 @@ import {
   loadPersistedCwd,
   loadPersistedLoginCompleted,
 } from './mainAppUtils';
+import {
+  buildResearchPlanCollectorJobs,
+  summarizeResearchPlanJobBudget,
+  type ResearchPlanCollectorJob,
+} from './researchPlanCollectorJobs';
 import type {
   CurrentStateSnapshot,
   GoalAnalysisRecord,
@@ -79,6 +84,19 @@ type CollectorInstallResult = {
   provider?: string;
   installed?: boolean;
   message?: string;
+};
+
+type CollectorFetchResult = {
+  provider?: string;
+  status?: string;
+  url?: string;
+  fetched_at?: string;
+  summary?: string;
+  content?: string;
+  markdown_path?: string;
+  json_path?: string;
+  source_meta?: Record<string, unknown>;
+  error?: string;
 };
 
 const COLLECTOR_DOCTOR_DEFINITIONS: ReadonlyArray<{
@@ -267,6 +285,8 @@ export default function MainApp() {
   );
   const [collectorDoctorPending, setCollectorDoctorPending] = useState(false);
   const [collectorInstallPendingId, setCollectorInstallPendingId] = useState<string | null>(null);
+  const [researchPlanCollecting, setResearchPlanCollecting] = useState(false);
+  const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
 
   const [stateForm, setStateForm] = useState({
     progress_summary: '',
@@ -293,6 +313,14 @@ export default function MainApp() {
   const displayBaseBundle = useMemo(
     () => (activeBundle ? buildTerminalGoalDisplayBundle(activeBundle, activeGoal?.title) : undefined),
     [activeBundle, activeGoal?.title],
+  );
+  const researchPlanCollectorJobs = useMemo(
+    () => buildResearchPlanCollectorJobs(goalAnalysis),
+    [goalAnalysis],
+  );
+  const researchPlanJobBudget = useMemo(
+    () => summarizeResearchPlanJobBudget(goalAnalysis),
+    [goalAnalysis],
   );
   const effectiveSelectedNodeId =
     selectedNodeId ?? (activeBundle ? routeSelection?.selected_node_id ?? null : null);
@@ -612,6 +640,10 @@ export default function MainApp() {
   }, [codexMultiAgentMode]);
 
   useEffect(() => {
+    setResearchPlanCollectionStatus('');
+  }, [goalAnalysis?.goal_id]);
+
+  useEffect(() => {
     if (workspaceTab !== 'settings') {
       return;
     }
@@ -710,6 +742,73 @@ export default function MainApp() {
       await refreshCollectorDoctor();
     } finally {
       setCollectorInstallPendingId(null);
+    }
+  }
+
+  async function ensureCollectorReadyForJob(providerId: string): Promise<void> {
+    const health = await invoke<CollectorHealthResult>('dashboard_crawl_provider_health', {
+      cwd,
+      provider: providerId,
+    });
+    if (health?.ready) {
+      return;
+    }
+    const message = String(health?.message ?? '').trim() || `${providerId} 수집기가 준비되지 않았습니다.`;
+    throw new Error(`${providerId}: ${message}`);
+  }
+
+  async function runResearchPlanCollectorJob(job: ResearchPlanCollectorJob): Promise<CollectorFetchResult> {
+    await ensureCollectorReadyForJob(job.provider);
+    return invoke<CollectorFetchResult>('dashboard_crawl_provider_fetch_url', {
+      cwd,
+      provider: job.provider,
+      url: job.url,
+      topic: job.topic,
+    });
+  }
+
+  async function handleCollectResearchPlanTargets() {
+    if (researchPlanCollectorJobs.length === 0) {
+      setResearchPlanCollectionStatus('실행 가능한 URL/검색 타깃이 아직 없습니다. 다음 단계의 source discovery가 필요합니다.');
+      return;
+    }
+
+    setResearchPlanCollecting(true);
+    setErrorMessage('');
+    let successCount = 0;
+    let failureCount = 0;
+    try {
+      await ensureEngineStarted();
+      for (let index = 0; index < researchPlanCollectorJobs.length; index += 1) {
+        const job = researchPlanCollectorJobs[index]!;
+        setResearchPlanCollectionStatus(
+          `${index + 1}/${researchPlanCollectorJobs.length} 수집 중 · ${job.targetLabel}`,
+        );
+        try {
+          const result = await runResearchPlanCollectorJob(job);
+          const ok = String(result?.status ?? '').toLowerCase() === 'ok';
+          const sourceError = String(result?.source_meta?.source_library_error ?? '').trim();
+          if (ok && !sourceError) {
+            successCount += 1;
+          } else {
+            failureCount += 1;
+          }
+        } catch {
+          failureCount += 1;
+        }
+      }
+      setResearchPlanCollectionStatus(
+        `자료 수집 job 완료 · source library 적재 성공 ${successCount}건 / 실패 ${failureCount}건`,
+      );
+      setStatusMessage('자료 수집 결과가 로컬 source library와 수집 artifact에 반영되었습니다.');
+    } catch (error) {
+      if (isTauriUnavailableError(error)) {
+        setResearchPlanCollectionStatus('자료 수집은 Tauri 앱에서만 실행할 수 있습니다.');
+      } else {
+        setResearchPlanCollectionStatus(formatUiError(error, '자료 수집 준비 실패'));
+      }
+    } finally {
+      setResearchPlanCollecting(false);
     }
   }
 
@@ -1218,14 +1317,41 @@ export default function MainApp() {
 
                   {goalAnalysis?.research_plan ? (
                     <section className="pathway-workflow-sidebar-card">
-                      <span className="pathway-panel-kicker">자료 수집 계획</span>
-                      <p className="pathway-panel-copy">{goalAnalysis.research_plan.summary}</p>
+                      <div className="pathway-panel-head">
+                        <div>
+                          <span className="pathway-panel-kicker">자료 수집 계획</span>
+                          <strong>{researchPlanJobBudget.plannedMaxSources}개 후보 예산</strong>
+                        </div>
+                        <button
+                          className="mini-action-button"
+                          disabled={researchPlanCollecting || researchPlanCollectorJobs.length === 0}
+                          onClick={handleCollectResearchPlanTargets}
+                          type="button"
+                        >
+                          <span className="mini-action-button-label">수집</span>
+                        </button>
+                      </div>
+                      <p className="pathway-panel-copy">
+                        {goalAnalysis.research_plan.summary}
+                        {researchPlanCollectorJobs.length > 0
+                          ? ` 실행 가능한 job ${researchPlanCollectorJobs.length}개가 준비되었습니다.`
+                          : ' 아직 실행 가능한 URL 타깃은 없어 다음 source discovery 단계가 필요합니다.'}
+                      </p>
+                      {researchPlanCollectionStatus ? (
+                        <p className="pathway-panel-copy pathway-collector-status">
+                          {researchPlanCollectionStatus}
+                        </p>
+                      ) : null}
                       <ul className="pathway-detail-list">
                         {goalAnalysis.research_plan.collection_targets.slice(0, 4).map((target) => (
                           <li key={target.id}>
                             <strong>{target.label}</strong>
                             <span>{target.search_intent}</span>
-                            <p>{target.preferred_collectors.join(' / ') || target.layer}</p>
+                            <p>
+                              {target.preferred_collectors.join(' / ') || target.layer}
+                              {' · '}
+                              최대 {target.max_sources}개
+                            </p>
                           </li>
                         ))}
                       </ul>

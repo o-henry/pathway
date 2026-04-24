@@ -1828,6 +1828,12 @@
   color: #6b7686;
 }
 
+.pathway-collector-status {
+  border-left: 2px solid #8a7651;
+  padding-left: 8px;
+  color: #4f5968;
+}
+
 @media (max-width: 1180px) {
   .pathway-workflow-header {
     flex-direction: column;

@@ -3,6 +3,36 @@
 ## Latest micro-update
 
 - Completed work:
+  - Implemented the missing `dashboard_crawl_provider_fetch_url` Tauri command for safe one-URL-at-a-time public collection.
+  - Added URL validation, private-network blocking, bounded robots.txt checks, Crawl4AI/Scrapling/Lightpanda fetch paths, HTTP extraction fallback for collector runtime failures, local artifact writing, and `/sources/manual` source-library upsert.
+  - Wired goal-analysis `research_plan.collection_targets` into bounded desktop collection jobs and added a workflow sidebar `수집` action that runs the jobs sequentially and reports source-library success/failure counts.
+  - Ignored local collector artifacts under `data/collector_artifacts/`.
+- Changed files:
+  - `.gitignore`
+  - `src-tauri/src/main.rs`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_COLLECTOR_FETCH_BRIDGE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml` (first run failed because the embedded Python raw string delimiter conflicted with `f"# ..."`; fixed by using a longer Rust raw-string delimiter, then passed)
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `node --input-type=module -e "...extract collector script..."`
+  - `uv run python3 -m py_compile /tmp/pathway_collector_fetch_script.py` (failed under sandbox because uv tried `/Users/henry/.cache/uv`)
+  - `env UV_CACHE_DIR=.uv-cache uv run python3 -m py_compile /tmp/pathway_collector_fetch_script.py`
+  - `git diff --check`
+  - `env UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - This pass does not implement broad autonomous source discovery or search-result expansion; research-plan jobs currently collect explicit URLs and limited search-probe pages within `max_sources`.
+  - Graph regeneration still needs to be run after collecting sources for the new evidence to influence a generated map.
+- Next recommended task:
+  - Add the source-discovery layer that expands each research-plan target into vetted URL candidates, dedupes them, applies per-domain rate limits, and then feeds those URLs through the collector-backed ingestion bridge.
+
+## Latest micro-update
+
+- Completed work:
   - Added the first backend contract for the agent-led Pathway research loop: goal analysis now returns follow-up intake questions plus a structured research plan before graph generation.
   - Replaced the old category-template analysis path with an LLM-backed goal analyst prompt and a deterministic local fallback for default stub mode.
   - Persisted the new analysis fields with additive SQLite migration support and fed research-plan queries into graph-generation grounding.
