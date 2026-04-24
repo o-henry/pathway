@@ -110,6 +110,31 @@ export interface GoalAnalysisRecord {
     relevance_reason: string;
   }>;
   research_questions: string[];
+  followup_questions: Array<{
+    id: string;
+    label: string;
+    question: string;
+    why_needed: string;
+    answer_type: string;
+    required: boolean;
+    maps_to: string[];
+  }>;
+  research_plan: {
+    summary: string;
+    collection_targets: Array<{
+      id: string;
+      label: string;
+      layer: string;
+      search_intent: string;
+      example_queries: string[];
+      preferred_collectors: string[];
+      source_examples: string[];
+      reason: string;
+      max_sources: number;
+    }>;
+    verification_checks: string[];
+    expected_graph_complexity: string;
+  } | null;
 }
 
 export interface LifeMap {

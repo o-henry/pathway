@@ -146,6 +146,17 @@ def _build_repair_prompt(
     ).strip()
 
 
+def _analysis_query_texts(analysis) -> tuple[str, ...]:
+    if analysis is None:
+        return ()
+    query_texts = list(analysis.research_questions)
+    if analysis.research_plan is not None:
+        for target in analysis.research_plan.collection_targets:
+            query_texts.extend(target.example_queries)
+            query_texts.append(f"{target.label}: {target.search_intent}")
+    return tuple(dict.fromkeys(text for text in query_texts if text.strip()))
+
+
 def _normalize_bundle(bundle: GraphBundle, goal: Goal) -> GraphBundle:
     return bundle.model_copy(
         update={
@@ -280,7 +291,7 @@ def generate_map_for_goal(
         goal=goal,
         profile=profile,
         current_state=current_state,
-        extra_query_texts=tuple(analysis.research_questions) if analysis else (),
+        extra_query_texts=_analysis_query_texts(analysis),
         query_limit=query_limit,
         hits_per_query=hits_per_query,
         evidence_limit=evidence_limit,

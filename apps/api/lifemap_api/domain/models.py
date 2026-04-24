@@ -108,11 +108,42 @@ class ResourceDimension(DomainModel):
     relevance_reason: str = Field(min_length=1)
 
 
+class IntakeQuestion(DomainModel):
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=120)
+    question: str = Field(min_length=1)
+    why_needed: str = Field(min_length=1)
+    answer_type: str = Field(min_length=1, max_length=80)
+    required: bool = True
+    maps_to: list[str] = Field(default_factory=list)
+
+
+class ResearchCollectionTarget(DomainModel):
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=160)
+    layer: str = Field(min_length=1, max_length=80)
+    search_intent: str = Field(min_length=1)
+    example_queries: list[str] = Field(default_factory=list)
+    preferred_collectors: list[str] = Field(default_factory=list)
+    source_examples: list[str] = Field(default_factory=list)
+    reason: str = Field(min_length=1)
+    max_sources: int = Field(default=3, ge=1, le=20)
+
+
+class ResearchPlan(DomainModel):
+    summary: str = Field(min_length=1)
+    collection_targets: list[ResearchCollectionTarget] = Field(default_factory=list)
+    verification_checks: list[str] = Field(default_factory=list)
+    expected_graph_complexity: str = Field(default="moderate", min_length=1, max_length=80)
+
+
 class GoalAnalysis(DomainModel):
     goal_id: str = Field(min_length=1, max_length=200)
     analysis_summary: str = Field(min_length=1)
     resource_dimensions: list[ResourceDimension] = Field(default_factory=list)
     research_questions: list[str] = Field(default_factory=list)
+    followup_questions: list[IntakeQuestion] = Field(default_factory=list)
+    research_plan: ResearchPlan | None = None
 
 
 class CurrentStateBase(DomainModel):

@@ -96,11 +96,24 @@ def post_goal_analysis(
     goal_id: str,
     goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
     analysis_repo: SqliteGoalAnalysisRepository = Depends(get_goal_analysis_repository),
+    profile_repo: SqliteProfileRepository = Depends(get_profile_repository),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
 ) -> GoalAnalysis:
     try:
-        return analyze_goal(goal_id=goal_id, goal_repo=goal_repo, analysis_repo=analysis_repo)
+        return analyze_goal(
+            goal_id=goal_id,
+            goal_repo=goal_repo,
+            analysis_repo=analysis_repo,
+            llm_provider=llm_provider,
+            profile=profile_repo.get_default(),
+        )
     except EntityNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AppConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{goal_id}/current-state", response_model=CurrentStateSnapshot | None)

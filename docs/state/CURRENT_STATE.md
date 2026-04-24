@@ -1,5 +1,38 @@
 # Current State
 
+## Latest micro-update
+
+- Completed work:
+  - Added the first backend contract for the agent-led Pathway research loop: goal analysis now returns follow-up intake questions plus a structured research plan before graph generation.
+  - Replaced the old category-template analysis path with an LLM-backed goal analyst prompt and a deterministic local fallback for default stub mode.
+  - Persisted the new analysis fields with additive SQLite migration support and fed research-plan queries into graph-generation grounding.
+  - Surfaced the generated intake questions and collection targets in the desktop workflow sidebar.
+- Changed files:
+  - `apps/api/lifemap_api/domain/models.py`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/api/routes_goals.py`
+  - `apps/api/lifemap_api/infrastructure/db.py`
+  - `apps/api/lifemap_api/infrastructure/db_models.py`
+  - `apps/api/lifemap_api/infrastructure/repositories.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_goal_analysis.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/types.ts`
+  - `apps/web/src/lib/api/client.ts`
+  - `docs/state/EXECPLAN_AGENT_LED_PATHWAY_RESEARCH_LOOP.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_map_generation.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `uv run ruff check apps/api/lifemap_api/application/goal_analysis.py apps/api/lifemap_api/infrastructure/db.py apps/api/lifemap_api/infrastructure/repositories.py apps/api/tests/test_goal_analysis.py`
+  - `uv run ruff check apps/api` (failed: existing repository-wide ruff issues remain in files outside this bounded pass, plus pre-existing long lines in `llm_providers.py`)
+- Known gaps:
+  - This pass creates the agent research-plan contract but does not yet execute collectors to populate sources automatically.
+  - The default local stub still produces deterministic planner output; fully semantic follow-up questions require a real LLM provider.
+- Next recommended task:
+  - Implement the collector execution bridge for one safe URL-at-a-time collection: `dashboard_crawl_provider_fetch_url` plus API source ingestion into `SourceDocument -> chunks -> LanceDB`, then wire research-plan targets to explicit collection jobs.
+
 ## Status
 
 Phase 8 quality, export, and packaging preparation remains complete.

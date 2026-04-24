@@ -244,6 +244,134 @@ def _build_stub_evidence(content: str) -> list[dict[str, Any]]:
     ]
 
 
+def _build_stub_goal_analysis(content: str) -> dict[str, Any]:
+    goal = _extract_json_block(content, "Goal:", "Default profile:") or {}
+    title = _normalize_text(goal.get("title")) or "새 목표"
+    goal_id = _normalize_text(goal.get("id")) or "stub-goal"
+    dimensions = [
+        {
+            "id": "available_time",
+            "label": "Available time",
+            "kind": "time",
+            "value_type": "hours_per_week",
+            "question": "이 목표에 현실적으로 매주 몇 시간을 쓸 수 있나요?",
+            "relevance_reason": "목표 속도, route 폭, checkpoint 간격을 정하려면 지속 가능한 시간 예산이 필요합니다.",
+        },
+        {
+            "id": "monthly_budget",
+            "label": "Monthly budget",
+            "kind": "money",
+            "value_type": "currency_per_month",
+            "question": "매달 투입 가능한 비용 범위는 어느 정도인가요?",
+            "relevance_reason": "유료 코칭, 학원, 도구, 무료 독학 route의 분기 조건이 됩니다.",
+        },
+        {
+            "id": "current_level",
+            "label": "Current level",
+            "kind": "skill",
+            "value_type": "qualitative",
+            "question": "지금 출발점은 어디인가요? 이미 할 수 있는 것과 막히는 것을 나눠주세요.",
+            "relevance_reason": "출발점이 달라지면 첫 노드와 첫 검증 지점이 달라집니다.",
+        },
+        {
+            "id": "preferred_mode",
+            "label": "Preferred mode",
+            "kind": "practice",
+            "value_type": "qualitative",
+            "question": "혼자 학습, 튜터/학원, 커뮤니티, 콘텐츠 기반 학습 중 어떤 방식이 잘 맞나요?",
+            "relevance_reason": "계획이 사용자 성향과 맞아야 route 선택 후 이탈 가능성이 낮아집니다.",
+        },
+        {
+            "id": "feedback_access",
+            "label": "Feedback access",
+            "kind": "support",
+            "value_type": "qualitative",
+            "question": "피드백을 받을 사람, 커뮤니티, 튜터, 동료가 있나요?",
+            "relevance_reason": "피드백 가능성은 독학 route와 교정 route를 가르는 중요한 차이입니다.",
+        },
+    ]
+    followups = [
+        {
+            "id": item["id"],
+            "label": item["label"],
+            "question": item["question"],
+            "why_needed": item["relevance_reason"],
+            "answer_type": item["value_type"],
+            "required": index < 4,
+            "maps_to": [item["id"]],
+        }
+        for index, item in enumerate(dimensions)
+    ]
+    collection_targets = [
+        {
+            "id": "lived_experience_paths",
+            "label": "비슷한 조건의 실제 달성/실패 수기",
+            "layer": "lived_experience",
+            "search_intent": "비슷한 시간, 비용, 출발점에서 어떤 루트가 유지되거나 무너졌는지 찾는다.",
+            "example_queries": [
+                f"{title} 실제 후기 실패 성공 루틴",
+                f"{title} 직장인 독학 튜터 커뮤니티 경험담",
+            ],
+            "preferred_collectors": ["scrapling", "crawl4ai"],
+            "source_examples": ["개인 블로그", "공개 커뮤니티 글", "공개 회고"],
+            "reason": "그래프가 현실적인 마찰과 route 전환 조건을 포함하려면 수기가 필요합니다.",
+            "max_sources": 4,
+        },
+        {
+            "id": "formal_curricula",
+            "label": "구조화된 커리큘럼과 비용 구조",
+            "layer": "formal_program",
+            "search_intent": "학원, 튜터, 코스, 공식 커리큘럼이 어떤 단계와 비용을 제시하는지 비교한다.",
+            "example_queries": [
+                f"{title} 커리큘럼 단계 비용",
+                f"{title} course curriculum tutor program",
+            ],
+            "preferred_collectors": ["crawl4ai", "scrapling"],
+            "source_examples": ["학원 커리큘럼", "튜터링 상품 설명", "공개 강의 계획"],
+            "reason": "유료/무료 route의 비용과 checkpoint를 근거 있게 나눌 수 있습니다.",
+            "max_sources": 4,
+        },
+        {
+            "id": "failure_modes_and_switches",
+            "label": "실패 지점과 전환 조건",
+            "layer": "risk_and_switching",
+            "search_intent": "어떤 상황에서 route를 약화, 축소, 우회, 재활성화해야 하는지 찾는다.",
+            "example_queries": [
+                f"{title} common mistakes plateau burnout",
+                f"{title} fallback route switching conditions",
+            ],
+            "preferred_collectors": ["scrapling", "crawl4ai"],
+            "source_examples": ["실패 분석 글", "전문가 조언", "장기 후기"],
+            "reason": "Pathway 그래프는 한 줄짜리 계획이 아니라 route switching map이어야 합니다.",
+            "max_sources": 4,
+        },
+    ]
+    return {
+        "goal_id": goal_id,
+        "analysis_summary": (
+            f'"{title}" 목표는 시간, 비용, 출발점, 선호 방식, 피드백 접근성을 먼저 확인한 뒤 '
+            "수기/커리큘럼/실패 사례를 나눠 조사해야 합니다."
+        ),
+        "resource_dimensions": dimensions,
+        "research_questions": [
+            query
+            for target in collection_targets
+            for query in target["example_queries"]
+        ],
+        "followup_questions": followups,
+        "research_plan": {
+            "summary": "답변으로 제약을 고정한 뒤 수기, 구조화 커리큘럼, 실패/전환 사례를 분리 수집합니다.",
+            "collection_targets": collection_targets,
+            "verification_checks": [
+                "사용자와 비슷한 조건인지 확인한다.",
+                "홍보성 자료와 실제 수기를 분리한다.",
+                "근거 없는 조언은 assumption으로만 사용한다.",
+            ],
+            "expected_graph_complexity": "multi_route_with_switching_conditions",
+        },
+    }
+
+
 def _base_node_types() -> dict[str, dict[str, Any]]:
     return {
         "goal": {
@@ -635,7 +763,9 @@ class StubPathwayProvider:
             for message in messages
             if isinstance(message, dict) and isinstance(message.get("content"), str)
         )
-        if "Current graph bundle:" in content:
+        if schema_name == "pathway_goal_analysis":
+            payload = _build_stub_goal_analysis(content)
+        elif "Current graph bundle:" in content:
             payload = self._build_revision_bundle(content)
         else:
             payload = self._build_generation_bundle(content)

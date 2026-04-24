@@ -15,34 +15,36 @@ from lifemap_api.domain.models import (
     GoalAnalysis,
     GoalCreate,
     GoalUpdate,
+    IntakeQuestion,
     LifeMap,
     LifeMapCreate,
     Profile,
     ProfileUpsert,
+    ResearchPlan,
+    ResourceDimension,
     RevisionProposal,
     RevisionProposalCreate,
-    ResourceDimension,
     RouteSelection,
     RouteSelectionUpsert,
-    StateUpdate,
-    StateUpdateCreate,
     SourceChunk,
     SourceChunkCreate,
     SourceDocument,
     SourceDocumentCreate,
+    StateUpdate,
+    StateUpdateCreate,
 )
 from lifemap_api.infrastructure.db_models import (
     CheckInRecord,
     CurrentStateSnapshotRecord,
-    GoalRecord,
     GoalAnalysisRecord,
+    GoalRecord,
     LifeMapRecord,
     ProfileRecord,
     RevisionProposalRecord,
     RouteSelectionRecord,
-    StateUpdateRecord,
     SourceChunkRecord,
     SourceDocumentRecord,
+    StateUpdateRecord,
 )
 
 
@@ -89,6 +91,15 @@ def _goal_analysis_from_record(record: GoalAnalysisRecord) -> GoalAnalysis:
             ResourceDimension.model_validate(item) for item in record.resource_dimensions_json
         ],
         research_questions=record.research_questions_json,
+        followup_questions=[
+            IntakeQuestion.model_validate(item)
+            for item in getattr(record, "followup_questions_json", [])
+        ],
+        research_plan=(
+            ResearchPlan.model_validate(record.research_plan_json)
+            if getattr(record, "research_plan_json", None)
+            else None
+        ),
     )
 
 
@@ -315,6 +326,14 @@ class SqliteGoalAnalysisRepository:
                     item.model_dump(mode="json") for item in analysis.resource_dimensions
                 ],
                 research_questions_json=analysis.research_questions,
+                followup_questions_json=[
+                    item.model_dump(mode="json") for item in analysis.followup_questions
+                ],
+                research_plan_json=(
+                    analysis.research_plan.model_dump(mode="json")
+                    if analysis.research_plan
+                    else None
+                ),
                 created_at=now,
                 updated_at=now,
             )
@@ -325,6 +344,14 @@ class SqliteGoalAnalysisRepository:
                 item.model_dump(mode="json") for item in analysis.resource_dimensions
             ]
             record.research_questions_json = analysis.research_questions
+            record.followup_questions_json = [
+                item.model_dump(mode="json") for item in analysis.followup_questions
+            ]
+            record.research_plan_json = (
+                analysis.research_plan.model_dump(mode="json")
+                if analysis.research_plan
+                else None
+            )
             record.updated_at = now
         self.session.commit()
         self.session.refresh(record)

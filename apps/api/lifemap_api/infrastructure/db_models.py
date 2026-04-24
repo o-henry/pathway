@@ -57,6 +57,12 @@ class GoalAnalysisRecord(SQLModel, table=True):
     research_questions_json: list[str] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
+    followup_questions_json: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    research_plan_json: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

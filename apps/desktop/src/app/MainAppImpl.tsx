@@ -1202,6 +1202,36 @@ export default function MainApp() {
                     </section>
                   ) : null}
 
+                  {goalAnalysis?.followup_questions?.length ? (
+                    <section className="pathway-workflow-sidebar-card">
+                      <span className="pathway-panel-kicker">조사 전 확인 질문</span>
+                      <ul className="pathway-detail-list">
+                        {goalAnalysis.followup_questions.slice(0, 6).map((question) => (
+                          <li key={question.id}>
+                            <strong>{question.question}</strong>
+                            <p>{question.why_needed}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+
+                  {goalAnalysis?.research_plan ? (
+                    <section className="pathway-workflow-sidebar-card">
+                      <span className="pathway-panel-kicker">자료 수집 계획</span>
+                      <p className="pathway-panel-copy">{goalAnalysis.research_plan.summary}</p>
+                      <ul className="pathway-detail-list">
+                        {goalAnalysis.research_plan.collection_targets.slice(0, 4).map((target) => (
+                          <li key={target.id}>
+                            <strong>{target.label}</strong>
+                            <span>{target.search_intent}</span>
+                            <p>{target.preferred_collectors.join(' / ') || target.layer}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+
                   {routeSelection || currentState || stateUpdates.length > 0 ? (
                     <section className="pathway-workflow-sidebar-card">
                       <span className="pathway-panel-kicker">현실 상태</span>
