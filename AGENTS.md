@@ -102,19 +102,6 @@ The ingestion path has three layers:
 2. targeted goal-specific research
 3. broader contextual research that helps the graph branch into alternatives, missed opportunities, and future route switches
 
-Automated crawling must obey:
-
-- robots.txt where applicable
-- source terms of service
-- rate limits
-- no auth-wall bypass
-- no paywall bypass
-- no captcha bypass
-- no anti-bot bypass
-- no scraping of private communities or logged-in pages unless the user owns the data and the site terms permit it
-
-Scrapling may be used for parsing permitted pages, but do not enable stealth, anti-bot, or bypass behavior.
-
 If a source cannot be collected safely, store only user-provided notes and metadata.
 
 ## 5. Architecture principles
