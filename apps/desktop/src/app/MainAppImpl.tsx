@@ -251,7 +251,7 @@ export default function MainApp() {
       /tauri/i.test(window.navigator.userAgent)
     );
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('tasks');
-  const [showWorkflowInspector, setShowWorkflowInspector] = useState(true);
+  const [showWorkflowInspector, setShowWorkflowInspector] = useState(false);
   const [workflowCanvasFullscreen, setWorkflowCanvasFullscreen] = useState(false);
   const [goals, setGoals] = useState<GoalRecord[]>([]);
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
@@ -458,7 +458,7 @@ export default function MainApp() {
     setActiveMap(chosenMap);
     setActiveMapId(chosenMap?.id ?? null);
     setSelectedNodeId(null);
-    setShowWorkflowInspector(Boolean(chosenMap));
+    setShowWorkflowInspector(false);
 
     if (chosenMap) {
       const nextRouteSelection = await fetchRouteSelection(chosenMap.id);
@@ -849,7 +849,6 @@ export default function MainApp() {
 
   async function handleSelectNode(nodeId: string) {
     setSelectedNodeId(nodeId);
-    setShowWorkflowInspector(true);
     if (revisionPreview) {
       return;
     }

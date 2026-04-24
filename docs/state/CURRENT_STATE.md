@@ -3,6 +3,30 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the desktop workflow graph overlap regression by making same-lane row spacing depend on actual node heights plus a visible gap instead of a tiny fixed row delta.
+  - Tightened Pathway node footprints and lowered the canvas minimum fit zoom so compact route maps fit inside the visible canvas instead of sliding under side controls or the context panel.
+  - Changed the workflow inspector to stay closed by default and not auto-open on node selection, keeping the graph as the first visible workspace; the inspector remains available from the in-canvas icon.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `docs/state/EXECPLAN_WORKFLOW_VISUAL_REPAIR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh press Meta+R`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e239`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-no-overlap-default.png`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e405`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-inspector-open-no-overlap.png`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh eval "...DOM overlap check..."`
+- Known gaps:
+  - Desktop graph layout still does not have a configured unit-test script, so this pass verified overlap in the live browser instead of adding a runnable regression test.
+- Next recommended task:
+  - Add a desktop Vitest config/script for graph layout utilities so node overlap and edge-lane regressions can be checked without relying only on browser screenshots.
+
+## Latest micro-update
+
+- Completed work:
   - Implemented the missing `dashboard_crawl_provider_fetch_url` Tauri command for safe one-URL-at-a-time public collection.
   - Added URL validation, private-network blocking, bounded robots.txt checks, Crawl4AI/Scrapling/Lightpanda fetch paths, HTTP extraction fallback for collector runtime failures, local artifact writing, and `/sources/manual` source-library upsert.
   - Wired goal-analysis `research_plan.collection_targets` into bounded desktop collection jobs and added a workflow sidebar `수집` action that runs the jobs sequentially and reports source-library success/failure counts.
