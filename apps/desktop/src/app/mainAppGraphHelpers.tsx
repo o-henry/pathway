@@ -39,7 +39,6 @@ export type WorkspaceTab =
   | "intelligence"
   | "workflow"
   | "tasks"
-  | "learning"
   | "shell"
   | "feed"
   | "agents"
@@ -217,9 +216,6 @@ export function NavIcon({ tab, active = false }: { tab: WorkspaceTab; active?: b
   }
   if (tab === "tasks") {
     return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/scroll.svg" />;
-  }
-  if (tab === "learning") {
-    return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/icon-learning-stack.svg" />;
   }
   if (tab === "shell") {
     return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/shell-terminal.svg" />;

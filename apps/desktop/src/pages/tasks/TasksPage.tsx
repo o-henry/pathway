@@ -36,6 +36,7 @@ type TasksPageProps = {
   activeGoalId?: string | null;
   activeGoalTitle?: string | null;
   onSelectGoal?: (goalId: string | null) => void;
+  onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
   cwd: string;
   hasTauriRuntime: boolean;
@@ -379,6 +380,17 @@ export default function TasksPage(props: TasksPageProps) {
                     key={goal.id}
                     role="listitem"
                   >
+                    <button
+                      aria-label={`${goal.title} 목표 삭제`}
+                      className="tasks-thread-list-delete"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onDeleteGoal?.(goal.id);
+                      }}
+                      type="button"
+                    >
+                      <img alt="" aria-hidden="true" className="tasks-thread-list-delete-icon" src="/xmark.svg" />
+                    </button>
                     <button
                       aria-label={`${goal.title} 목표 선택`}
                       className={`tasks-thread-list-item${props.activeGoalId === goal.id ? " is-active" : ""}`}

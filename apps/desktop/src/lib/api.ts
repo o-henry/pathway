@@ -47,6 +47,14 @@ export async function createGoal(payload: {
   );
 }
 
+export async function deleteGoal(goalId: string): Promise<void> {
+  await parseJson<null>(
+    await fetch(`${API_BASE_URL}/goals/${goalId}`, {
+      method: 'DELETE'
+    })
+  );
+}
+
 export async function analyzeGoal(goalId: string): Promise<GoalAnalysisRecord> {
   return parseJson<GoalAnalysisRecord>(
     await fetch(`${API_BASE_URL}/goals/${goalId}/analysis`, {

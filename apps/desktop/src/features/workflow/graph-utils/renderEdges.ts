@@ -31,7 +31,23 @@ type BuildCanvasEdgeLinesParams = {
   getNodeVisualSize: (nodeId: string) => NodeVisualSize;
   routeStyle?: "orthogonal" | "straight";
   separateIncomingTargetAnchors?: (node: GraphNode) => boolean;
+  preferNearTargetElbow?: (node: GraphNode) => boolean;
 };
+
+const BUNDLED_LANE_ALIGNMENT_THRESHOLD = 72;
+
+function laneAxisForSide(side: NodeAnchorSide): "x" | "y" {
+  return side === "left" || side === "right" ? "x" : "y";
+}
+
+function sidesFaceAcrossLane(fromSide: NodeAnchorSide, toSide: NodeAnchorSide): boolean {
+  return (
+    (fromSide === "right" && toSide === "left") ||
+    (fromSide === "left" && toSide === "right") ||
+    (fromSide === "bottom" && toSide === "top") ||
+    (fromSide === "top" && toSide === "bottom")
+  );
+}
 
 function buildOrthogonalPolylinePath(points: LogicalPoint[]): string {
   if (points.length === 0) {
@@ -86,6 +102,7 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
     getNodeVisualSize,
     routeStyle = "orthogonal",
     separateIncomingTargetAnchors,
+    preferNearTargetElbow,
   } = params;
 
   const groupedFrom = new Map<string, CanvasEdgeEntry[]>();
@@ -227,6 +244,32 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
     );
   });
 
+  for (const entry of entries) {
+    const fromId = entry.edge.from.nodeId;
+    const toId = entry.edge.to.nodeId;
+    const fromSide = bundledFromSideByNodeId.get(fromId);
+    const toSide = bundledToSideByNodeId.get(toId);
+    if (!fromSide || !toSide || !sidesFaceAcrossLane(fromSide, toSide)) {
+      continue;
+    }
+    if (laneAxisForSide(fromSide) !== laneAxisForSide(toSide)) {
+      continue;
+    }
+
+    const fromLane = bundledFromLaneByNodeId.get(fromId);
+    const toLane = bundledToLaneByNodeId.get(toId);
+    if (fromLane == null || toLane == null) {
+      continue;
+    }
+    if (Math.abs(fromLane - toLane) > BUNDLED_LANE_ALIGNMENT_THRESHOLD) {
+      continue;
+    }
+
+    const sharedLane = Math.round((fromLane + toLane) / 2);
+    bundledFromLaneByNodeId.set(fromId, sharedLane);
+    bundledToLaneByNodeId.set(toId, sharedLane);
+  }
+
   return entries
     .map((entry, index) => {
       const edge = entry.edge;
@@ -274,8 +317,8 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
           const rowIndex = orderedRows.findIndex((row) => row === entry);
           if (rowIndex >= 0) {
             const axisLength = resolvedToSide === "left" || resolvedToSide === "right" ? toSize.height : toSize.width;
-            const maxSpread = Math.max(0, axisLength - 24);
-            const step = incomingRows.length > 1 ? Math.min(24, maxSpread / (incomingRows.length - 1)) : 0;
+            const maxSpread = Math.max(0, axisLength - 16);
+            const step = incomingRows.length > 1 ? Math.min(32, maxSpread / (incomingRows.length - 1)) : 0;
             const offset = (rowIndex - (incomingRows.length - 1) / 2) * step;
             toPoint = offsetAnchorPoint(toPoint, resolvedToSide, offset);
           }
@@ -421,11 +464,18 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
           (isOppositeHorizontal || isOppositeVertical);
 
         if (shouldUseSimpleSingleRoute) {
+          const preferTargetElbow = preferNearTargetElbow?.(toNode) ?? false;
           const points = isOppositeHorizontal
             ? compressCollinear([
                 fromPoint,
-                { x: Math.round((fromPoint.x + toPoint.x) / 2), y: fromPoint.y },
-                { x: Math.round((fromPoint.x + toPoint.x) / 2), y: toPoint.y },
+                {
+                  x: preferTargetElbow ? Math.max(fromPoint.x + 28, toPoint.x - 36) : Math.round((fromPoint.x + toPoint.x) / 2),
+                  y: fromPoint.y,
+                },
+                {
+                  x: preferTargetElbow ? Math.max(fromPoint.x + 28, toPoint.x - 36) : Math.round((fromPoint.x + toPoint.x) / 2),
+                  y: toPoint.y,
+                },
                 toPoint,
               ])
             : compressCollinear([

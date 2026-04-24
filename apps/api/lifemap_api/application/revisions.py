@@ -81,6 +81,14 @@ def _build_revision_system_prompt() -> str:
         - Unsupported claims must be captured as assumptions.
         - Keep revisions incremental when possible instead of rewriting the
           whole graph for style only.
+        - Treat the latest check-in narrative as freeform user-reported reality:
+          actions taken, things learned, failed attempts, blockers, and new
+          opportunities may all be described in natural language instead of
+          structured fields.
+        - Infer graph consequences from the meaning of that narrative, not from
+          keyword-triggered branching.
+        - Prefer appending, annotating, weakening, or superseding prior graph
+          material over deleting it.
         """
     ).strip()
 
@@ -130,6 +138,12 @@ def _build_revision_user_prompt(
         - `map.goal_id` must equal `{goal_id}`.
         - Keep the ontology dynamic and useful for this goal.
         - Reflect the latest check-in `{checkin_id}` in node statuses and route choices.
+        - Read the latest state update's `progress_summary` as the user's own
+          freeform report of what they actually did, practiced, discovered,
+          or got blocked by while pursuing the GOAL.
+        - When that report implies new skill gains, missing prerequisites,
+          better checkpoints, or route risks, express those changes in the graph
+          even if `learned_items` is empty.
         - Add or remove nodes only when the check-in justifies it.
         - Use `revision_meta.change_note` on changed or newly added nodes.
         - Keep evidence refs explicit and assumptions honest.

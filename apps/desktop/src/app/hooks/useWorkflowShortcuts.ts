@@ -79,7 +79,6 @@ export function useWorkflowShortcuts(params: UseWorkflowShortcutsParams) {
       agents: "에이전트 탭으로 이동",
       workflow: "워크플로우 탭으로 이동",
       tasks: "TASKS 탭으로 이동",
-      learning: "학습 TASK 탭으로 이동",
       shell: "SHELL 탭으로 이동",
       feed: "피드 탭으로 이동",
       handoff: "그래프 탭으로 이동",

@@ -24,6 +24,7 @@ data/lancedb/
 data/uploads/
 data/exports/
 data/logs/
+apps/api/data/
 *.log
 
 # build outputs

@@ -375,6 +375,11 @@ type PathwayNodeFootprint = {
 };
 
 function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): PathwayEdgeSides {
+  const targetRole = normalizeGraphSearchText((target.node.data as Record<string, unknown> | undefined)?.pathway_display_role);
+  if (targetRole === TERMINAL_GOAL_DATA_ROLE) {
+    return { fromSide: "right", toSide: "left" };
+  }
+
   const sourceCenterX = source.x + source.width / 2;
   const sourceCenterY = source.y + source.height / 2;
   const targetCenterX = target.x + target.width / 2;
@@ -383,12 +388,7 @@ function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): Pathwa
   const dy = targetCenterY - sourceCenterY;
 
   if (target.depth > source.depth) {
-    if (Math.abs(dy) <= 52) {
-      return { fromSide: "right", toSide: "left" };
-    }
-    return dy > 0
-      ? { fromSide: "bottom", toSide: "left" }
-      : { fromSide: "top", toSide: "left" };
+    return { fromSide: "right", toSide: "left" };
   }
 
   if (Math.abs(dx) >= Math.abs(dy)) {
@@ -408,6 +408,19 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   );
   const progressionEdges = bundle.edges.filter((edge) => progressionTypeIds.has(edge.type));
   const nodeById = new Map(bundle.nodes.map((node) => [node.id, node]));
+  const learningNodeIds = bundle.nodes
+    .filter(
+      (node) =>
+        normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
+        PERSONAL_LEARNING_DATA_ROLE,
+    )
+    .map((node) => node.id);
+  const goalNodeId =
+    bundle.nodes.find(
+      (node) =>
+        normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
+        TERMINAL_GOAL_DATA_ROLE,
+    )?.id ?? null;
   const incoming = new Map<string, number>();
   const parents = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
@@ -454,6 +467,13 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     }
   }
 
+  if (goalNodeId) {
+    const goalDepth = depth.get(goalNodeId) ?? 1;
+    learningNodeIds.forEach((nodeId) => {
+      depth.set(nodeId, Math.max(0, goalDepth - 1));
+    });
+  }
+
   const nodeFootprintById = new Map<string, PathwayNodeFootprint>();
   bundle.nodes.forEach((node) => {
     const childCount = outgoing.get(node.id)?.length ?? 0;
@@ -470,93 +490,107 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
-  const rootGap = 120;
   const horizontalGap = 48;
-  const siblingGap = 54;
+  const rootRowGap = 60;
+  const laneSiblingGap = 4;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
+  const goalDepth = goalNodeId ? depth.get(goalNodeId) ?? null : null;
   let laneCursorX = 120;
-  laneDepths.forEach((laneDepth) => {
+  laneDepths.forEach((laneDepth, index) => {
     const laneNodes = bundle.nodes.filter((node) => (depth.get(node.id) ?? 0) === laneDepth);
     const laneFootprintWidth = Math.max(
       ...laneNodes.map((node) => nodeFootprintById.get(node.id)?.footprintWidth ?? 0),
       0,
     );
+    const laneHasMergeTarget = laneNodes.some((node) => (parents.get(node.id)?.length ?? 0) > 1);
+    const mergePullLeft = laneHasMergeTarget && laneDepth > 0 ? 36 : 0;
+    laneCursorX -= mergePullLeft;
     laneStartX.set(laneDepth, laneCursorX);
-    laneCursorX += laneFootprintWidth + horizontalGap;
+    const nextLaneDepth = laneDepths[index + 1] ?? null;
+    const isBeforeGoalLane = nextLaneDepth !== null && goalDepth !== null && nextLaneDepth === goalDepth;
+    laneCursorX += laneFootprintWidth + horizontalGap + (isBeforeGoalLane ? 132 : 0);
   });
-  const treeChildren = new Map<string, string[]>();
-  bundle.nodes.forEach((node) => {
-    treeChildren.set(node.id, []);
+  const rowByNodeId = new Map<string, number>();
+  roots.forEach((node, index) => {
+    rowByNodeId.set(node.id, index);
   });
 
-  bundle.nodes.forEach((node) => {
-    const parentIds = parents.get(node.id) ?? [];
-    if (parentIds.length === 0) {
-      return;
-    }
-    const primaryParentId = parentIds
-      .slice()
-      .sort((leftId, rightId) => {
-        const leftDepth = depth.get(leftId) ?? 0;
-        const rightDepth = depth.get(rightId) ?? 0;
-        if (leftDepth !== rightDepth) {
-          return leftDepth - rightDepth;
+  const rowGap = Math.max(
+    ...bundle.nodes.map((node) => nodeFootprintById.get(node.id)?.height ?? NODE_HEIGHT),
+    NODE_HEIGHT,
+  ) + rootRowGap;
+  const minSiblingRowGap = laneSiblingGap / Math.max(1, rowGap);
+
+  laneDepths
+    .filter((laneDepth) => laneDepth > 0)
+    .forEach((laneDepth) => {
+      const laneNodeIds = bundle.nodes
+        .filter((node) => (depth.get(node.id) ?? 0) === laneDepth && !learningNodeIds.includes(node.id))
+        .sort((left, right) => compareNodeIds(left.id, right.id))
+        .map((node) => node.id);
+      if (laneNodeIds.length === 0) {
+        return;
+      }
+
+      laneNodeIds.forEach((nodeId) => {
+        const parentIds = parents.get(nodeId) ?? [];
+        if (parentIds.length === 0) {
+          rowByNodeId.set(nodeId, rowByNodeId.size);
+          return;
+        }
+        const parentRows = parentIds
+          .map((parentId) => rowByNodeId.get(parentId))
+          .filter((value): value is number => typeof value === "number");
+        if (parentRows.length === 0) {
+          rowByNodeId.set(nodeId, 0);
+          return;
+        }
+        rowByNodeId.set(nodeId, parentRows.reduce((sum, value) => sum + value, 0) / parentRows.length);
+      });
+
+      const orderedNodeIds = [...laneNodeIds].sort((leftId, rightId) => {
+        const leftRow = rowByNodeId.get(leftId) ?? 0;
+        const rightRow = rowByNodeId.get(rightId) ?? 0;
+        if (Math.abs(leftRow - rightRow) > 0.0001) {
+          return leftRow - rightRow;
         }
         return compareNodeIds(leftId, rightId);
-      })[0];
-    if (!primaryParentId) {
-      return;
-    }
-    treeChildren.get(primaryParentId)?.push(node.id);
-  });
+      });
 
-  treeChildren.forEach((items, nodeId) => {
-    treeChildren.set(nodeId, [...items].sort(compareNodeIds));
-  });
-
-  const visited = new Set<string>();
-  const layoutTree = (nodeId: string, startY: number): number => {
-    const footprint = nodeFootprintById.get(nodeId);
-    const nodeTop = Math.round(startY);
-    positionedY.set(nodeId, nodeTop);
-    visited.add(nodeId);
-
-    const children = treeChildren.get(nodeId) ?? [];
-    let nextChildY = nodeTop;
-    let subtreeBottom = nodeTop + (footprint?.footprintHeight ?? 132);
-
-    children.forEach((childId, index) => {
-      const childTop = index === 0 ? nodeTop : nextChildY;
-      const childBottom = layoutTree(childId, childTop);
-      nextChildY = childBottom + siblingGap;
-      subtreeBottom = Math.max(subtreeBottom, childBottom);
+      for (let index = 1; index < orderedNodeIds.length; index += 1) {
+        const prevId = orderedNodeIds[index - 1];
+        const nextId = orderedNodeIds[index];
+        const minRow = (rowByNodeId.get(prevId) ?? 0) + minSiblingRowGap;
+        if ((rowByNodeId.get(nextId) ?? 0) < minRow) {
+          rowByNodeId.set(nextId, minRow);
+        }
+      }
     });
 
-    return subtreeBottom;
+  const minRow = Math.min(...[...rowByNodeId.values()], 0);
+  const baseCenterY = rootBaseY + NODE_HEIGHT / 2;
+  const setRowPosition = (nodeId: string, row: number) => {
+    const footprint = nodeFootprintById.get(nodeId);
+    const centerY = baseCenterY + (row - minRow) * rowGap;
+    positionedY.set(nodeId, Math.round(centerY - (footprint?.height ?? NODE_HEIGHT) / 2));
   };
 
-  let rootCursorY = rootBaseY;
-  roots.forEach((node) => {
-    const subtreeBottom = layoutTree(node.id, rootCursorY);
-    rootCursorY = subtreeBottom + rootGap;
-  });
-
-  let fallbackCursorY = rootCursorY;
   bundle.nodes
-    .filter((node) => !visited.has(node.id))
-    .sort((left, right) => {
-      const leftDepth = depth.get(left.id) ?? 0;
-      const rightDepth = depth.get(right.id) ?? 0;
-      if (leftDepth !== rightDepth) {
-        return leftDepth - rightDepth;
-      }
-      return left.label.localeCompare(right.label);
-    })
+    .filter((node) => !learningNodeIds.includes(node.id))
     .forEach((node) => {
-      const subtreeBottom = layoutTree(node.id, fallbackCursorY);
-      fallbackCursorY = subtreeBottom + rootGap;
+      setRowPosition(node.id, rowByNodeId.get(node.id) ?? 0);
     });
+
+  if (learningNodeIds.length > 0) {
+    const goalRow = goalNodeId ? rowByNodeId.get(goalNodeId) ?? 0 : 0;
+    learningNodeIds
+      .slice()
+      .sort(compareNodeIds)
+      .forEach((nodeId, index) => {
+        setRowPosition(nodeId, goalRow + 1 + index * 0.6);
+      });
+  }
 
   laneDepths.forEach((laneDepth) => {
     const laneNodes = bundle.nodes
@@ -571,13 +605,17 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
       const footprint = nodeFootprintById.get(node.id);
       const width = footprint?.width ?? NODE_WIDTH;
       const height = footprint?.height ?? NODE_HEIGHT;
+      const hasParent = (parents.get(node.id)?.length ?? 0) > 0;
+      const nodeX = hasParent
+        ? Math.round(laneX)
+        : Math.round(laneX + Math.max(0, (laneFootprintWidth - width) / 2));
       positioned.push({
         node,
         depth: laneDepth,
         childCount: footprint?.childCount ?? 0,
         width,
         height,
-        x: Math.round(laneX + Math.max(0, (laneFootprintWidth - width) / 2)),
+        x: nodeX,
         y: positionedY.get(node.id) ?? rootBaseY,
       });
     });
@@ -958,10 +996,6 @@ export default function PathwayRailCanvas({
         readOnly: false,
       })),
       nodeMap,
-      separateIncomingTargetAnchors: (node) => {
-        const config = node.config as Record<string, unknown> | undefined;
-        return String(config?.sourceKind ?? "").trim() === "pathway" && String(config?.pathwayFamily ?? "").trim() === "goal";
-      },
       getNodeVisualSize: (nodeId) => {
         const node = nodeMap.get(nodeId);
         const config = node?.config as Record<string, unknown> | undefined;

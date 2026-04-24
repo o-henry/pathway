@@ -3,18 +3,13 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import AppNav from '../components/AppNav';
 import TasksPage from '../pages/tasks/TasksPage';
 import SettingsPage from '../pages/settings/SettingsPage';
-import LearningTasksPage from '../pages/learning/LearningTasksPage';
-import {
-  loadLearningTasks,
-  saveLearningTasks,
-  type LearningTask,
-} from '../pages/learning/learningTasks';
 import { invoke, openPath, openUrl } from '../shared/tauri';
 import {
   acceptRevisionPreview,
   analyzeGoal,
   createRevisionPreview,
   createStateUpdate,
+  deleteGoal,
   fetchCurrentState,
   fetchGoalMaps,
   fetchGoals,
@@ -29,9 +24,7 @@ import {
 } from '../lib/api';
 import { buildExampleGraphBundle } from '../lib/exampleGraphBundle';
 import PathwayRailCanvas, {
-  buildLearningRouteDisplayBundle,
   buildTerminalGoalDisplayBundle,
-  type PersonalLearningDisplayTask,
 } from './PathwayRailCanvas';
 import {
   extractAuthMode,
@@ -54,8 +47,8 @@ import type {
 } from '../lib/types';
 import type { AuthProbeResult, LoginChatgptResult } from './main/types';
 
-type WorkspaceTab = 'tasks' | 'learning' | 'workflow' | 'settings';
-const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'learning', 'workflow', 'settings'];
+type WorkspaceTab = 'tasks' | 'workflow' | 'settings';
+const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'settings'];
 type PathwayAuthMode = 'chatgpt' | 'apikey' | 'unknown';
 
 type CollectorDoctorState = 'checking' | 'ready' | 'error';
@@ -118,9 +111,6 @@ function formatFieldValue(value: unknown): string {
 function NavIcon({ tab }: { tab: WorkspaceTab; active?: boolean }) {
   if (tab === 'tasks') {
     return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/scroll.svg" />;
-  }
-  if (tab === 'learning') {
-    return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/icon-learning-stack.svg" />;
   }
   if (tab === 'workflow') {
     return <img alt="" aria-hidden="true" className="nav-workflow-image" src="/node-svgrepo-com.svg" />;
@@ -256,7 +246,6 @@ export default function MainApp() {
   const [stateUpdates, setStateUpdates] = useState<StateUpdateRecord[]>([]);
   const [routeSelection, setRouteSelection] = useState<RouteSelectionRecord | null>(null);
   const [revisionPreview, setRevisionPreview] = useState<RevisionProposalRecord | null>(null);
-  const [learningTasks, setLearningTasks] = useState<LearningTask[]>(() => loadLearningTasks(null));
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('Pathway 로컬 작업공간이 준비되었습니다. 목표를 만들고, 자원을 분석한 뒤, 그래프를 확장하세요.');
@@ -297,35 +286,13 @@ export default function MainApp() {
     ? mergePreviewBundle(activeBundle, revisionPreview)
     : activeBundle;
   const rawDisplayBundle = visibleBundle ?? demoBundle;
-  const learningDisplayTasks = useMemo<PersonalLearningDisplayTask[]>(
-    () => learningTasks
-      .filter((task) => task.completed)
-      .map((task) => ({
-        id: task.id,
-        date: task.date,
-        title: task.title,
-        notes: task.notes,
-        minutes: task.minutes,
-        completed: task.completed,
-        quizScore: task.quizResult?.score ?? null,
-      })),
-    [learningTasks],
-  );
   const displayBundle = useMemo(
-    () => buildLearningRouteDisplayBundle(
-      buildTerminalGoalDisplayBundle(rawDisplayBundle, activeGoal?.title),
-      learningDisplayTasks,
-    ),
-    [activeGoal?.title, learningDisplayTasks, rawDisplayBundle],
+    () => buildTerminalGoalDisplayBundle(rawDisplayBundle, activeGoal?.title),
+    [activeGoal?.title, rawDisplayBundle],
   );
   const displayBaseBundle = useMemo(
-    () => (activeBundle
-      ? buildLearningRouteDisplayBundle(
-          buildTerminalGoalDisplayBundle(activeBundle, activeGoal?.title),
-          learningDisplayTasks,
-        )
-      : undefined),
-    [activeBundle, activeGoal?.title, learningDisplayTasks],
+    () => (activeBundle ? buildTerminalGoalDisplayBundle(activeBundle, activeGoal?.title) : undefined),
+    [activeBundle, activeGoal?.title],
   );
   const effectiveSelectedNodeId =
     selectedNodeId ?? (activeBundle ? routeSelection?.selected_node_id ?? null : null);
@@ -495,6 +462,29 @@ export default function MainApp() {
     await refreshGoalWorkspace(goalId);
   }
 
+  async function handleDeletePathwayGoal(goalId: string) {
+    try {
+      setErrorMessage('');
+      await deleteGoal(goalId);
+      const deletedActiveGoal = activeGoalId === goalId;
+      if (deletedActiveGoal) {
+        setActiveGoalId(null);
+        setActiveGoal(null);
+        setActiveMap(null);
+        setActiveMapId(null);
+        setCurrentState(null);
+        setStateUpdates([]);
+        setRouteSelection(null);
+        setRevisionPreview(null);
+        setSelectedNodeId(null);
+        setShowWorkflowInspector(false);
+      }
+      await syncPathwayWorkspace(!deletedActiveGoal);
+    } catch (error) {
+      setErrorMessage(formatUiError(error, '목표를 삭제하지 못했습니다.'));
+    }
+  }
+
   useEffect(() => {
     void (async () => {
       try {
@@ -507,10 +497,8 @@ export default function MainApp() {
 
   useEffect(() => {
     if (!activeGoalId) {
-      setLearningTasks(loadLearningTasks(null));
       return;
     }
-    setLearningTasks(loadLearningTasks(activeGoalId));
     void (async () => {
       try {
         setErrorMessage('');
@@ -522,7 +510,7 @@ export default function MainApp() {
   }, [activeGoalId]);
 
   useEffect(() => {
-    if (workspaceTab !== 'tasks' && workspaceTab !== 'learning' && workspaceTab !== 'workflow') {
+    if (workspaceTab !== 'tasks' && workspaceTab !== 'workflow') {
       return;
     }
     void (async () => {
@@ -540,7 +528,7 @@ export default function MainApp() {
       if (document.visibilityState !== 'visible') {
         return;
       }
-      if (workspaceTab !== 'tasks' && workspaceTab !== 'learning' && workspaceTab !== 'workflow') {
+      if (workspaceTab !== 'tasks' && workspaceTab !== 'workflow') {
         return;
       }
       void (async () => {
@@ -787,7 +775,7 @@ export default function MainApp() {
       return;
     }
     if (!stateForm.progress_summary.trim()) {
-      setErrorMessage('현실 변경 사항을 기록하려면 진행 요약이 필요합니다.');
+      setErrorMessage('GOAL을 위해 실제로 한 일이나 새로 알게 된 내용을 자연어로 적어주세요.');
       return;
     }
 
@@ -812,26 +800,12 @@ export default function MainApp() {
       });
       const hydratedPreview = await fetchRevisionPreview(preview.id);
       setRevisionPreview(hydratedPreview);
-      setStatusMessage('그래프 변경 미리보기를 생성했습니다. 캔버스에서 약해진 선, 차단된 루트, 새 브랜치를 먼저 검토하세요.');
+      setStatusMessage('현실 업데이트를 바탕으로 그래프 변경 미리보기를 생성했습니다. 캔버스에서 약해진 선, 새 연결, 보강 루트를 먼저 확인하세요.');
     } catch (error) {
       setErrorMessage(formatUiError(error, '그래프 변경 미리보기를 생성하지 못했습니다.'));
     } finally {
       setIsBusy(false);
     }
-  }
-
-  function handleLearningTasksChange(nextTasks: LearningTask[]) {
-    setLearningTasks(nextTasks);
-    saveLearningTasks(activeGoalId, nextTasks);
-  }
-
-  function handlePrepareLearningGraphUpdate(summary: string) {
-    setStateForm((current) => ({
-      ...current,
-      progress_summary: summary,
-    }));
-    setWorkspaceTab('workflow');
-    setStatusMessage('학습 TASK 기록을 현실 업데이트 입력에 옮겼습니다. 미리보기를 실행하면 기존 그래프를 보존한 채 보강 루트를 검토할 수 있습니다.');
   }
 
   async function handleAcceptRevisionPreview() {
@@ -1072,8 +1046,11 @@ export default function MainApp() {
                     <section className="pathway-request-panel pathway-canvas-update-floater">
                       <div className="pathway-request-head">
                         <div>
-                          <span className="pathway-panel-kicker">현실 업데이트</span>
-                          <strong>지금 상태를 반영해 그래프 다시 계산하기</strong>
+                          <span className="pathway-panel-kicker">업데이트</span>
+                          <strong>GOAL을 위해 실제로 한 일을 적고 그래프에 반영하기</strong>
+                          <p className="pathway-panel-copy">
+                            추가된/변경된 사항을 입력하면 다음 리비전이 기존 그래프를 보존한 채 이어서 붙습니다.
+                          </p>
                         </div>
                         {revisionPreview ? null : (
                           <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
@@ -1086,7 +1063,7 @@ export default function MainApp() {
                         className="pathway-textarea pathway-request-textarea"
                         value={stateForm.progress_summary}
                         onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
-                        placeholder="Pathway가 목표 기준으로 필요한 정보가 부족하면 되물으면서 다음 그래프에 필요한 제약, 막힘, 새 분기를 수집합니다."
+                        placeholder="예: 오늘 원어민 대화 15분을 시도했고 표현 우회 설명 연습을 했다."
                       />
                     </section>
                   ) : null}
@@ -1263,6 +1240,9 @@ export default function MainApp() {
         isActive={workspaceTab === 'tasks'}
         loginCompleted={loginCompleted}
         onOpenWorkflow={() => setWorkspaceTab('workflow')}
+        onDeleteGoal={(goalId) => {
+          void handleDeletePathwayGoal(goalId);
+        }}
         onOpenSettings={() => setWorkspaceTab('settings')}
         onSelectGoal={(goalId) => {
           void handleSelectPathwayGoal(goalId);
@@ -1271,18 +1251,6 @@ export default function MainApp() {
         pathwayMode
         publishAction={() => {}}
         setStatus={setStatusMessage}
-      />
-    );
-  }
-
-  function renderLearningTab() {
-    return (
-      <LearningTasksPage
-        activeGoalId={activeGoalId}
-        activeGoalTitle={activeGoal?.title ?? ''}
-        tasks={learningTasks}
-        onTasksChange={handleLearningTasksChange}
-        onPrepareGraphUpdate={handlePrepareLearningGraphUpdate}
       />
     );
   }
@@ -1347,7 +1315,6 @@ export default function MainApp() {
 
         {workspaceTab === 'workflow' && renderWorkflowTab()}
         {workspaceTab === 'tasks' && renderTasksTab()}
-        {workspaceTab === 'learning' && renderLearningTab()}
         {workspaceTab === 'settings' && renderSettingsTab()}
       </section>
     </main>

@@ -87,6 +87,64 @@ The highest-value follow-up options are now:
 7. Keep tightening Pathway edge routing so multibranch trunks look intentionally composed even on deeper or asymmetric graphs.
 8. Replace the deterministic stub provider with the intended Codex CLI orchestration path once that contract is defined.
 
+## Latest micro-update
+
+- Completed work:
+  - Aligned close Pathway split/merge edge lanes in the desktop graph renderer so a nearby source bundle lane and target merge lane collapse onto one shared trunk instead of drawing a few pixels apart.
+  - Added a regression case for the Japanese route shape where `원어민 노출 환경` and `주간 회화 루프` converge into `원어민 15분 점검` while `주간 회화 루프` also continues to a sibling pressure node.
+- Changed files:
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.test.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm exec vitest run apps/desktop/src/features/workflow/graph-utils/renderEdges.test.ts` (failed: root workspace does not expose `vitest`)
+  - `pnpm --filter web exec vitest run ../desktop/src/features/workflow/graph-utils/renderEdges.test.ts` (failed: web Vitest config only includes web-local tests)
+  - `command -v npx`
+  - `mkdir -p output/playwright`
+  - `curl -sS http://127.0.0.1:1420/`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e10`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-edge-lane-alignment.png`
+- Known gaps:
+  - The new desktop renderer regression is typechecked but not executed by a configured desktop Vitest command yet.
+  - The live browser screenshot now confirms the Japanese workflow graph renders with the middle trunk visually aligned, but the screenshot artifact remains local/ignored.
+- Next recommended task:
+  - Add a desktop unit-test script or shared Vitest config, then run the new edge-routing regression directly.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the separate `학습` tab from the desktop Pathway shell and deleted the local-only learning task page/storage files.
+  - Reframed the workflow `현실 업데이트` composer so the user can type freeform natural-language notes about what they actually did, practiced, learned, or got blocked by for the GOAL.
+  - Stopped display-layer learning-route augmentation; graph changes now flow through the existing append-only state-update and revision-preview path instead.
+  - Tightened the backend revision-generation prompt so the latest `progress_summary` is treated as freeform user reality input and graph consequences should be inferred from semantics rather than keyword-triggered branching.
+- Changed files:
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/components/AppNav.tsx`
+  - `apps/desktop/src/app/mainAppGraphHelpers.tsx`
+  - `apps/desktop/src/app/hooks/useWorkspaceQuickPanel.ts`
+  - `apps/desktop/src/app/hooks/useWorkflowShortcuts.ts`
+  - `apps/desktop/src/i18n/messages/ko.ts`
+  - `apps/desktop/src/i18n/messages/en.ts`
+  - `apps/desktop/src/i18n/messages/ja.ts`
+  - `apps/desktop/src/i18n/messages/zh.ts`
+  - `apps/desktop/src/pages/learning/LearningTasksPage.tsx`
+  - `apps/desktop/src/pages/learning/learningTasks.ts`
+  - `docs/state/EXECPLAN_PATHWAY_NATURAL_LANGUAGE_REALITY_UPDATES.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The default local stub provider remains deterministic, so truly agent-quality interpretation of the natural-language update depends on enabling a real provider.
+  - Old localStorage data from the removed learning tab is left in place and simply no longer used.
+- Next recommended task:
+  - Verify one real workflow revision preview with a non-stub provider enabled so the new natural-language reality-update path produces graph changes grounded in the user's actual check-in text.
+
 ## Commands run
 
 - `git init -b main`
@@ -1313,3 +1371,106 @@ The highest-value follow-up options are now:
   - Dense graphs can still produce visual crossings because this preserves orthogonal routing without running an edge-crossing optimizer.
 - Next recommended task:
   - Test the repaired routing on the user's active generated graph in Tauri and tune GOAL anchor spacing if the number of terminal branches gets high.
+
+## Latest micro-update
+
+- Completed work:
+  - Added a lightweight balance pass to the Pathway layout so nodes with multiple parents are pulled closer to the vertical center of their parent set instead of staying rigidly attached to one tree branch.
+  - Increased the separated GOAL entry-anchor spacing so final incoming edges read as more distinct paths near the terminal node.
+  - Verified the updated graph balance against the active Japanese-learning graph in the browser.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `docs/state/EXECPLAN_PATHWAY_GRAPH_BALANCE_PASS.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e13`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-graph-balance-pass.png`
+- Known gaps:
+  - This pass still uses a lightweight lane relaxation, not a full crossing-minimization or constraint-based graph layout stage.
+- Next recommended task:
+  - Run one more targeted polish pass on dense active graphs to tune merge-node spacing and terminal alignment under 3+ incoming branches.
+
+## Latest micro-update
+
+- Completed work:
+  - Changed GOAL-targeted Pathway edges so they always use `right -> left` anchoring instead of switching to `top/bottom -> left` based on vertical offset.
+  - Adjusted the simple orthogonal route helper so GOAL-targeted edges bend near the terminal node instead of around the midpoint of the segment.
+  - Verified against the active Japanese-learning graph that GOAL connections no longer read like they are entering awkwardly from below.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e13`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-goal-entry-pass.png`
+- Known gaps:
+  - GOAL entry routing is now more natural, but very dense terminal bundles may still need a stronger dedicated terminal-layout step.
+- Next recommended task:
+  - Add a small Pathway-specific terminal alignment pass so 3+ final branches fan into GOAL with more even spacing and fewer shared elbows.
+
+## Latest micro-update
+
+- Completed work:
+  - Tightened the learning-tab layout by shrinking the calendar column and preventing the calendar island from stretching to the full panel height.
+  - Reworked the ambiguous bare minutes input into a labeled `학습 시간 / 분` field.
+  - Centered and normalized the task completion control and renamed the quiz rail kicker from `Agent quiz` to `Quiz review`.
+  - Confirmed from code and surfaced in the UI that quiz generation is still local rule-based via `buildQuizForTask`, not yet true agent-generated quiz synthesis.
+- Changed files:
+  - `apps/desktop/src/pages/learning/LearningTasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e10`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-learning-ui-pass.png`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh fill e205 "테스트"`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e203`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot`
+- Known gaps:
+  - Learning quiz generation remains deterministic/local and still needs the intended agent-backed question-generation path.
+- Next recommended task:
+  - Replace the current local quiz builder with an agent-backed quiz synthesis step that uses task notes, linked resources, and recent graph state as inputs.
+
+## Latest micro-update
+
+- Completed work:
+  - Replaced the previous Pathway tree/relaxation hybrid with a direct row-grid placement pass keyed to parent rows.
+  - Single-parent chains now keep the exact same conceptual row as their parent, while true merge nodes use the average row of their incoming parents.
+  - The terminal GOAL node now uses the average row of incoming parents so the final branch bundle can read as one shared trunk.
+  - Updated the merge-alignment ExecPlan with the row-grid placement approach and completion notes.
+  - Removed the special right-alignment for nodes that connect directly to GOAL, so same-column nodes stay on the same x-axis.
+  - Added extra horizontal spacing before the GOAL lane so the final merge bundle does not feel cramped.
+  - Added a goal-delete button to Pathway goal cards in the tasks tab and wired it to the existing `DELETE /goals/{goal_id}` API.
+  - Replaced the tasks-tab `xmark.svg` asset with the user-provided icon file.
+  - Pulled merge-heavy Pathway columns slightly left and increased the final pre-GOAL gap so the middle merge bundle reads more naturally.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `apps/desktop/public/xmark.svg`
+  - `docs/state/EXECPLAN_PATHWAY_MERGE_ALIGNMENT_PASS.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `curl -sS http://127.0.0.1:1420/ | head -c 120`
+  - `zsh -lc 'npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/'`
+  - `zsh -lc 'npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh snapshot'`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cp /Users/henry/Documents/asset/ICON/xmark.svg apps/desktop/public/xmark.svg`
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This is still a Pathway-specific column layout, not a full crossing-minimizing global graph solver.
+  - Local Playwright CLI screenshot verification failed in this environment because the browser helper hit `URL.canParse is not a function`.
+- Next recommended task:
+  - Verify the updated goal-delete affordance and re-check the middle merge column against the user's reference screenshot in the running desktop shell.

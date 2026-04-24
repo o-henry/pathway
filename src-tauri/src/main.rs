@@ -12,6 +12,38 @@ use tauri::{AppHandle, Manager};
 const API_HOST: &str = "127.0.0.1";
 const API_PORT: u16 = 8000;
 
+#[cfg(all(target_os = "macos", debug_assertions))]
+fn apply_dev_app_icon(app: &AppHandle) {
+    use objc2::{AnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
+
+    let icon_path = repo_root(app).join("src-tauri/icons/icon.png");
+    let Ok(bytes) = std::fs::read(&icon_path) else {
+        eprintln!("PATHWAY dev icon not found at {}", icon_path.display());
+        return;
+    };
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        eprintln!("PATHWAY dev icon skipped: not on main thread");
+        return;
+    };
+
+    let data = NSData::with_bytes(&bytes);
+    let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
+        eprintln!("PATHWAY dev icon skipped: failed to decode {}", icon_path.display());
+        return;
+    };
+
+    let appkit = NSApplication::sharedApplication(mtm);
+    unsafe {
+        appkit.setApplicationIconImage(Some(&image));
+    }
+}
+
+#[cfg(not(all(target_os = "macos", debug_assertions)))]
+fn apply_dev_app_icon(_app: &AppHandle) {}
+
 struct ApiProcess(Mutex<Option<Child>>);
 
 #[derive(Clone, Serialize)]
@@ -411,6 +443,8 @@ fn main() {
             dashboard_crawl_provider_install
         ])
         .setup(|app| {
+            apply_dev_app_icon(app.handle());
+
             match start_api_if_needed(app.handle()) {
                 Ok(Some(child)) => {
                     let api_process = app.state::<ApiProcess>();
