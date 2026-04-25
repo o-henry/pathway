@@ -83,8 +83,8 @@ Implements:
 
 - SQLite repositories
 - LanceDB vector search
-- OpenAI provider
-- OpenAI provider
+- Codex CLI provider
+- deterministic stub provider
 - Crawl4AI fetcher
 - Lightpanda-backed renderer when JS execution is needed
 - Scrapy crawl queue/orchestration when breadth increases

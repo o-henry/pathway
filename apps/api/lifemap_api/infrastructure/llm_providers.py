@@ -3,37 +3,40 @@ from __future__ import annotations
 from collections.abc import Sequence
 import json
 import re
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import Any
-
-import httpx
 
 from lifemap_api.application.errors import AppConfigurationError, ProviderInvocationError
 from lifemap_api.config import Settings
 
 
-def _build_structured_output_payload(
-    schema_name: str, json_schema: dict[str, Any]
-) -> dict[str, Any]:
-    return {
-        "type": "json_schema",
-        "name": schema_name,
-        "strict": True,
-        "schema": json_schema,
-    }
-
-
-class OpenAIProvider:
+class CodexCliProvider:
     def __init__(self, settings: Settings) -> None:
-        if not settings.openai_api_key:
+        if not settings.codex_model:
             raise AppConfigurationError(
-                "OPENAI_API_KEY is required when LIFEMAP_LLM_PROVIDER=openai"
-            )
-        if not settings.openai_model:
-            raise AppConfigurationError(
-                "OPENAI_MODEL is required when LIFEMAP_LLM_PROVIDER=openai"
+                "LIFEMAP_CODEX_MODEL is required when LIFEMAP_LLM_PROVIDER=codex"
             )
 
         self._settings = settings
+
+    def _build_prompt(
+        self,
+        *,
+        messages: Sequence[dict[str, str]],
+        schema_name: str,
+    ) -> str:
+        rendered_messages = "\n\n".join(
+            f"<{message.get('role', 'user')}>\n{message.get('content', '')}\n</{message.get('role', 'user')}>"
+            for message in messages
+        )
+        return (
+            "You are being called by the local Pathway app through the logged-in Codex CLI.\n"
+            "Use the active Codex subscription/login session. Do not ask for API keys or tokens.\n"
+            f"Return a single JSON object for schema `{schema_name}`. No markdown, no prose.\n\n"
+            f"{rendered_messages}"
+        )
 
     def generate_structured_json(
         self,
@@ -42,65 +45,60 @@ class OpenAIProvider:
         json_schema: dict[str, Any],
         schema_name: str,
     ) -> str:
-        payload = {
-            "model": self._settings.openai_model,
-            "input": list(messages),
-            "text": {"format": _build_structured_output_payload(schema_name, json_schema)},
-        }
-        headers = {
-            "Authorization": f"Bearer {self._settings.openai_api_key}",
-            "Content-Type": "application/json",
-        }
-
+        prompt = self._build_prompt(messages=messages, schema_name=schema_name)
         try:
-            with httpx.Client(
-                base_url=self._settings.openai_base_url,
-                timeout=self._settings.llm_request_timeout_seconds,
-                headers=headers,
-            ) as client:
-                response = client.post("/responses", json=payload)
-                response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise ProviderInvocationError(f"OpenAI Responses request failed: {exc}") from exc
-
-        body = response.json()
-        output_items = body.get("output")
-        if not isinstance(output_items, list):
-            raise ProviderInvocationError("OpenAI response did not include an output array")
-
-        refusal_messages: list[str] = []
-        output_texts: list[str] = []
-
-        for output in output_items:
-            if not isinstance(output, dict) or output.get("type") != "message":
-                continue
-
-            content_items = output.get("content", [])
-            if not isinstance(content_items, list):
-                continue
-
-            for item in content_items:
-                if not isinstance(item, dict):
-                    continue
-                item_type = item.get("type")
-                if item_type == "refusal":
-                    refusal_text = item.get("refusal")
-                    if isinstance(refusal_text, str) and refusal_text.strip():
-                        refusal_messages.append(refusal_text)
-                if item_type == "output_text":
-                    text = item.get("text")
-                    if isinstance(text, str) and text.strip():
-                        output_texts.append(text)
-
-        if refusal_messages:
+            with tempfile.TemporaryDirectory(prefix="pathway-codex-") as temp_dir:
+                temp_path = Path(temp_dir)
+                schema_path = temp_path / f"{schema_name}.schema.json"
+                output_path = temp_path / f"{schema_name}.json"
+                schema_path.write_text(
+                    json.dumps(json_schema, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                command = [
+                    "codex",
+                    "exec",
+                    "--model",
+                    self._settings.codex_model,
+                    "--sandbox",
+                    "read-only",
+                    "--ask-for-approval",
+                    "never",
+                    "--output-schema",
+                    str(schema_path),
+                    "--output-last-message",
+                    str(output_path),
+                    "-",
+                ]
+                result = subprocess.run(
+                    command,
+                    input=prompt,
+                    text=True,
+                    capture_output=True,
+                    timeout=self._settings.llm_request_timeout_seconds,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    error_text = (result.stderr or result.stdout or "").strip()
+                    raise ProviderInvocationError(
+                        "Codex CLI structured generation failed: "
+                        f"{error_text[-1200:] or f'exit code {result.returncode}'}"
+                    )
+                output_text = output_path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError as exc:
+            raise AppConfigurationError(
+                "Codex CLI was not found on PATH. Install/login to Codex before using Pathway AI analysis."
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
             raise ProviderInvocationError(
-                f"OpenAI model refused the request: {refusal_messages[0]}"
+                f"Codex CLI structured generation timed out after {self._settings.llm_request_timeout_seconds:g}s"
+            ) from exc
+
+        if not output_text:
+            raise ProviderInvocationError(
+                "Codex CLI structured generation returned an empty response"
             )
-
-        if not output_texts:
-            raise ProviderInvocationError("OpenAI response did not include structured text output")
-
-        return "\n".join(output_texts)
+        return output_text
 
 
 def _extract_json_block(content: str, start_marker: str, end_marker: str | None = None) -> dict[str, Any] | None:
@@ -703,12 +701,12 @@ class StubPathwayProvider:
         return current_bundle
 
 
-def build_llm_provider(settings: Settings) -> OpenAIProvider | StubPathwayProvider:
+def build_llm_provider(settings: Settings) -> CodexCliProvider | StubPathwayProvider:
     provider_name = settings.llm_provider.strip().lower()
     if provider_name == "stub":
         return StubPathwayProvider()
-    if provider_name == "openai":
-        return OpenAIProvider(settings)
+    if provider_name == "codex":
+        return CodexCliProvider(settings)
     raise AppConfigurationError(
-        f"Unsupported LLM provider '{settings.llm_provider}'. Use 'stub' or 'openai'."
+        f"Unsupported LLM provider '{settings.llm_provider}'. Use 'stub' or 'codex'."
     )

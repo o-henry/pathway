@@ -26,9 +26,9 @@
   - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
   - `rg -n "_build_stub_goal_analysis|_fallback_analysis|이 목표에 현실적으로 매주|매달 투입 가능한 비용|혼자 학습, 튜터|피드백을 받을 사람" apps/api/lifemap_api apps/desktop/src`
 - Known gaps:
-  - A real `OPENAI_API_KEY` is still required for backend intake analysis with `LIFEMAP_LLM_PROVIDER=openai`; otherwise the UI now fails honestly instead of showing generic template questions.
+  - Backend intake analysis should use the logged-in Codex CLI path, not API-key-backed providers.
 - Next recommended task:
-  - Wire the desktop Codex logged-in execution bridge into Pathway intake analysis if the backend should avoid `OPENAI_API_KEY` entirely.
+  - Keep Pathway intake analysis on the Codex GPT-5.5 subscription/login path and avoid API key provider wiring.
 
 ## Latest micro-update
 
@@ -153,7 +153,7 @@
   - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
 - Known gaps:
   - `apps/desktop/pathway_snapshot/` still contains historical snapshot strings if searched globally; it is not active source.
-  - Backend OpenAI provider still requires `OPENAI_API_KEY` if enabled; desktop Codex execution uses the Codex login flow.
+  - Backend AI analysis should route through Codex CLI login, not API-key-backed providers.
 - Next recommended task:
   - Run the desktop app and confirm workflow node creation, model picker, feed filters, and node inspector expose Codex/GPT-5.5 without Ollama controls.
 
@@ -652,8 +652,8 @@ Current additive objective — RAIL UI Pivot for Pathway Desktop.
 
 - Frontend: SvelteKit + Svelte Flow + Rough.js + ELK.js.
 - Backend: FastAPI + SQLite + LanceDB.
-- Local AI default: deterministic stub provider until a real Codex CLI path lands.
-- External OpenAI provider: optional through environment variables only.
+- Local AI default: Codex GPT-5.5 through the logged-in Codex CLI session.
+- Stub provider: deterministic fallback for tests and local graph stubs only.
 - Graph schema: dynamic `GraphBundle` with per-map ontology.
 - Source ingestion: manual first; permitted crawling only.
 - Export format: `MapExportEnvelope` JSON plus Markdown snapshot export.
@@ -1523,10 +1523,10 @@ The highest-value follow-up options are now:
     - `UV_CACHE_DIR=.uv-cache uv run fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
     - `python3 <inline validation runner against http://127.0.0.1:8000>`
   - Known gaps:
-    - The current environment still uses the repo's `stub` LLM path, so graph semantics are not yet equivalent to a real grounded Ollama/OpenAI generation pass.
+    - The current environment still uses the repo's `stub` LLM path in some graph fallback tests, so graph semantics are not yet equivalent to a real grounded Codex generation pass.
     - The user-requested Obsidian export still needs an out-of-sandbox copy step into `/Users/henry/Documents/obsidian_ai/pathway`.
   - Next recommended task:
-    - Re-run the same validation with `LIFEMAP_LLM_PROVIDER=ollama` or `LIFEMAP_LLM_PROVIDER=openai`, then visually confirm the canvas in the desktop runtime with the grounded graph.
+    - Re-run the same validation with `LIFEMAP_LLM_PROVIDER=codex`, then visually confirm the canvas in the desktop runtime with the grounded graph.
 - Latest bounded objective:
   - Completed work:
     - Ran a deeper English conversation research pass with 11 richer notes spanning official guidance, research, lived experience, and personal trajectories.
@@ -2158,3 +2158,64 @@ The highest-value follow-up options are now:
   - Local Playwright CLI screenshot verification failed in this environment because the browser helper hit `URL.canParse is not a function`.
 - Next recommended task:
   - Verify the updated goal-delete affordance and re-check the middle merge column against the user's reference screenshot in the running desktop shell.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the Pathway intake log hydration path so an existing goal can append the PATHWAY follow-up checklist after `gpt-5.5` analysis arrives asynchronously.
+  - Updated the user intake bubble override so the right-side message body also uses `whitesmoke` instead of being forced back to white.
+  - Confirmed the current desktop app data path wiring: bundled Tauri launches store Pathway API data under the Tauri app data directory, while the selected workspace cwd is not currently used as the Pathway SQLite storage root.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `sed -n '280,350p' apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `sed -n '936,980p' apps/desktop/src/pathway.css`
+  - `sed -n '1028,1050p' src-tauri/src/main.rs`
+  - `sed -n '1160,1182p' src-tauri/src/main.rs`
+- Known gaps:
+  - If the backend has no real OpenAI/Codex-compatible `gpt-5.5` provider configured, follow-up questions still cannot be generated because deterministic fallback questions were intentionally removed.
+  - Pathway data is not yet rooted under the selected workspace folder such as `obsidian_ai`; changing that needs a deliberate data-root migration decision.
+- Next recommended task:
+  - Decide whether Pathway's SQLite/LanceDB storage should move to the selected workspace directory and, if so, add a migration-safe `LIFEMAP_DATA_DIR` selection path.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the API-key-backed OpenAI provider path from active Pathway backend configuration.
+  - Added `CodexCliProvider`, which runs structured generation through `codex exec --model gpt-5.5` and the user's logged-in Codex CLI session.
+  - Changed the backend default provider to `LIFEMAP_LLM_PROVIDER=codex` with `LIFEMAP_CODEX_MODEL=gpt-5.5`.
+  - Removed `OPENAI_API_KEY`, `OPENAI_MODEL`, and `OPENAI_BASE_URL` from `.env.example` and replaced stale docs that described backend OpenAI as the intake path.
+  - Kept deterministic `StubPathwayProvider` available only for tests and local graph fallback behavior.
+- Changed files:
+  - `.env.example`
+  - `AGENTS.md`
+  - `README.md`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_goal_analysis.py`
+  - `docs/ARCHITECTURE.md`
+  - `docs/CODEX_TASKS_PHASED.md`
+  - `docs/IMPLEMENTATION_PLAN.md`
+  - `docs/SECURITY_CHECKLIST.md`
+  - `docs/adr/0001-stack-selection.md`
+  - `docs/phases/phase-04-llm-generation-no-rag.md`
+  - `docs/state/CURRENT_STATE.md`
+  - `docs/state/EXECPLAN_PHASE_04.md`
+- Commands run:
+  - `codex --help`
+  - `codex exec --help`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
+  - `rg -n "OPENAI_API_KEY|OPENAI_MODEL|OPENAI_BASE_URL|LIFEMAP_LLM_PROVIDER=openai|OpenAIProvider|OpenAI provider|optional OpenAI|backend OpenAI|provider_name == \"openai\"|openai_api_key|openai_model|openai_base_url" apps/api apps/desktop src-tauri .env.example README.md docs AGENTS.md`
+- Known gaps:
+  - The frontend goal intake path still calls the FastAPI analysis endpoint; it now relies on the backend process finding the logged-in `codex` CLI on `PATH`.
+  - Pathway data is still not rooted under the selected workspace folder such as `obsidian_ai`.
+- Next recommended task:
+  - Run the desktop app with Codex logged in and confirm a new goal produces `gpt-5.5` follow-up questions through the Codex CLI path.

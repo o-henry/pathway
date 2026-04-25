@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from lifemap_api.api.dependencies import get_llm_provider
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
+from lifemap_api.infrastructure.llm_providers import StubPathwayProvider
 from lifemap_api.main import create_app
 
 
@@ -192,6 +193,7 @@ def test_goal_analysis_uses_provider_and_normalizes_missing_plan_details(
 
 def test_goal_analysis_rejects_deterministic_stub_provider(client: TestClient) -> None:
     goal_id = _create_goal(client)
+    client.app.dependency_overrides[get_llm_provider] = lambda: StubPathwayProvider()
 
     response = client.post(f"/goals/{goal_id}/analysis")
 

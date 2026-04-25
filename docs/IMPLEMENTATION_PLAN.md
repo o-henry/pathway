@@ -36,7 +36,7 @@ The primary user is the local owner. No SaaS assumptions.
 | DB | SQLite | Single local file, easy backup, no server dependency. |
 | ORM | SQLModel or SQLAlchemy 2.x | Typed models and clean persistence layer. |
 | Vector DB | LanceDB | Embedded local vector store, good match for local-first RAG. |
-| LLM | Provider interface | Codex GPT-5.5 for desktop agent execution; optional backend OpenAI through env vars only. |
+| LLM | Provider interface | Codex GPT-5.5 through the logged-in Codex CLI session; no API-key-backed default runtime. |
 | Embeddings | Deterministic local embeddings by default | Keeps private notes local by default. |
 | Graph validation | Pydantic + NetworkX | Schema validation plus deterministic DAG/cycle checks. |
 | Python deps | uv | Fast reproducible Python project management. |
@@ -122,7 +122,7 @@ pathway/
           vector_store_lancedb.py
           llm/
             base.py
-            openai_provider.py
+            codex_cli_provider.py
           embeddings/
             base.py
           crawling/
@@ -248,8 +248,8 @@ Generate a valid graph bundle from only user profile and goal.
 Deliverables:
 
 - LLM provider interface.
-- Codex GPT-5.5 desktop default; backend OpenAI optional.
-- Optional OpenAI provider through env vars.
+- Codex GPT-5.5 desktop and backend analysis default through the logged-in Codex CLI session.
+- No API-key-backed provider in the default Pathway runtime.
 - Prompt templates.
 - JSON schema generation.
 - validate-repair-validate loop.

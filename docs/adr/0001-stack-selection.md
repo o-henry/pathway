@@ -15,8 +15,8 @@ Use:
 - FastAPI for backend.
 - SQLite for local persistence.
 - LanceDB for vector search.
-- Codex GPT-5.5 for desktop agent execution; backend graph generation uses stub or optional OpenAI.
-- Optional OpenAI provider only through env vars.
+- Codex GPT-5.5 for desktop agent execution and backend AI analysis through the logged-in Codex CLI session.
+- Deterministic stub remains available only for local fallback and tests.
 
 ## Rationale
 

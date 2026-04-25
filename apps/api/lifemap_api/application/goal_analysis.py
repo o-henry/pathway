@@ -229,7 +229,7 @@ def analyze_goal(
     if llm_provider is None or getattr(llm_provider, "is_deterministic_fallback", False):
         raise AppConfigurationError(
             "Goal intake analysis requires a real structured LLM provider. "
-            "Set LIFEMAP_LLM_PROVIDER=openai and OPENAI_MODEL=gpt-5.5."
+            "Use LIFEMAP_LLM_PROVIDER=codex with the logged-in Codex CLI and GPT-5.5."
         )
 
     try:

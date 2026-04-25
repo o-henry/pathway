@@ -40,9 +40,9 @@
 ## 5. LLM providers
 
 - [x] Codex GPT-5.5 login path is available for desktop agent execution.
-- [x] OpenAI provider is optional.
-- [x] External provider use is clearly env-driven.
-- [x] User can disable external providers by not configuring them.
+- [x] Pathway AI analysis uses the logged-in Codex CLI path instead of API keys.
+- [x] API-key-backed providers are not part of the default runtime.
+- [x] User-facing model generation does not require configuring external provider secrets.
 - [x] Provider errors do not intentionally leak secrets.
 
 ## 6. Dependencies

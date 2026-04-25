@@ -46,7 +46,7 @@ Run tests and update docs/state/CURRENT_STATE.md.
 ```text
 Read AGENTS.md, docs/DYNAMIC_GRAPH_SPEC.md, docs/phases/phase-04-llm-generation-no-rag.md, and docs/SECURITY_CHECKLIST.md.
 Execute Phase 4 only.
-Implement provider-based LLM graph generation without RAG. Use Codex GPT-5.5 for desktop agent execution. Backend graph generation may use stub or optional OpenAI via environment variables only. Implement validate-repair-validate loop.
+Implement provider-based LLM graph generation without RAG. Use Codex GPT-5.5 through the logged-in Codex CLI session for desktop and backend AI analysis. Backend graph generation may use stub only as a deterministic local fallback. Implement validate-repair-validate loop.
 Run tests and update docs/state/CURRENT_STATE.md.
 ```
 

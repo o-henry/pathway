@@ -966,7 +966,7 @@
   width: fit-content;
   max-width: min(640px, 100%);
   border-color: rgba(116, 124, 138, 0.12);
-  background: #ffffff;
+  background: whitesmoke;
 }
 
 .pathway-intake-message-body p {

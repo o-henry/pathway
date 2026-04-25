@@ -8,8 +8,8 @@ Implement LLM-based graph generation without RAG, while preserving the dynamic o
 
 - Added `LLMProvider` protocol for structured JSON generation.
 - Added provider selection with:
-  - `OllamaProvider` as the default local-first backend.
-  - `OpenAIProvider` as an optional env-driven provider using the Responses API.
+  - `CodexCliProvider` as the logged-in Codex GPT-5.5 backend analysis path.
+  - `StubPathwayProvider` as the deterministic local fallback for tests and graph stubs.
 - Added generation service with:
   - system/user prompt builders,
   - JSON-schema-constrained generation,

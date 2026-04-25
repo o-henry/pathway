@@ -12,8 +12,8 @@ Generate a valid dynamic graph bundle from user profile and goal without externa
 ## Deliverables
 
 - `LLMProvider` protocol.
-- Codex GPT-5.5 desktop default; backend OpenAI optional.
-- optional `OpenAIProvider` through env vars.
+- Codex GPT-5.5 desktop and backend analysis default through the logged-in Codex CLI session.
+- no API-key-backed provider in the default Pathway runtime.
 - prompt templates.
 - JSON schema instruction.
 - validate-repair-validate loop.
@@ -24,5 +24,5 @@ Generate a valid dynamic graph bundle from user profile and goal without externa
 
 - With a configured provider, a goal can generate a valid graph bundle.
 - Invalid JSON is handled with repair or a clear error.
-- Desktop Codex uses the logged-in Codex session; backend OpenAI remains env-driven.
-- OpenAI key is never hardcoded.
+- Desktop and backend AI analysis use the logged-in Codex session.
+- API keys are not required for the Pathway AI path.

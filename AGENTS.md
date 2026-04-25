@@ -262,8 +262,8 @@ Backend:
 - SQLModel or SQLAlchemy
 - SQLite
 - LanceDB for local vector search
-- Codex GPT-5.5 by default for desktop agent execution
-- OpenAI provider optional through environment variables only for backend graph generation
+- Codex GPT-5.5 by default for desktop agent execution and backend AI analysis through the logged-in Codex CLI session
+- API-key-backed providers are not part of the default Pathway runtime
 - pytest, ruff, mypy/pyright where practical
 - uv for Python dependency management
 

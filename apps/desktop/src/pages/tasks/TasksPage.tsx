@@ -308,8 +308,17 @@ export default function TasksPage(props: TasksPageProps) {
       return;
     }
     const analysis = props.pathwayGoalAnalysis?.goal_id === activeGoalId ? props.pathwayGoalAnalysis : null;
+    const hasFollowups = Boolean(analysis?.followup_questions?.length);
     setPathwayIntake((current) => {
       if (current.goalId === activeGoalId && current.messages.length > 0) {
+        const hasAssistantMessage = current.messages.some((message) => message.role === "assistant");
+        if (hasFollowups && analysis && !hasAssistantMessage) {
+          return {
+            ...current,
+            phase: "clarifying",
+            messages: [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
+          };
+        }
         return current;
       }
       const goalText = String(props.activeGoalTitle ?? "").trim();
@@ -317,11 +326,11 @@ export default function TasksPage(props: TasksPageProps) {
       if (goalText) {
         messages.push(makePathwayMessage("user", goalText));
       }
-      if (analysis?.followup_questions?.length) {
+      if (hasFollowups && analysis) {
         messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
       }
       return {
-        phase: analysis?.followup_questions?.length ? "clarifying" : "idle",
+        phase: hasFollowups ? "clarifying" : "idle",
         goalId: activeGoalId,
         answers: [],
         messages,
