@@ -3,6 +3,35 @@
 ## Latest micro-update
 
 - Completed work:
+  - Reworked the Pathway first tab into an o-rail-style agent intake conversation instead of a direct task-thread fallback.
+  - The first user message now creates a goal, runs goal analysis, and renders backend follow-up questions as a checklist in the conversation surface.
+  - User clarification answers are preserved on the goal record, and graph generation starts only after an approval message such as `OK`.
+  - Verified the empty state and full goal → checklist → answer → approval → workflow transition in a local browser session.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_PATHWAY_INTAKE_CONVERSATION.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm dev:desktop-ui`
+  - `pnpm dev:api`
+  - `node --input-type=module -e "...Playwright empty-state screenshot using local Chrome..."`
+  - `node --input-type=module -e "...Playwright full intake flow using local Chrome..."`
+  - `curl -sS http://127.0.0.1:8000/goals`
+  - `curl -sS -X DELETE http://127.0.0.1:8000/goals/<temporary-test-goal-id>` (three temporary smoke-test goals)
+  - `git diff --check`
+- Known gaps:
+  - Intake chat transcript persistence is not implemented yet; the goal text and clarification answers are persisted, but the rendered chat itself is local UI state.
+  - The approval path uses the existing graph generation endpoint; automatic collector execution before generation is still a separate phase.
+- Next recommended task:
+  - Persist the Pathway intake transcript and connect generated follow-up questions to named answer fields so later revisions can show exactly which user fact informed each route.
+
+## Latest micro-update
+
+- Completed work:
   - Retuned the desktop Pathway graph layout to match the supplied reference screenshot more closely.
   - Restored larger Pathway node dimensions, widened column spacing, increased same-lane branch separation, aligned root nodes to the left edge of their lane, and biased the initial graph fit upward.
   - Verified the English 6-node graph used in the screenshot with Playwright; node positions now follow the reference structure and the DOM overlap check reports no overlaps.

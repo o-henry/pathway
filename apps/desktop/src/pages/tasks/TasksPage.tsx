@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -26,7 +27,7 @@ import { TasksThreadHeaderBar } from "./TasksThreadHeaderBar";
 import { TasksThreadConversation } from "./TasksThreadConversation";
 import { TasksThreadReviewPane } from "./TasksThreadReviewPane";
 import { shouldShowTasksComposerStopButton, TasksThreadComposer } from "./TasksThreadComposer";
-import type { GoalRecord } from "../../lib/types";
+import type { GoalAnalysisRecord, GoalRecord } from "../../lib/types";
 
 type InvokeFn = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -38,6 +39,8 @@ type TasksPageProps = {
   onSelectGoal?: (goalId: string | null) => void;
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
+  onStartPathwayIntake?: (goalText: string) => Promise<{ goal: GoalRecord; analysis: GoalAnalysisRecord }>;
+  onGeneratePathwayFromIntake?: (goalId: string, answers: string[]) => Promise<void>;
   cwd: string;
   hasTauriRuntime: boolean;
   isActive?: boolean;
@@ -95,6 +98,106 @@ function displayThreadTitle(input: string | null | undefined) {
 const EMPTY_THREAD_MESSAGES: never[] = [];
 const EMPTY_APPROVALS: never[] = [];
 const EMPTY_RUNTIME_SESSIONS: never[] = [];
+
+type PathwayIntakePhase = "idle" | "clarifying" | "ready" | "generating";
+
+type PathwayIntakeMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
+type PathwayIntakeState = {
+  phase: PathwayIntakePhase;
+  goalId: string | null;
+  answers: string[];
+  messages: PathwayIntakeMessage[];
+};
+
+const APPROVAL_PATTERN = /^(ok|okay|yes|y|go|오케이|오케|ㅇㅋ|좋아|좋습니다|진행|시작|생성|해줘|그래|확인|승인)[\s.!?。]*$/i;
+
+function makePathwayMessage(role: PathwayIntakeMessage["role"], content: string): PathwayIntakeMessage {
+  return {
+    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    role,
+    content,
+  };
+}
+
+function isApprovalText(input: string): boolean {
+  return APPROVAL_PATTERN.test(input.trim());
+}
+
+function formatPathwayFollowups(analysis: GoalAnalysisRecord): string {
+  const questions = analysis.followup_questions.slice(0, 8);
+  if (questions.length === 0) {
+    return [
+      "좋아요. 그래프를 만들기 전에 상황을 한 번만 맞춰볼게요.",
+      "",
+      "- [ ] 지금 가장 크게 제한하는 자원은 시간, 돈, 에너지, 정보 중 무엇인가요?",
+      "- [ ] 성공했다고 판단할 수 있는 구체적인 장면은 무엇인가요?",
+      "- [ ] 절대 피하고 싶은 비용이나 리스크가 있나요?",
+      "",
+      "답을 적어주면 제가 요약해서 조사와 그래프 생성을 시작해도 되는지 확인할게요.",
+    ].join("\n");
+  }
+  return [
+    "좋아요. 바로 그래프를 만들기 전에 필요한 것만 확인할게요.",
+    "",
+    ...questions.map((question) => `- [ ] ${question.question}`),
+    "",
+    "아는 만큼만 답해 주세요. 답을 받으면 제가 상황을 정리하고, OK를 받은 뒤 조사와 그래프 생성을 시작하겠습니다.",
+  ].join("\n");
+}
+
+function formatPathwayReadyMessage(answer: string): string {
+  return [
+    "받았어요. 지금 기준으로는 이렇게 진행할 수 있습니다.",
+    "",
+    `- [x] 사용자 상황 반영: ${answer}`,
+    "- [ ] 목표 분석 결과와 답변을 합쳐 조사 질문으로 정리",
+    "- [ ] 근거/가정/리스크가 구분되는 Pathway 그래프 생성",
+    "",
+    "이대로 조사와 그래프 생성을 시작해도 될까요? OK라고 답하거나, 보완할 내용을 더 적어주세요.",
+  ].join("\n");
+}
+
+function renderPathwayMessageContent(content: string) {
+  const lines = content.split("\n");
+  const output: ReactNode[] = [];
+  let listItems: ReactNode[] = [];
+  const flushList = () => {
+    if (listItems.length === 0) {
+      return;
+    }
+    output.push(
+      <ul className="pathway-intake-checklist" key={`list-${output.length}`}>
+        {listItems}
+      </ul>,
+    );
+    listItems = [];
+  };
+
+  lines.forEach((line, index) => {
+    const checklistMatch = line.match(/^- \[( |x)\]\s+(.*)$/i);
+    if (checklistMatch) {
+      listItems.push(
+        <li className={checklistMatch[1].toLowerCase() === "x" ? "is-done" : ""} key={`item-${index}`}>
+          {checklistMatch[2]}
+        </li>,
+      );
+      return;
+    }
+    flushList();
+    if (!line.trim()) {
+      output.push(<span aria-hidden="true" className="pathway-intake-break" key={`break-${index}`} />);
+      return;
+    }
+    output.push(<p key={`line-${index}`}>{line}</p>);
+  });
+  flushList();
+  return output;
+}
 const EMPTY_LIVE_EVENTS: never[] = [];
 
 export default function TasksPage(props: TasksPageProps) {
@@ -120,6 +223,14 @@ export default function TasksPage(props: TasksPageProps) {
   const [isMainSurfaceFullscreen, setIsMainSurfaceFullscreen] = useState(false);
   const [isThreadNavHidden, setIsThreadNavHidden] = useState(false);
   const [isReviewPaneOpen, setIsReviewPaneOpen] = useState(false);
+  const [pathwayIntakeDraft, setPathwayIntakeDraft] = useState("");
+  const [pathwayIntakePending, setPathwayIntakePending] = useState(false);
+  const [pathwayIntake, setPathwayIntake] = useState<PathwayIntakeState>({
+    phase: "idle",
+    goalId: null,
+    answers: [],
+    messages: [],
+  });
   const title = useMemo(() => displayThreadTitle(state.activeThread?.thread.title), [state.activeThread]);
   const headerTitle = state.activeThread ? title : "";
   const selectedModelOption = useMemo(
@@ -261,6 +372,138 @@ export default function TasksPage(props: TasksPageProps) {
     void state.submitComposer();
   };
 
+  const submitPathwayIntake = async () => {
+    const input = pathwayIntakeDraft.trim();
+    if (!input || pathwayIntakePending) {
+      return;
+    }
+    const userMessage = makePathwayMessage("user", input);
+    setPathwayIntakeDraft("");
+    setPathwayIntake((current) => ({
+      ...current,
+      messages: [...current.messages, userMessage],
+    }));
+
+    if (pathwayIntake.phase === "idle") {
+      if (!props.onStartPathwayIntake) {
+        setPathwayIntake((current) => ({
+          ...current,
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", "목표 상담 API가 아직 연결되지 않았습니다."),
+          ],
+        }));
+        return;
+      }
+      try {
+        setPathwayIntakePending(true);
+        const result = await props.onStartPathwayIntake(input);
+        setPathwayIntake((current) => ({
+          ...current,
+          phase: "clarifying",
+          goalId: result.goal.id,
+          answers: [],
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", formatPathwayFollowups(result.analysis)),
+          ],
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "목표 상담을 시작하지 못했습니다.";
+        setPathwayIntake((current) => ({
+          ...current,
+          messages: [...current.messages, makePathwayMessage("assistant", message)],
+        }));
+      } finally {
+        setPathwayIntakePending(false);
+      }
+      return;
+    }
+
+    if (pathwayIntake.phase === "clarifying") {
+      if (isApprovalText(input)) {
+        setPathwayIntake((current) => ({
+          ...current,
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", "좋아요. 다만 그래프 품질을 위해 위 체크리스트에 대한 답을 한 번만 적어주세요. 짧게 적어도 됩니다."),
+          ],
+        }));
+        return;
+      }
+      setPathwayIntake((current) => ({
+        ...current,
+        phase: "ready",
+        answers: [...current.answers, input],
+        messages: [
+          ...current.messages,
+          makePathwayMessage("assistant", formatPathwayReadyMessage(input)),
+        ],
+      }));
+      return;
+    }
+
+    if (pathwayIntake.phase === "ready") {
+      if (!isApprovalText(input)) {
+        setPathwayIntake((current) => ({
+          ...current,
+          answers: [...current.answers, input],
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", formatPathwayReadyMessage(input)),
+          ],
+        }));
+        return;
+      }
+      if (!pathwayIntake.goalId || !props.onGeneratePathwayFromIntake) {
+        setPathwayIntake((current) => ({
+          ...current,
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", "그래프 생성 API가 아직 연결되지 않았습니다."),
+          ],
+        }));
+        return;
+      }
+      try {
+        setPathwayIntakePending(true);
+        setPathwayIntake((current) => ({
+          ...current,
+          phase: "generating",
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", "승인 확인했습니다. 지금부터 답변을 목표 기록에 반영하고 조사/그래프 생성을 시작합니다."),
+          ],
+        }));
+        await props.onGeneratePathwayFromIntake(pathwayIntake.goalId, pathwayIntake.answers);
+        setPathwayIntake((current) => ({
+          ...current,
+          messages: [
+            ...current.messages,
+            makePathwayMessage("assistant", "그래프를 생성했습니다. 워크플로우 탭에서 경로와 근거를 확인할 수 있습니다."),
+          ],
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "그래프 생성에 실패했습니다.";
+        setPathwayIntake((current) => ({
+          ...current,
+          phase: "ready",
+          messages: [...current.messages, makePathwayMessage("assistant", message)],
+        }));
+      } finally {
+        setPathwayIntakePending(false);
+      }
+    }
+  };
+
+  const onPathwayIntakeKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    void submitPathwayIntake();
+  };
+
   const visibleAgentLabels = useMemo(
     () => (state.activeThread?.agents ?? []).map((agent) => agent.label),
     [state.activeThread?.agents],
@@ -342,7 +585,7 @@ export default function TasksPage(props: TasksPageProps) {
       return;
     }
     node.scrollTop = node.scrollHeight;
-  }, [conversationMessages.length, deferredLiveAgents.length, deferredPendingApprovals.length, state.selectedFileDiff]);
+  }, [conversationMessages.length, deferredLiveAgents.length, deferredPendingApprovals.length, pathwayIntake.messages.length, state.selectedFileDiff]);
 
   return (
     <section
@@ -355,7 +598,22 @@ export default function TasksPage(props: TasksPageProps) {
         <aside aria-label="Pathway 목표 탐색" className="tasks-thread-nav pathway-tasks-nav" role="navigation">
           <section aria-label="Pathway 목표 탐색 아일랜드" className="tasks-thread-nav-island pathway-tasks-nav-island" role="region">
             <div className="tasks-thread-nav-actions">
-              <button aria-label="새 목표" className="tasks-thread-new-button" onClick={() => props.onSelectGoal?.(null)} type="button">
+              <button
+                aria-label="새 목표"
+                className="tasks-thread-new-button"
+                onClick={() => {
+                  setPathwayIntakeDraft("");
+                  setPathwayIntake({
+                    phase: "idle",
+                    goalId: null,
+                    answers: [],
+                    messages: [],
+                  });
+                  props.onSelectGoal?.(null);
+                  requestAnimationFrame(() => composerRef.current?.focus());
+                }}
+                type="button"
+              >
                 새 목표
               </button>
               <button aria-label="워크플로우 열기" className="tasks-thread-new-button" onClick={props.onOpenWorkflow} type="button">
@@ -494,7 +752,38 @@ export default function TasksPage(props: TasksPageProps) {
           onToggleThreadNav={() => setIsThreadNavHidden((current) => !current)}
         />
 
-        {!state.activeThread ? (
+        {props.pathwayMode ? (
+          <div aria-label="Pathway 상담 대화 영역" className="tasks-thread-conversation-scroll pathway-intake-conversation" ref={conversationRef}>
+            {pathwayIntake.messages.length === 0 ? (
+              <section aria-label="Pathway 상담 시작 상태" className="tasks-thread-empty-state pathway-intake-empty-state" role="region">
+                <strong>목표를 먼저 말해 주세요.</strong>
+                <p>에이전트가 필요한 것만 체크리스트로 다시 물어보고, 사용자가 OK하면 조사와 그래프 생성을 시작합니다.</p>
+              </section>
+            ) : (
+              <section aria-label="Pathway 상담 타임라인" className="tasks-thread-timeline pathway-intake-timeline" role="log">
+                {pathwayIntake.messages.map((message) => (
+                  <article
+                    className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
+                    key={message.id}
+                  >
+                    <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
+                    <div className="tasks-thread-log-line pathway-intake-message-body">
+                      {renderPathwayMessageContent(message.content)}
+                    </div>
+                  </article>
+                ))}
+                {pathwayIntakePending ? (
+                  <article className="tasks-thread-message-row is-assistant pathway-intake-message is-pending">
+                    <span className="tasks-thread-message-label">PATHWAY</span>
+                    <div className="tasks-thread-log-line pathway-intake-message-body">
+                      <p>생각하는 중입니다...</p>
+                    </div>
+                  </article>
+                ) : null}
+              </section>
+            )}
+          </div>
+        ) : !state.activeThread ? (
           <div aria-label="빈 대화 영역" className="tasks-thread-conversation-scroll" ref={conversationRef}>
             <section aria-label="빈 스레드 상태" className="tasks-thread-empty-state" role="region">
               <strong>{t("tasks.empty.title")}</strong>
@@ -534,7 +823,7 @@ export default function TasksPage(props: TasksPageProps) {
           canInterruptCurrentThread={state.canInterruptCurrentThread}
           creativeModeEnabled={state.composerCreativeMode}
           composerCoordinationModeOverride={state.composerCoordinationModeOverride}
-          composerDraft={state.composerDraft}
+          composerDraft={props.pathwayMode ? pathwayIntakeDraft : state.composerDraft}
           composerProviderOverrides={state.composerProviderOverrides}
           composerRef={composerRef}
           providerStatusPending={providerStatusPending}
@@ -549,15 +838,19 @@ export default function TasksPage(props: TasksPageProps) {
           reasoningLabel={displayReasoningLabel(state.reasoning)}
           selectedComposerRoleIds={state.selectedComposerRoleIds}
           selectedModelOption={selectedModelOption}
-          showStopButton={showStopButton}
+          showStopButton={props.pathwayMode ? false : showStopButton}
           stoppingComposerRun={state.stoppingComposerRun}
           onComposerCursorChange={setComposerCursor}
           onComposerDraftChange={(value, cursor) => {
             setComposerCursor(cursor);
             setIsMentionMenuHidden(false);
+            if (props.pathwayMode) {
+              setPathwayIntakeDraft(value);
+              return;
+            }
             state.setComposerDraft(value);
           }}
-          onComposerKeyDown={onComposerKeyDown}
+          onComposerKeyDown={props.pathwayMode ? onPathwayIntakeKeyDown : onComposerKeyDown}
           onClearCoordinationModeOverride={() => state.setComposerCoordinationModeOverride(null)}
           onClearComposerProviderOverrides={state.clearComposerProviderOverrides}
           onOpenAttachmentPicker={() => void state.openAttachmentPicker()}
@@ -575,8 +868,18 @@ export default function TasksPage(props: TasksPageProps) {
             state.setReasoning(value);
             setIsReasonMenuOpen(false);
           }}
-          onStop={() => void state.stopComposerRun()}
-          onSubmit={() => void state.submitComposer()}
+          onStop={() => {
+            if (!props.pathwayMode) {
+              void state.stopComposerRun();
+            }
+          }}
+          onSubmit={() => {
+            if (props.pathwayMode) {
+              void submitPathwayIntake();
+              return;
+            }
+            void state.submitComposer();
+          }}
           onToggleCreativeMode={() => state.setComposerCreativeMode((current) => !current)}
           onToggleModelMenu={() => setIsModelMenuOpen((prev) => !prev)}
           onToggleReasonMenu={() => setIsReasonMenuOpen((prev) => !prev)}

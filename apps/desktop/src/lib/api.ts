@@ -47,6 +47,26 @@ export async function createGoal(payload: {
   );
 }
 
+export async function updateGoal(
+  goalId: string,
+  payload: Partial<{
+    title: string;
+    description: string;
+    category: string;
+    deadline: string | null;
+    success_criteria: string;
+    status: string;
+  }>
+): Promise<GoalRecord> {
+  return parseJson<GoalRecord>(
+    await fetch(`${API_BASE_URL}/goals/${goalId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+  );
+}
+
 export async function deleteGoal(goalId: string): Promise<void> {
   await parseJson<null>(
     await fetch(`${API_BASE_URL}/goals/${goalId}`, {

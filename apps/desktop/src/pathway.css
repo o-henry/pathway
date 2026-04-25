@@ -874,6 +874,71 @@
   overflow: auto;
 }
 
+.pathway-intake-conversation {
+  background: #ffffff;
+}
+
+.pathway-intake-timeline {
+  width: min(100%, 920px);
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 18px 20px 28px;
+}
+
+.pathway-intake-empty-state {
+  width: min(100%, 720px);
+  justify-self: center;
+  align-self: center;
+}
+
+.pathway-intake-message-body {
+  max-width: min(860px, 100%);
+  white-space: normal;
+}
+
+.pathway-intake-message-body p {
+  margin: 0;
+}
+
+.pathway-intake-checklist {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pathway-intake-checklist li {
+  position: relative;
+  padding-left: 22px;
+  color: var(--text-main);
+  line-height: 1.55;
+}
+
+.pathway-intake-checklist li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgba(82, 95, 107, 0.55);
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.pathway-intake-checklist li.is-done::before {
+  background: #263f37;
+  border-color: #263f37;
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+
+.pathway-intake-break {
+  display: block;
+  height: 2px;
+}
+
 .pathway-goals-main-surface {
   grid-template-rows: auto minmax(0, 1fr);
 }

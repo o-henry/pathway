@@ -7,6 +7,7 @@ import { invoke, openPath, openUrl } from '../shared/tauri';
 import {
   acceptRevisionPreview,
   analyzeGoal,
+  createGoal,
   createRevisionPreview,
   createStateUpdate,
   deleteGoal,
@@ -20,6 +21,7 @@ import {
   getAssumptionsForNode,
   getEvidenceForNode,
   rejectRevisionPreview,
+  updateGoal,
   updateRouteSelection
 } from '../lib/api';
 import { buildExampleGraphBundle } from '../lib/exampleGraphBundle';
@@ -235,6 +237,22 @@ function formatUiError(error: unknown, fallback: string): string {
     return '로컬 API에 아직 연결되지 않았습니다. 데모 그래프로 작업면을 먼저 확인할 수 있습니다.';
   }
   return message || fallback;
+}
+
+function buildIntakeGoalTitle(input: string): string {
+  const normalized = input.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '새 Pathway 목표';
+  }
+  return normalized.length > 72 ? `${normalized.slice(0, 72).trim()}...` : normalized;
+}
+
+function buildIntakeSuccessCriteria(input: string): string {
+  const normalized = input.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '상담을 통해 성공 기준을 구체화한다.';
+  }
+  return normalized.length > 160 ? `${normalized.slice(0, 160).trim()}...` : normalized;
 }
 
 function isTauriUnavailableError(error: unknown): boolean {
@@ -829,6 +847,77 @@ export default function MainApp() {
     }
   }
 
+  async function handleStartPathwayIntake(goalText: string) {
+    const normalizedGoal = goalText.trim();
+    if (!normalizedGoal) {
+      throw new Error('목표를 먼저 입력해 주세요.');
+    }
+    try {
+      setIsBusy(true);
+      setErrorMessage('');
+      const goal = await createGoal({
+        title: buildIntakeGoalTitle(normalizedGoal),
+        description: normalizedGoal,
+        category: 'general',
+        success_criteria: buildIntakeSuccessCriteria(normalizedGoal),
+      });
+      setGoals((current) => [goal, ...current.filter((item) => item.id !== goal.id)]);
+      setActiveGoalId(goal.id);
+      setActiveGoal(goal);
+      setActiveMap(null);
+      setActiveMapId(null);
+      setCurrentState(null);
+      setStateUpdates([]);
+      setRouteSelection(null);
+      setRevisionPreview(null);
+      const analysis = await analyzeGoal(goal.id);
+      setGoalAnalysis(analysis);
+      setStatusMessage('목표를 만들고 에이전트가 필요한 확인 질문을 정리했습니다.');
+      return { goal, analysis };
+    } catch (error) {
+      const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
+      setErrorMessage(message);
+      throw new Error(message);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleGeneratePathwayFromIntake(goalId: string, answers: string[]) {
+    if (!goalId) {
+      throw new Error('그래프를 만들 목표가 없습니다.');
+    }
+    try {
+      setIsBusy(true);
+      setErrorMessage('');
+      const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
+      const goal = goals.find((item) => item.id === goalId) ?? activeGoal;
+      if (answerBlock) {
+        const nextDescription = [
+          goal?.description?.trim() || '',
+          '[Pathway intake answers]',
+          answerBlock,
+        ].filter(Boolean).join('\n\n');
+        const updatedGoal = await updateGoal(goalId, {
+          description: nextDescription,
+          success_criteria: goal?.success_criteria || buildIntakeSuccessCriteria(answerBlock),
+        });
+        setGoals((current) => current.map((item) => (item.id === updatedGoal.id ? updatedGoal : item)));
+        setActiveGoal(updatedGoal);
+      }
+      const nextMap = await generatePathway(goalId);
+      setStatusMessage('상담 내용을 반영해 새 경로 그래프를 생성했습니다.');
+      await refreshGoalWorkspace(goalId, nextMap.id);
+      setWorkspaceTab('workflow');
+    } catch (error) {
+      const message = formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.');
+      setErrorMessage(message);
+      throw new Error(message);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function handleGeneratePathway() {
     if (!activeGoalId) {
       return;
@@ -1395,6 +1484,7 @@ export default function MainApp() {
         isActive={workspaceTab === 'tasks'}
         loginCompleted={loginCompleted}
         onOpenWorkflow={() => setWorkspaceTab('workflow')}
+        onGeneratePathwayFromIntake={handleGeneratePathwayFromIntake}
         onDeleteGoal={(goalId) => {
           void handleDeletePathwayGoal(goalId);
         }}
@@ -1402,6 +1492,7 @@ export default function MainApp() {
         onSelectGoal={(goalId) => {
           void handleSelectPathwayGoal(goalId);
         }}
+        onStartPathwayIntake={handleStartPathwayIntake}
         pathwayGoals={goals}
         pathwayMode
         publishAction={() => {}}
