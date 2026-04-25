@@ -5,7 +5,11 @@ from textwrap import dedent
 
 from pydantic import ValidationError
 
-from lifemap_api.application.errors import EntityNotFoundError, ProviderInvocationError
+from lifemap_api.application.errors import (
+    AppConfigurationError,
+    EntityNotFoundError,
+    ProviderInvocationError,
+)
 from lifemap_api.domain.models import (
     Goal,
     GoalAnalysis,
@@ -13,7 +17,6 @@ from lifemap_api.domain.models import (
     Profile,
     ResearchCollectionTarget,
     ResearchPlan,
-    ResourceDimension,
 )
 from lifemap_api.domain.ports import GoalAnalysisRepository, GoalRepository, LLMProvider
 
@@ -30,94 +33,7 @@ def _serialize_profile(profile: Profile | None) -> str:
     return json.dumps(profile.model_dump(mode="json"), ensure_ascii=False, indent=2)
 
 
-def _resource_dimension(
-    *,
-    dimension_id: str,
-    label: str,
-    kind: str,
-    value_type: str,
-    question: str,
-    relevance_reason: str,
-) -> ResourceDimension:
-    return ResourceDimension(
-        id=dimension_id,
-        label=label,
-        kind=kind,  # type: ignore[arg-type]
-        value_type=value_type,
-        question=question,
-        relevance_reason=relevance_reason,
-    )
-
-
-def _fallback_analysis(goal: Goal) -> GoalAnalysis:
-    dimensions = [
-        _resource_dimension(
-            dimension_id="available_time",
-            label="Available time",
-            kind="time",
-            value_type="hours_per_week",
-            question="이 목표에 현실적으로 매주 몇 시간을 쓸 수 있나요?",
-            relevance_reason=(
-                "목표 속도, route 폭, checkpoint 간격을 정하려면 "
-                "지속 가능한 시간 예산이 필요합니다."
-            ),
-        ),
-        _resource_dimension(
-            dimension_id="monthly_budget",
-            label="Monthly budget",
-            kind="money",
-            value_type="currency_per_month",
-            question="매달 투입 가능한 비용 범위는 어느 정도인가요?",
-            relevance_reason="유료 코칭, 학원, 도구, 무료 독학 route의 분기 조건이 됩니다.",
-        ),
-        _resource_dimension(
-            dimension_id="current_level",
-            label="Current level",
-            kind="skill",
-            value_type="qualitative",
-            question="지금 출발점은 어디인가요? 이미 할 수 있는 것과 막히는 것을 나눠주세요.",
-            relevance_reason="출발점이 달라지면 첫 노드와 첫 검증 지점이 달라집니다.",
-        ),
-        _resource_dimension(
-            dimension_id="preferred_mode",
-            label="Preferred mode",
-            kind="practice",
-            value_type="qualitative",
-            question="혼자 학습, 튜터/학원, 커뮤니티, 콘텐츠 기반 학습 중 어떤 방식이 잘 맞나요?",
-            relevance_reason=(
-                "계획이 사용자의 성향과 맞아야 route 선택 후 "
-                "이탈 가능성이 낮아집니다."
-            ),
-        ),
-        _resource_dimension(
-            dimension_id="feedback_access",
-            label="Feedback access",
-            kind="support",
-            value_type="qualitative",
-            question="피드백을 받을 사람, 커뮤니티, 튜터, 동료가 있나요?",
-            relevance_reason="피드백 가능성은 독학 route와 교정 route를 가르는 중요한 차이입니다.",
-        ),
-        _resource_dimension(
-            dimension_id="failure_pattern",
-            label="Likely failure pattern",
-            kind="motivation",
-            value_type="qualitative",
-            question="이 목표에서 예전에 포기했거나 흔들렸던 패턴이 있다면 무엇인가요?",
-            relevance_reason="fallback과 우회 경로는 예상 실패 패턴을 기준으로 설계해야 합니다.",
-        ),
-    ]
-    followups = [
-        IntakeQuestion(
-            id=dimension.id,
-            label=dimension.label,
-            question=dimension.question,
-            why_needed=dimension.relevance_reason,
-            answer_type=dimension.value_type,
-            required=index < 4,
-            maps_to=[dimension.id],
-        )
-        for index, dimension in enumerate(dimensions)
-    ]
+def _fallback_research_plan(goal: Goal) -> ResearchPlan:
     collection_targets = [
         ResearchCollectionTarget(
             id="lived_experience_paths",
@@ -179,33 +95,19 @@ def _fallback_analysis(goal: Goal) -> GoalAnalysis:
             max_sources=4,
         ),
     ]
-    return GoalAnalysis(
-        goal_id=goal.id,
-        analysis_summary=(
-            f'"{goal.title}" 목표는 먼저 시간, 비용, 출발점, 선호 학습 방식, '
-            "피드백 접근성, 실패 패턴을 확인해야 실제 route graph로 바꿀 수 있습니다."
+    return ResearchPlan(
+        summary=(
+            "사용자 답변으로 제약을 고정한 뒤 수기, 커리큘럼, "
+            "공개 학습 자료, 실패/전환 사례를 분리 수집합니다."
         ),
-        resource_dimensions=dimensions,
-        research_questions=[
-            query
-            for target in collection_targets
-            for query in target.example_queries
+        collection_targets=collection_targets,
+        verification_checks=[
+            "수집 자료가 사용자와 비슷한 시간/비용/출발점 조건인지 확인한다.",
+            "홍보성 커리큘럼과 실제 수기를 분리해 비교한다.",
+            "근거 없는 일반 조언은 assumption으로만 graph에 넣는다.",
+            "route마다 전환 조건과 실패 신호가 있는지 확인한다.",
         ],
-        followup_questions=followups,
-        research_plan=ResearchPlan(
-            summary=(
-                "사용자 답변으로 제약을 고정한 뒤 수기, 커리큘럼, "
-                "공개 학습 자료, 실패/전환 사례를 분리 수집합니다."
-            ),
-            collection_targets=collection_targets,
-            verification_checks=[
-                "수집 자료가 사용자와 비슷한 시간/비용/출발점 조건인지 확인한다.",
-                "홍보성 커리큘럼과 실제 수기를 분리해 비교한다.",
-                "근거 없는 일반 조언은 assumption으로만 graph에 넣는다.",
-                "route마다 전환 조건과 실패 신호가 있는지 확인한다.",
-            ],
-            expected_graph_complexity="multi_route_with_switching_conditions",
-        ),
+        expected_graph_complexity="multi_route_with_switching_conditions",
     )
 
 
@@ -260,7 +162,6 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
 
 
 def _normalize_analysis(candidate: GoalAnalysis, goal: Goal) -> GoalAnalysis:
-    fallback = _fallback_analysis(goal)
     followups = candidate.followup_questions or [
         IntakeQuestion(
             id=dimension.id,
@@ -273,7 +174,7 @@ def _normalize_analysis(candidate: GoalAnalysis, goal: Goal) -> GoalAnalysis:
         )
         for dimension in candidate.resource_dimensions
     ]
-    research_plan = candidate.research_plan or fallback.research_plan
+    research_plan = candidate.research_plan or _fallback_research_plan(goal)
     research_questions = candidate.research_questions or [
         query
         for target in (research_plan.collection_targets if research_plan else [])
@@ -284,7 +185,7 @@ def _normalize_analysis(candidate: GoalAnalysis, goal: Goal) -> GoalAnalysis:
             "goal_id": goal.id,
             "followup_questions": followups,
             "research_plan": research_plan,
-            "research_questions": research_questions or fallback.research_questions,
+            "research_questions": research_questions,
         }
     )
 
@@ -325,16 +226,21 @@ def analyze_goal(
         if existing.followup_questions and existing.research_plan:
             return existing
 
-    if llm_provider is not None:
-        try:
-            return analysis_repo.upsert(
-                _generate_analysis_with_provider(
-                    goal=goal,
-                    profile=profile,
-                    llm_provider=llm_provider,
-                )
-            )
-        except (ProviderInvocationError, ValidationError, ValueError):
-            pass
+    if llm_provider is None or getattr(llm_provider, "is_deterministic_fallback", False):
+        raise AppConfigurationError(
+            "Goal intake analysis requires a real structured LLM provider. "
+            "Set LIFEMAP_LLM_PROVIDER=openai and OPENAI_MODEL=gpt-5.5."
+        )
 
-    return analysis_repo.upsert(_fallback_analysis(goal))
+    try:
+        return analysis_repo.upsert(
+            _generate_analysis_with_provider(
+                goal=goal,
+                profile=profile,
+                llm_provider=llm_provider,
+            )
+        )
+    except (ProviderInvocationError, ValidationError, ValueError) as exc:
+        raise ProviderInvocationError(
+            "Goal intake analysis failed before producing schema-valid follow-up questions."
+        ) from exc

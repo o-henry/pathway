@@ -12,7 +12,7 @@ Generate a valid dynamic graph bundle from user profile and goal without externa
 ## Deliverables
 
 - `LLMProvider` protocol.
-- `OllamaProvider` default.
+- Codex GPT-5.5 desktop default; backend OpenAI optional.
 - optional `OpenAIProvider` through env vars.
 - prompt templates.
 - JSON schema instruction.
@@ -24,5 +24,5 @@ Generate a valid dynamic graph bundle from user profile and goal without externa
 
 - With a configured provider, a goal can generate a valid graph bundle.
 - Invalid JSON is handled with repair or a clear error.
-- No API key is required for local Ollama path.
+- Desktop Codex uses the logged-in Codex session; backend OpenAI remains env-driven.
 - OpenAI key is never hardcoded.

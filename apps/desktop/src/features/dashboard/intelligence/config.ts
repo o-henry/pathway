@@ -6,7 +6,7 @@ import {
 } from "./types";
 
 export const DASHBOARD_AGENT_CONFIG_STORAGE_KEY = "RAIL_DASHBOARD_AGENT_CONFIG_V1";
-const DEFAULT_MODEL = "gpt-5.2-codex";
+const DEFAULT_MODEL = "gpt-5.5";
 
 const DEFAULT_CADENCE_BY_TOPIC: Record<DashboardTopicId, number> = {
   marketSummary: 6,

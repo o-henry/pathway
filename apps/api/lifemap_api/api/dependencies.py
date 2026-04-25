@@ -4,10 +4,7 @@ from sqlmodel import Session
 from lifemap_api.config import get_settings
 from lifemap_api.domain.ports import EmbeddingProvider, LLMProvider, SourceSearchIndex
 from lifemap_api.infrastructure.db import get_session
-from lifemap_api.infrastructure.embeddings import (
-    DeterministicEmbeddingProvider,
-    OllamaEmbeddingProvider,
-)
+from lifemap_api.infrastructure.embeddings import DeterministicEmbeddingProvider
 from lifemap_api.infrastructure.llm_providers import build_llm_provider
 from lifemap_api.infrastructure.repositories import (
     SqliteCheckInRepository,
@@ -86,9 +83,6 @@ def get_llm_provider() -> LLMProvider:
 
 
 def get_embedding_provider() -> EmbeddingProvider:
-    settings = get_settings()
-    if settings.llm_provider.strip().lower() == "ollama":
-        return OllamaEmbeddingProvider(settings)
     return DeterministicEmbeddingProvider()
 
 

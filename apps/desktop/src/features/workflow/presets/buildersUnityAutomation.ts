@@ -8,7 +8,7 @@ function finalize(nodes: GraphNode[], edges: GraphEdge[]): GraphData {
 export function buildUnityTestsmithPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-unity-test-intake", "turn", 120, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY TEST INTAKE AGENT",
       cwd: ".",
       promptTemplate:
@@ -18,7 +18,7 @@ export function buildUnityTestsmithPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-test-design", "turn", 440, 40, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY TEST DESIGN AGENT",
       cwd: ".",
       promptTemplate:
@@ -27,7 +27,7 @@ export function buildUnityTestsmithPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-test-editmode", "turn", 440, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY EDITMODE TEST AGENT",
       cwd: ".",
       promptTemplate:
@@ -36,7 +36,7 @@ export function buildUnityTestsmithPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-test-playmode", "turn", 440, 320, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY PLAYMODE TEST AGENT",
       cwd: ".",
       promptTemplate:
@@ -45,7 +45,7 @@ export function buildUnityTestsmithPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-test-qa", "turn", 800, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY TEST QA AGENT",
       cwd: ".",
       promptTemplate:
@@ -65,7 +65,7 @@ export function buildUnityTestsmithPreset(): GraphData {
       template: "Unity Testsmith 브리프\n- 테스트 전략과 우선순위만 정리\n- 다음 행동은 1개로 압축\n입력: {{input}}",
     }),
     makePresetNode("turn-unity-test-final", "turn", 1560, 80, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY TEST SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:
@@ -96,7 +96,7 @@ export function buildUnityTestsmithPreset(): GraphData {
 export function buildUnityBuildWatcherPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-unity-build-intake", "turn", 120, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY BUILD WATCHER INTAKE AGENT",
       cwd: ".",
       promptTemplate:
@@ -105,7 +105,7 @@ export function buildUnityBuildWatcherPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-build-report", "turn", 440, 60, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY BUILD REPORT AGENT",
       cwd: ".",
       promptTemplate:
@@ -114,7 +114,7 @@ export function buildUnityBuildWatcherPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-size-regression", "turn", 440, 220, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY SIZE REGRESSION AGENT",
       cwd: ".",
       promptTemplate:
@@ -123,7 +123,7 @@ export function buildUnityBuildWatcherPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-build-risk", "turn", 800, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY BUILD RISK AGENT",
       cwd: ".",
       promptTemplate:
@@ -143,7 +143,7 @@ export function buildUnityBuildWatcherPreset(): GraphData {
       template: "Build/Size Watcher 브리프\n- 시간/용량 회귀와 우선순위만 정리\n- 다음 행동은 1개로 압축\n입력: {{input}}",
     }),
     makePresetNode("turn-unity-build-final", "turn", 1560, 80, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY BUILD SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:
@@ -172,7 +172,7 @@ export function buildUnityBuildWatcherPreset(): GraphData {
 export function buildUnityLocalizationQaPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-unity-loc-intake", "turn", 120, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY LOCALIZATION INTAKE AGENT",
       cwd: ".",
       promptTemplate:
@@ -181,7 +181,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-loc-keys", "turn", 440, 40, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY STRING TABLE QA AGENT",
       cwd: ".",
       promptTemplate:
@@ -190,7 +190,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-loc-placeholders", "turn", 440, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY PLACEHOLDER QA AGENT",
       cwd: ".",
       promptTemplate:
@@ -199,7 +199,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-loc-terms", "turn", 440, 320, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY TERMINOLOGY QA AGENT",
       cwd: ".",
       promptTemplate:
@@ -208,7 +208,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-loc-judge", "turn", 800, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY LOCALIZATION JUDGE AGENT",
       cwd: ".",
       promptTemplate:
@@ -228,7 +228,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
       template: "Localization QA 브리프\n- 번역 누락/불일치/위험만 정리\n- 다음 행동은 1개로 압축\n입력: {{input}}",
     }),
     makePresetNode("turn-unity-loc-final", "turn", 1560, 80, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY LOCALIZATION SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:
@@ -259,7 +259,7 @@ export function buildUnityLocalizationQaPreset(): GraphData {
 export function buildUnityAddressablesDietPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-unity-addr-intake", "turn", 120, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY ADDRESSABLES INTAKE AGENT",
       cwd: ".",
       promptTemplate:
@@ -268,7 +268,7 @@ export function buildUnityAddressablesDietPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-addr-layout", "turn", 440, 40, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY BUILD LAYOUT AGENT",
       cwd: ".",
       promptTemplate:
@@ -277,7 +277,7 @@ export function buildUnityAddressablesDietPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-addr-dup", "turn", 440, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY DUPLICATE DEPENDENCY AGENT",
       cwd: ".",
       promptTemplate:
@@ -286,7 +286,7 @@ export function buildUnityAddressablesDietPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-addr-load", "turn", 440, 320, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY LOAD COST AGENT",
       cwd: ".",
       promptTemplate:
@@ -295,7 +295,7 @@ export function buildUnityAddressablesDietPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-addr-judge", "turn", 800, 180, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY ADDRESSABLES JUDGE AGENT",
       cwd: ".",
       promptTemplate:
@@ -315,7 +315,7 @@ export function buildUnityAddressablesDietPreset(): GraphData {
       template: "Addressables / Asset Diet 브리프\n- 큰 번들/중복 의존성/로드 위험만 정리\n- 다음 행동은 1개로 압축\n입력: {{input}}",
     }),
     makePresetNode("turn-unity-addr-final", "turn", 1560, 80, {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       role: "UNITY ADDRESSABLES SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:

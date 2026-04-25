@@ -15,7 +15,7 @@ Create a local source library and retrieval pipeline.
 - Manual source ingestion UI/API.
 - URL preview/ingest policy skeleton.
 - Chunking service.
-- Ollama embeddings adapter.
+- Deterministic embedding fallback.
 - LanceDB vector store.
 - Source search endpoint.
 - Tests using local fixture text.

@@ -1474,7 +1474,7 @@
   max-width: min(820px, 96%);
   background: rgb(238, 238, 238);
   padding: 0.7rem 1.2rem 0.7rem 1.2rem;
-  border-radius: 12px 0 12px 12px;
+  /* border-radius: 12px 0 12px 12px; */
 }
 
 .tasks-thread-message-label {
@@ -1866,7 +1866,7 @@
   margin: 12px auto 0;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 12px;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045);
   background: #ffffff;
   gap: 0;
   align-self: end;

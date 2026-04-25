@@ -65,7 +65,7 @@ export function createFeedKnowledgeHandlers(params: any) {
           type: "turn",
           config: {
             executor: "codex",
-            model: "gpt-5.2-codex",
+            model: "gpt-5.5",
             role: "DASHBOARD BRIEFING",
           },
         },
@@ -132,7 +132,7 @@ export function createFeedKnowledgeHandlers(params: any) {
       if (isFeedRunIdHidden(runId)) {
         continue;
       }
-      const model = String(row.model ?? "").trim() || "gpt-5.2-codex";
+      const model = String(row.model ?? "").trim() || "gpt-5.5";
       const createdAt = String(row.generatedAt ?? "").trim() || new Date().toISOString();
       const topicTitle = toDashboardTopicTitle(topic);
       const summary = String(row.summary ?? "").trim() || `${topicTitle} 브리핑 생성`;

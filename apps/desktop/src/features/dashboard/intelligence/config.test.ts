@@ -81,7 +81,7 @@ describe("dashboard intelligence config", () => {
     const normalized = normalizeDashboardAgentConfigMap({
       marketSummary: {
         enabled: false,
-        model: "gpt-5.3-codex",
+        model: "gpt-5.5",
         systemPrompt: "x",
         cadenceHours: 4,
         maxSources: 6,

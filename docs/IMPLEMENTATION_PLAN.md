@@ -36,8 +36,8 @@ The primary user is the local owner. No SaaS assumptions.
 | DB | SQLite | Single local file, easy backup, no server dependency. |
 | ORM | SQLModel or SQLAlchemy 2.x | Typed models and clean persistence layer. |
 | Vector DB | LanceDB | Embedded local vector store, good match for local-first RAG. |
-| LLM | Provider interface | Local Ollama default; optional OpenAI through env vars only. |
-| Embeddings | Ollama embeddings default | Keeps private notes local by default. |
+| LLM | Provider interface | Codex GPT-5.5 for desktop agent execution; optional backend OpenAI through env vars only. |
+| Embeddings | Deterministic local embeddings by default | Keeps private notes local by default. |
 | Graph validation | Pydantic + NetworkX | Schema validation plus deterministic DAG/cycle checks. |
 | Python deps | uv | Fast reproducible Python project management. |
 | Backend tests | pytest | Standard Python testing. |
@@ -122,11 +122,9 @@ pathway/
           vector_store_lancedb.py
           llm/
             base.py
-            ollama_provider.py
             openai_provider.py
           embeddings/
             base.py
-            ollama_embeddings.py
           crawling/
             policy.py
             crawl4ai_fetcher.py
@@ -250,7 +248,7 @@ Generate a valid graph bundle from only user profile and goal.
 Deliverables:
 
 - LLM provider interface.
-- Ollama provider default.
+- Codex GPT-5.5 desktop default; backend OpenAI optional.
 - Optional OpenAI provider through env vars.
 - Prompt templates.
 - JSON schema generation.
@@ -269,7 +267,7 @@ Deliverables:
 - Safe fetch policy model.
 - Crawl4AI integration behind explicit user action.
 - Chunking pipeline.
-- Ollama embedding adapter.
+- Deterministic embedding fallback.
 - LanceDB store.
 - Hybrid retrieval with SQLite FTS if implemented.
 - Source detail UI.

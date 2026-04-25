@@ -29,21 +29,21 @@ describe("runTaskCollaborationWithCodex", () => {
       roleId: "unity_implementer",
       promptMode: "brief",
       internal: true,
-      model: "GPT-5.4-Mini",
+      model: "GPT-5.5",
       reasoning: "중간",
     }));
     expect(executeRoleRun).toHaveBeenNthCalledWith(4, expect.objectContaining({
       roleId: "unity_architect",
       promptMode: "critique",
       internal: true,
-      model: "GPT-5.4-Mini",
+      model: "GPT-5.5",
       reasoning: "중간",
     }));
     expect(executeRoleRun).toHaveBeenNthCalledWith(6, expect.objectContaining({
       roleId: "unity_implementer",
       promptMode: "final",
       internal: false,
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "높음",
     }));
     expect(result.finalResult.summary).toContain("final");
@@ -542,13 +542,13 @@ describe("runTaskCollaborationWithCodex", () => {
     expect(executeRoleRun).toHaveBeenNthCalledWith(1, expect.objectContaining({
       roleId: "game_designer",
       promptMode: "orchestrate",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "매우 높음",
     }));
     expect(executeRoleRun).toHaveBeenNthCalledWith(2, expect.objectContaining({
       roleId: "game_designer",
       promptMode: "direct",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "높음",
       includeRoleKnowledge: false,
       prompt: expect.stringContaining("# 작업 모드\n역할별 직접 응답"),
@@ -556,7 +556,7 @@ describe("runTaskCollaborationWithCodex", () => {
     expect(executeRoleRun).toHaveBeenNthCalledWith(3, expect.objectContaining({
       roleId: "researcher",
       promptMode: "direct",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "높음",
       includeRoleKnowledge: false,
       prompt: expect.stringContaining("새 게임 아이디어를 fanout으로 토론해서 골라줘"),
@@ -797,7 +797,7 @@ describe("runTaskCollaborationWithCodex", () => {
     expect(
       executeRoleRun.mock.calls
         .filter(([call]) => call.roleId === "game_designer" && call.promptMode === "direct")
-        .every(([call]) => call.model === "GPT-5.4" && call.includeRoleKnowledge === false),
+        .every(([call]) => call.model === "GPT-5.5" && call.includeRoleKnowledge === false),
     ).toBe(true);
     expect(result.finalResult.summary).toContain("final");
   });
@@ -880,7 +880,7 @@ describe("runTaskCollaborationWithCodex", () => {
 
     expect(executeRoleRun).toHaveBeenNthCalledWith(1, expect.objectContaining({
       promptMode: "orchestrate",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "매우 높음",
     }));
     expect(executeRoleRun).toHaveBeenNthCalledWith(2, expect.objectContaining({
@@ -892,12 +892,12 @@ describe("runTaskCollaborationWithCodex", () => {
     }));
     expect(executeRoleRun).toHaveBeenCalledWith(expect.objectContaining({
       promptMode: "orchestrate",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "매우 높음",
     }));
     expect(executeRoleRun).toHaveBeenCalledWith(expect.objectContaining({
       promptMode: "brief",
-      model: "GPT-5.4-Mini",
+      model: "GPT-5.5",
       reasoning: "중간",
       prompt: expect.stringContaining("# 외부 웹 AI 관점"),
     }));
@@ -915,7 +915,7 @@ describe("runTaskCollaborationWithCodex", () => {
     }));
     expect(executeRoleRun).toHaveBeenCalledWith(expect.objectContaining({
       promptMode: "final",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "높음",
       prompt: expect.stringContaining("# 외부 웹 AI 관점"),
     }));

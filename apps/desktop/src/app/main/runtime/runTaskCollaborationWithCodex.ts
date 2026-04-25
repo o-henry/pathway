@@ -60,17 +60,17 @@ const BRIEF_MAX_ATTEMPTS = 2;
 const CRITIQUE_MAX_ATTEMPTS = 2;
 const FINAL_MAX_ATTEMPTS = 2;
 const ORCHESTRATOR_MAX_ATTEMPTS = 2;
-const ORCHESTRATOR_MODEL = "GPT-5.4";
+const ORCHESTRATOR_MODEL = "GPT-5.5";
 const ORCHESTRATOR_REASONING = "매우 높음";
-const BRIEF_MODEL = "GPT-5.4-Mini";
+const BRIEF_MODEL = "GPT-5.5";
 const BRIEF_REASONING = "중간";
-const CRITIQUE_MODEL = "GPT-5.4-Mini";
+const CRITIQUE_MODEL = "GPT-5.5";
 const CRITIQUE_REASONING = "중간";
-const JUDGE_MODEL = "GPT-5.4-Mini";
+const JUDGE_MODEL = "GPT-5.5";
 const JUDGE_REASONING = "높음";
-const VERIFY_MODEL = "GPT-5.4-Mini";
+const VERIFY_MODEL = "GPT-5.5";
 const VERIFY_REASONING = "높음";
-const FINAL_MODEL = "GPT-5.4";
+const FINAL_MODEL = "GPT-5.5";
 const FINAL_REASONING = "높음";
 const JUDGE_MAX_ATTEMPTS = 2;
 const VERIFY_MAX_ATTEMPTS = 2;
@@ -151,7 +151,7 @@ function resolveSharedWebRuntime(params: {
     });
   }
   return {
-    model: "GPT-Web",
+    model: BRIEF_MODEL,
     reasoning: String(params.preferredReasoning ?? "").trim() || "중간",
   };
 }

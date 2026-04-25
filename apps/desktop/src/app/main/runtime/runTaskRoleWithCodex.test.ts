@@ -22,7 +22,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_implementer",
             label: "UNITY IMPLEMENTER",
             studioRoleId: "client_programmer",
-            model: "gpt-5.4-mini",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "implementation_report.md",
@@ -31,7 +31,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { projectPath: "/tmp/mockking", workspacePath: "/tmp/mockking", worktreePath: null },
           };
         case "thread_start":
@@ -67,7 +67,7 @@ describe("runTaskRoleWithCodex", () => {
       "/tmp/rail-storage/.rail/tasks/thread-1/codex_runs/role-run-1/run.diagnostics.json",
     ]);
     expect(invokeFn).toHaveBeenCalledWith("thread_start", expect.objectContaining({
-      model: "gpt-5.4",
+      model: "gpt-5.5",
       cwd: "/tmp/mockking",
       sandboxMode: "workspace-write",
     }));
@@ -86,7 +86,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_implementer",
             label: "UNITY IMPLEMENTER",
             studioRoleId: "client_programmer",
-            model: "gpt-5.4-mini",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "implementation_report.md",
@@ -95,7 +95,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking", worktreePath: null },
           };
         case "thread_start":
@@ -147,7 +147,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_implementer",
             label: "UNITY IMPLEMENTER",
             studioRoleId: "client_programmer",
-            model: "gpt-5.4-mini",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "implementation_report.md",
@@ -156,7 +156,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking", worktreePath: null },
           };
         case "thread_start":
@@ -231,7 +231,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_implementer",
             label: "UNITY IMPLEMENTER",
             studioRoleId: "client_programmer",
-            model: "gpt-5.4-mini",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "implementation_report.md",
@@ -240,7 +240,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking", worktreePath: null },
           };
         case "thread_start":
@@ -319,7 +319,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -328,7 +328,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -368,7 +368,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "pm_planner",
             label: "PM PLANNER",
             studioRoleId: "pm_planner",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "final_response.md",
@@ -377,7 +377,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -419,7 +419,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "pm_planner",
             label: "PM PLANNER",
             studioRoleId: "pm_planner",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "discussion_brief.md",
@@ -428,7 +428,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -471,7 +471,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -552,7 +552,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -561,7 +561,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -639,7 +639,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "game_designer",
             label: "GAME DESIGNER",
             studioRoleId: "game_designer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "idea.md",
@@ -715,7 +715,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "game_designer",
             label: "GAME DESIGNER",
             studioRoleId: "game_designer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "idea.md",
@@ -786,7 +786,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "game_designer",
             label: "GAME DESIGNER",
             studioRoleId: "game_designer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "idea.md",
@@ -1058,7 +1058,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1067,7 +1067,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1152,7 +1152,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1161,7 +1161,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1304,7 +1304,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1313,7 +1313,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1388,7 +1388,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1397,7 +1397,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1444,7 +1444,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1453,7 +1453,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1532,7 +1532,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1541,7 +1541,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1620,7 +1620,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1629,7 +1629,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1699,7 +1699,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1708,7 +1708,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1792,7 +1792,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -1801,7 +1801,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -1850,7 +1850,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -1859,7 +1859,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -1947,7 +1947,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -1956,7 +1956,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2022,7 +2022,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "game_designer",
             label: "GAME DESIGNER",
             studioRoleId: "pm_planner",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "discussion_direct.md",
@@ -2031,7 +2031,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2106,7 +2106,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "game_designer",
             label: "GAME DESIGNER",
             studioRoleId: "pm_planner",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "discussion_direct.md",
@@ -2115,7 +2115,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2180,7 +2180,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -2189,7 +2189,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -2279,7 +2279,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -2288,7 +2288,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -2371,7 +2371,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "researcher",
             label: "RESEARCHER",
             studioRoleId: "research_analyst",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "research_findings.md",
@@ -2380,7 +2380,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "research_storage_plan_agent_job":
@@ -2447,7 +2447,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2456,7 +2456,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2507,7 +2507,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2516,7 +2516,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2564,7 +2564,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2573,7 +2573,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2620,7 +2620,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2629,7 +2629,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2683,7 +2683,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2692,7 +2692,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2778,7 +2778,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2787,7 +2787,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":
@@ -2825,7 +2825,7 @@ describe("runTaskRoleWithCodex", () => {
             id: "unity_architect",
             label: "UNITY ARCHITECT",
             studioRoleId: "system_programmer",
-            model: "gpt-5.4",
+            model: "gpt-5.5",
             modelReasoningEffort: "medium",
             sandboxMode: "workspace-write",
             outputArtifactName: "architecture_review.md",
@@ -2834,7 +2834,7 @@ describe("runTaskRoleWithCodex", () => {
           };
         case "thread_load":
           return {
-            thread: { model: "GPT-5.4", reasoning: "중간" },
+            thread: { model: "GPT-5.5", reasoning: "중간" },
             task: { workspacePath: "/tmp/mockking" },
           };
         case "thread_start":

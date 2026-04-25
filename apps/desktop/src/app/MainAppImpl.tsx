@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import AppNav from '../components/AppNav';
 import TasksPage from '../pages/tasks/TasksPage';
@@ -55,6 +55,9 @@ import type { AuthProbeResult, LoginChatgptResult } from './main/types';
 
 type WorkspaceTab = 'tasks' | 'workflow' | 'settings';
 const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'settings'];
+const SETTINGS_AUTH_REFRESH_COOLDOWN_MS = 60_000;
+const SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS = 5 * 60_000;
+const SETTINGS_DEFERRED_REFRESH_DELAY_MS = 120;
 type PathwayAuthMode = 'chatgpt' | 'apikey' | 'unknown';
 
 type CollectorDoctorState = 'checking' | 'ready' | 'error';
@@ -302,6 +305,9 @@ export default function MainApp() {
   );
   const [collectorDoctorPending, setCollectorDoctorPending] = useState(false);
   const [collectorInstallPendingId, setCollectorInstallPendingId] = useState<string | null>(null);
+  const authStateLastCheckedAtRef = useRef(0);
+  const collectorDoctorLastCheckedAtRef = useRef(0);
+  const collectorDoctorInFlightRef = useRef(false);
   const [researchPlanCollecting, setResearchPlanCollecting] = useState(false);
   const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
 
@@ -398,6 +404,7 @@ export default function MainApp() {
       } else if (showStatus) {
         setStatusMessage('CODEX 인증 상태를 확인했습니다.');
       }
+      authStateLastCheckedAtRef.current = Date.now();
       return result;
     } catch (error) {
       if (showStatus) {
@@ -662,11 +669,25 @@ export default function MainApp() {
     if (!hasTauriRuntime) {
       setStatusMessage('브라우저 프리뷰에서는 일부 설정 연결이 제한될 수 있습니다. 가능하면 Tauri 앱에서 확인하세요.');
     }
-    void refreshAuthStateFromEngine(true);
-    void refreshCollectorDoctor();
+    const refreshTimer = window.setTimeout(() => {
+      const now = Date.now();
+      if (now - authStateLastCheckedAtRef.current >= SETTINGS_AUTH_REFRESH_COOLDOWN_MS) {
+        void refreshAuthStateFromEngine(true);
+      }
+      if (now - collectorDoctorLastCheckedAtRef.current >= SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS) {
+        void refreshCollectorDoctor();
+      }
+    }, SETTINGS_DEFERRED_REFRESH_DELAY_MS);
+    return () => {
+      window.clearTimeout(refreshTimer);
+    };
   }, [hasTauriRuntime, workspaceTab]);
 
   async function refreshCollectorDoctor() {
+    if (collectorDoctorInFlightRef.current) {
+      return;
+    }
+    collectorDoctorInFlightRef.current = true;
     setCollectorDoctorPending(true);
     try {
       if (!hasTauriRuntime) {
@@ -726,6 +747,7 @@ export default function MainApp() {
         }),
       );
       setCollectorDoctorStatuses(results);
+      collectorDoctorLastCheckedAtRef.current = Date.now();
     } catch (error) {
       if (isTauriUnavailableError(error)) {
         setCollectorDoctorPreviewFallback('브라우저 프리뷰에서는 수집기 상태를 확인할 수 없습니다. Tauri 앱에서 다시 확인하세요.');
@@ -742,6 +764,7 @@ export default function MainApp() {
         );
       }
     } finally {
+      collectorDoctorInFlightRef.current = false;
       setCollectorDoctorPending(false);
     }
   }
@@ -1085,7 +1108,12 @@ export default function MainApp() {
         throw new Error('로그인 URL을 받지 못했습니다.');
       }
       await openUrl(authUrl);
-      setStatusMessage('브라우저에서 CODEX 로그인을 진행하세요. 완료 후 설정 탭에서 상태를 다시 확인할 수 있습니다.');
+      const deviceCode = typeof result?.deviceCode === 'string' ? result.deviceCode.trim() : '';
+      setStatusMessage(
+        deviceCode
+          ? `브라우저에서 CODEX 로그인을 진행하고 코드 ${deviceCode} 를 입력하세요. 완료 후 설정 탭에서 상태를 다시 확인할 수 있습니다.`
+          : '브라우저에서 CODEX 로그인을 진행하세요. 완료 후 설정 탭에서 상태를 다시 확인할 수 있습니다.',
+      );
     } catch (error) {
       setErrorMessage(formatUiError(error, loginCompleted ? 'CODEX 로그아웃에 실패했습니다.' : 'CODEX 로그인 시작에 실패했습니다.'));
     } finally {
@@ -1261,7 +1289,7 @@ export default function MainApp() {
                   ) : null}
                 </section>
               ) : (
-                <section className="pathway-workflow-canvas-panel panel-card">
+                <section className="pathway-workflow-canvas-panel pathway-workflow-empty-panel panel-card">
                   <EmptyState
                     title={activeGoalId ? '그래프가 아직 생성되지 않았습니다' : '선택된 목표가 없습니다'}
                     copy={
@@ -1498,6 +1526,7 @@ export default function MainApp() {
           void handleSelectPathwayGoal(goalId);
         }}
         onStartPathwayIntake={handleStartPathwayIntake}
+        pathwayGoalAnalysis={goalAnalysis}
         pathwayGoals={goals}
         pathwayMode
         publishAction={() => {}}

@@ -3,6 +3,230 @@
 ## Latest micro-update
 
 - Completed work:
+  - Changed Pathway goal intake analysis so deterministic stub providers are rejected instead of producing generic follow-up questions.
+  - Removed the unused hardcoded stub goal-analysis question builder from the backend provider file.
+  - Kept graph-generation stub support intact for local fallback, but documented that intake follow-up questions require a real structured provider (`openai` with `gpt-5.5`).
+  - Added API tests proving real providers can generate follow-up questions and deterministic stub providers return 503 for intake analysis.
+  - Softened the task/pathway composer box shadow so the lower input shadow is less heavy.
+- Changed files:
+  - `.env.example`
+  - `README.md`
+  - `apps/api/lifemap_api/api/routes_goals.py`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_api_crud.py`
+  - `apps/api/tests/test_goal_analysis.py`
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
+  - `rg -n "_build_stub_goal_analysis|_fallback_analysis|이 목표에 현실적으로 매주|매달 투입 가능한 비용|혼자 학습, 튜터|피드백을 받을 사람" apps/api/lifemap_api apps/desktop/src`
+- Known gaps:
+  - A real `OPENAI_API_KEY` is still required for backend intake analysis with `LIFEMAP_LLM_PROVIDER=openai`; otherwise the UI now fails honestly instead of showing generic template questions.
+- Next recommended task:
+  - Wire the desktop Codex logged-in execution bridge into Pathway intake analysis if the backend should avoid `OPENAI_API_KEY` entirely.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed existing Pathway goal selection so the right-side intake log reconstructs from the active goal and its stored analysis questions.
+  - Passed the current `goalAnalysis` into `TasksPage` as `pathwayGoalAnalysis`.
+  - Added a Pathway-mode effect that rebuilds the USER goal message and PATHWAY follow-up checklist when an existing goal is selected and no local intake messages are present.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "followup_questions|analyzeGoal|onStartPathwayIntake|formatPathwayFollowups|GoalAnalysisRecord|analysis" apps/desktop/src apps/api -g '*.ts' -g '*.tsx' -g '*.py'`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - The current fallback backend analysis still uses deterministic generic follow-up questions when no LLM provider is available.
+- Next recommended task:
+  - Replace the fallback-only intake path with Codex GPT-5.5 structured analysis so questions are generated from the goal instead of generic defaults.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the Pathway intake assistant message layout so intro text, checklist, and closing text stack vertically instead of rendering side-by-side.
+  - Commented out the user message bubble `border-radius` rule for `.tasks-thread-message-row.is-user .tasks-thread-log-line`.
+  - Added a Pathway-specific override for `.tasks-thread-log-line` so the shared task-thread inline-flex styling does not break intake message flow.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "tasks-thread-message-row|tasks-thread-log-line|is-user|PATHWAY|좋아요|필요한 것만|확인할게요|질문|checkbox|check" apps/desktop/src -g '*.css' -g '*.tsx' -g '*.ts'`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - Visual confirmation in the running desktop app is still needed to tune final spacing.
+- Next recommended task:
+  - Reopen the Pathway intake screen and confirm the checklist block reads top-to-bottom.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the settings tab opening path so it no longer reruns CODEX auth probing and Collector Doctor checks on every tab visit.
+  - Deferred settings background checks briefly after tab mount so the settings view can paint first.
+  - Added cooldowns: CODEX auth status refresh at most once per minute and Collector Doctor refresh at most once every five minutes unless the user presses refresh or installs a collector.
+  - Added an in-flight guard so Collector Doctor cannot stack duplicate provider-health scans.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "refreshAuthStateFromEngine|refreshCollectorDoctor|collector_health|collector" apps/desktop/src/app/MainAppImpl.tsx src-tauri/src/main.rs`
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This removes the repeated open-time work; first settings visit can still show background collector status as it checks providers.
+- Next recommended task:
+  - Run the desktop app and confirm switching away from and back to Settings is instant after the first check.
+
+## Latest micro-update
+
+- Completed work:
+  - Collapsed active Pathway/Codex model selection to a single `GPT-5.5` option.
+  - Removed the old GPT/Codex model variants from workflow runtime model options, turn model canonical mappings, cost preset model selection, presets, and tests.
+  - Removed external web runtime entries from the shared model picker so Pathway agent turns route through Codex `GPT-5.5`.
+  - Disabled task-thread external provider model choices and provider mentions so the user-facing model surface no longer offers GPT-Web/Gemini/Grok/Perplexity/Claude.
+  - Verified active source/docs no longer contain the removed old GPT/Codex model IDs.
+- Changed files:
+  - `apps/desktop/src/features/workflow/domain.ts`
+  - `apps/desktop/src/features/workflow/domain.test.ts`
+  - `apps/desktop/src/features/workflow/runtimeModelOptions.ts`
+  - `apps/desktop/src/features/workflow/runtimeModelOptions.test.ts`
+  - `apps/desktop/src/pages/tasks/useTasksThreadState.ts`
+  - `apps/desktop/src/pages/tasks/taskAgentMentions.ts`
+  - `apps/desktop/src/app/main/runtime/runTaskCollaborationWithCodex.ts`
+  - workflow preset/default files under `apps/desktop/src/`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "GPT-5\\.4-Mini|GPT-5\\.4\\b|GPT-5\\.2-Codex|GPT-5\\.2\\b|GPT-5\\.1-Codex-Max|GPT-5\\.1-Codex-Mini|gpt-5\\.4-mini|gpt-5\\.4\\b|gpt-5\\.2-codex|gpt-5\\.2\\b|gpt-5\\.1-codex-max|gpt-5\\.1-codex-mini" apps/desktop/src apps/api/lifemap_api .env.example README.md AGENTS.md docs`
+  - `rg -n "GPT-Web|Gemini|Grok|Perplexity|Claude|AI ·" apps/desktop/src/pages/tasks apps/desktop/src/features/workflow apps/desktop/src/app/main/runtime -g '!*.test.*'`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - Some older test fixtures still mention removed external providers as historical scenarios; active non-test source no longer exposes them as selectable model providers.
+- Next recommended task:
+  - Open the workflow/task model picker to confirm only `GPT-5.5` is selectable.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed Ollama from the active Pathway app/runtime surface.
+  - Deleted backend Ollama settings, LLM provider wiring, and embedding provider wiring; backend generation now supports `stub` or optional `openai`, while desktop agent execution is Codex `GPT-5.5`.
+  - Removed Ollama executor/model controls from workflow/feed UI, turn execution, runtime model labels, feed filters, i18n keys, and studio role research executor types.
+  - Updated `.env.example`, `README.md`, `AGENTS.md`, and affected planning/security docs so future work points at Codex `GPT-5.5` instead of Ollama.
+  - Verified active source/docs no longer contain `ollama`, `Ollama`, or `OLLAMA`.
+- Changed files:
+  - `.env.example`
+  - `AGENTS.md`
+  - `README.md`
+  - `apps/api/lifemap_api/api/dependencies.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/embeddings.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/desktop/src/app/main/presentation/WorkflowNodeInspector.tsx`
+  - `apps/desktop/src/app/main/runtime/executeTurnNode.ts`
+  - `apps/desktop/src/app/main/runtimeHelpers/web.ts`
+  - `apps/desktop/src/app/main/types.ts`
+  - `apps/desktop/src/features/feed/derivedState.ts`
+  - `apps/desktop/src/features/studio/roleResearchProfiles.ts`
+  - `apps/desktop/src/features/workflow/domain.ts`
+  - `apps/desktop/src/features/workflow/graph-utils/shared.ts`
+  - `apps/desktop/src/i18n/messages/en.ts`
+  - `apps/desktop/src/i18n/messages/ja.ts`
+  - `apps/desktop/src/i18n/messages/ko.ts`
+  - `apps/desktop/src/i18n/messages/zh.ts`
+  - `apps/desktop/src/pages/feed/FeedPage.tsx`
+  - relevant docs under `docs/`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "ollama|Ollama|OLLAMA" apps/desktop/src apps/api/lifemap_api .env.example README.md AGENTS.md docs/IMPLEMENTATION_PLAN.md docs/ARCHITECTURE.md docs/RAG_AND_CRAWLING_SPEC.md docs/CODEX_TASKS_PHASED.md docs/phases docs/SECURITY_CHECKLIST.md docs/adr/0001-stack-selection.md pyproject.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_map_generation.py apps/api/tests/test_source_library.py`
+  - `git diff --check`
+  - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
+- Known gaps:
+  - `apps/desktop/pathway_snapshot/` still contains historical snapshot strings if searched globally; it is not active source.
+  - Backend OpenAI provider still requires `OPENAI_API_KEY` if enabled; desktop Codex execution uses the Codex login flow.
+- Next recommended task:
+  - Run the desktop app and confirm workflow node creation, model picker, feed filters, and node inspector expose Codex/GPT-5.5 without Ollama controls.
+
+## Latest micro-update
+
+- Completed work:
+  - Changed the desktop workflow/Codex turn default model to `GPT-5.5`.
+  - Removed older Codex model variants from the active workflow runtime model option list and canonical model mappings.
+  - Updated workflow preset builders, preprocessing agent defaults, role-node scaffold expectations, dashboard intelligence defaults, and feed knowledge fallback defaults to use `GPT-5.5`.
+  - Updated workflow model tests to expect `GPT-5.5` / `gpt-5.5`.
+- Changed files:
+  - `apps/desktop/src/app/main/runtime/feedKnowledgeHandlers.ts`
+  - `apps/desktop/src/app/main/runtime/roleNodeScaffold.test.ts`
+  - `apps/desktop/src/features/dashboard/intelligence/config.test.ts`
+  - `apps/desktop/src/features/dashboard/intelligence/config.ts`
+  - `apps/desktop/src/features/workflow/domain.test.ts`
+  - `apps/desktop/src/features/workflow/domain.ts`
+  - `apps/desktop/src/features/workflow/presets/buildersCore.ts`
+  - `apps/desktop/src/features/workflow/presets/buildersExtended.ts`
+  - `apps/desktop/src/features/workflow/presets/preprocess.ts`
+  - `apps/desktop/src/features/workflow/runtimeModelOptions.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "GPT model defaults|gpt model defaults|GPT-5\\.5|gpt-5\\.5|DEFAULT_TURN_MODEL|COST_PRESET_DEFAULT_MODEL|default.*model" apps/desktop/src apps/api docs README.md .env.example`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm --filter desktop exec vitest run apps/desktop/src/features/workflow/domain.test.ts apps/desktop/src/features/dashboard/intelligence/config.test.ts apps/desktop/src/app/main/runtime/roleNodeScaffold.test.ts` (failed: `vitest` is not installed in the desktop package)
+  - `git diff --check`
+- Known gaps:
+  - Desktop package still does not expose a direct `vitest` binary, so targeted unit tests could not be run from that package.
+- Next recommended task:
+  - Run the desktop app and confirm new workflow nodes/model pickers show `GPT-5.5` as the first/default Codex model.
+
+## Latest micro-update
+
+- Completed work:
+  - Restored the Pathway desktop CODEX login command path by adding Tauri commands for `engine_start`, `engine_stop`, `auth_probe`, `login_chatgpt`, `logout_codex`, and `usage_check`.
+  - Added the Tauri opener plugin and `opener:default` capability so the login URL can open from the desktop app.
+  - Implemented Codex device-code login startup through the local `codex login --device-auth` CLI and surfaced the one-time code in the settings status message.
+  - Fixed auth probing so `Not logged in` is classified as `login_required`, not authenticated.
+  - Centered only the workflow placeholder copy shown when no graph/goal is selected.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/main/types.ts`
+  - `apps/desktop/src/pathway.css`
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/Cargo.lock`
+  - `src-tauri/capabilities/default.json`
+  - `src-tauri/gen/schemas/acl-manifests.json`
+  - `src-tauri/gen/schemas/capabilities.json`
+  - `src-tauri/gen/schemas/desktop-schema.json`
+  - `src-tauri/gen/schemas/macOS-schema.json`
+  - `src-tauri/src/main.rs`
+  - `docs/state/EXECPLAN_CODEX_LOGIN_AND_EMPTY_STATE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `codex login --help`
+  - `codex login status`
+  - `zsh -lc 'rm -rf /tmp/pathway-codex-login-probe; mkdir -p /tmp/pathway-codex-login-probe; CODEX_HOME=/tmp/pathway-codex-login-probe codex login --device-auth > /tmp/pathway-codex-login-probe.out 2>&1 & pid=$!; sleep 5; kill $pid >/dev/null 2>&1 || true; cat /tmp/pathway-codex-login-probe.out'`
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `npm run secret-scan` (stalled during fresh Python environment setup and was stopped)
+  - `UV_CACHE_DIR=.uv-cache uvx pre-commit run gitleaks --all-files`
+- Known gaps:
+  - The login flow opens the device authorization URL and shows the code, but the user still needs to complete the browser step and then refresh/check auth status.
+  - The current Pathway shell still has no full Codex app-server execution bridge; this pass restores the settings login lifecycle only.
+- Next recommended task:
+  - Run the Tauri app, click Settings → CODEX 로그인, confirm the browser opens to `https://auth.openai.com/codex/device`, enter the displayed code, then verify the status flips to logged in.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the workflow tab's hardcoded demo graph fallback, so a graph is no longer shown when there is no active persisted map.
   - Deleted the desktop `exampleGraphBundle` helper that was keeping the demo graph alive.
   - Updated the workflow canvas to show an explicit empty state when a selected goal has not generated a graph yet.
@@ -693,7 +917,7 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
-  - Removed the remaining goal-tab composer model and reasoning dropdown UI so the toolbar no longer exposes `GPT-5.4` / `MEDIUM` selectors.
+  - Removed the remaining goal-tab composer model and reasoning dropdown UI so the toolbar no longer exposes `GPT-5.5` / `MEDIUM` selectors.
   - Kept the underlying task execution defaults intact and updated the static composer test to assert that those dropdowns no longer render.
 - Changed files:
   - `apps/desktop/src/pages/tasks/TasksThreadComposer.tsx`

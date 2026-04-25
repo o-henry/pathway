@@ -25,7 +25,7 @@ function buildDetail(): ThreadDetail {
       status: "active",
       cwd: "/workspace",
       accessMode: "Local",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "중간",
       createdAt: "2026-03-18T00:00:00.000Z",
       updatedAt: "2026-03-18T00:00:00.000Z",

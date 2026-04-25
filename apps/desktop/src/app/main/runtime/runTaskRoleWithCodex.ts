@@ -128,8 +128,8 @@ function resolvePreferredRuntimeModel(params: {
   threadModel?: string;
   packModel?: string;
 }): string {
-  const resolved = String(params.inputModel || params.threadModel || params.packModel || "GPT-5.4").trim();
-  return toTurnModelDisplayName(resolved || "GPT-5.4");
+  const resolved = String(params.inputModel || params.threadModel || params.packModel || "GPT-5.5").trim();
+  return toTurnModelDisplayName(resolved || "GPT-5.5");
 }
 
 function resolvePreferredRuntimeModels(params: {
@@ -1778,7 +1778,7 @@ async function resolveTaskRunContext(input: RunTaskRoleWithCodexInput): Promise<
     });
     return {
       projectPath: String(detail.task.worktreePath || detail.task.workspacePath || input.storageCwd).trim(),
-      threadModel: String(detail.thread.model || "GPT-5.4").trim(),
+      threadModel: String(detail.thread.model || "GPT-5.5").trim(),
       threadReasoning: String(detail.thread.reasoning || "중간").trim(),
     };
   }
@@ -1789,7 +1789,7 @@ async function resolveTaskRunContext(input: RunTaskRoleWithCodexInput): Promise<
   });
   return {
     projectPath: String(detail.record.worktreePath || detail.record.workspacePath || input.storageCwd).trim(),
-    threadModel: "GPT-5.4",
+    threadModel: "GPT-5.5",
     threadReasoning: "중간",
   };
 }
@@ -1814,7 +1814,7 @@ export async function runTaskRoleWithCodex(input: RunTaskRoleWithCodexInput): Pr
     threadModel: context.threadModel,
     packModel: pack.model,
   });
-  const primarySelectedModel = selectedModels[0] ?? "GPT-5.4";
+  const primarySelectedModel = selectedModels[0] ?? "GPT-5.5";
   const runtimeModelOption = findRuntimeModelOption(primarySelectedModel);
   const webProvider = getWebProviderFromExecutor(runtimeModelOption.executor);
   const webProviders = [...new Set(

@@ -15,7 +15,7 @@ Use:
 - FastAPI for backend.
 - SQLite for local persistence.
 - LanceDB for vector search.
-- Ollama for default local LLM/embeddings.
+- Codex GPT-5.5 for desktop agent execution; backend graph generation uses stub or optional OpenAI.
 - Optional OpenAI provider only through env vars.
 
 ## Rationale

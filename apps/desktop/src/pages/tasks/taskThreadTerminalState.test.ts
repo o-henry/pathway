@@ -13,7 +13,7 @@ function makeDetail(overrides?: Partial<ThreadDetail>): ThreadDetail {
       cwd: "/repo",
       branchLabel: null,
       accessMode: "Local",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "중간",
       createdAt: "2026-03-18T00:00:00.000Z",
       updatedAt: "2026-03-18T00:00:00.000Z",

@@ -44,7 +44,7 @@ describe("dashboard intelligence runner", () => {
               references: [{ url: "https://example.com", title: "Example", source: "example.com" }],
               generatedAt: "2026-02-28T00:00:00.000Z",
               topic: "globalHeadlines",
-              model: "gpt-5.2-codex",
+              model: "gpt-5.5",
             }),
           };
         case "dashboard_snapshot_save":
@@ -351,7 +351,7 @@ describe("dashboard intelligence runner", () => {
               references: [],
               generatedAt: "2026-02-28T00:00:00.000Z",
               topic: "marketSummary",
-              model: "gpt-5.2-codex",
+              model: "gpt-5.5",
             }),
           };
         case "dashboard_snapshot_save":
@@ -421,7 +421,7 @@ describe("dashboard intelligence runner", () => {
               references: [],
               generatedAt: "2026-02-28T00:00:00.000Z",
               topic: "marketSummary",
-              model: "gpt-5.2-codex",
+              model: "gpt-5.5",
             }),
           };
         case "dashboard_snapshot_save":
@@ -497,7 +497,7 @@ describe("dashboard intelligence runner", () => {
                         references: [],
                         generatedAt: "2026-02-28T00:00:00.000Z",
                         topic: "globalHeadlines",
-                        model: "gpt-5.2-codex",
+                        model: "gpt-5.5",
                       }),
                     },
                   ],
@@ -575,7 +575,7 @@ describe("dashboard intelligence runner", () => {
                         references: [],
                         generatedAt: "2026-02-28T00:00:00.000Z",
                         topic: "globalHeadlines",
-                        model: "gpt-5.2-codex",
+                        model: "gpt-5.5",
                       }),
                     },
                   ],
@@ -731,7 +731,7 @@ describe("dashboard intelligence runner", () => {
     const invokeMock = vi.fn(async () => [
       {
         topic: "globalHeadlines",
-        model: "gpt-5.2-codex",
+        model: "gpt-5.5",
         generatedAt: "2026-02-28T10:00:00.000Z",
         summary: "new",
         highlights: [],
@@ -741,7 +741,7 @@ describe("dashboard intelligence runner", () => {
       },
       {
         topic: "globalHeadlines",
-        model: "gpt-5.2-codex",
+        model: "gpt-5.5",
         generatedAt: "2026-02-28T09:00:00.000Z",
         summary: "old",
         highlights: [],

@@ -13,12 +13,12 @@ describe("dashboard snapshot parser", () => {
         references: [{ url: "https://example.com", title: "Example", source: "example.com" }],
         generatedAt: "2026-02-28T00:00:00.000Z",
         topic: "globalHeadlines",
-        model: "gpt-5.2-codex",
+        model: "gpt-5.5",
       }),
       "```",
     ].join("\n");
 
-    const snapshot = parseDashboardSnapshotText("globalHeadlines", "gpt-5.2-codex", text);
+    const snapshot = parseDashboardSnapshotText("globalHeadlines", "gpt-5.5", text);
     expect(snapshot.summary).toBe("hello");
     expect(snapshot.highlights).toEqual(["a", "b"]);
     expect(snapshot.references).toHaveLength(1);
@@ -26,13 +26,13 @@ describe("dashboard snapshot parser", () => {
   });
 
   it("falls back to degraded snapshot when text is not json", () => {
-    const snapshot = parseDashboardSnapshotText("riskAlertBoard", "gpt-5.2-codex", "plain text");
+    const snapshot = parseDashboardSnapshotText("riskAlertBoard", "gpt-5.5", "plain text");
     expect(snapshot.status).toBe("degraded");
     expect(snapshot.summary).toContain("plain text");
   });
 
   it("builds fallback snapshot with normalization", () => {
-    const snapshot = buildDashboardFallbackSnapshot("eventCalendar", "gpt-5.2-codex", {
+    const snapshot = buildDashboardFallbackSnapshot("eventCalendar", "gpt-5.5", {
       summary: "fallback",
       highlights: ["x", ""],
       references: [{ url: "https://a.com", title: "A", source: "a.com" }],
@@ -54,7 +54,7 @@ describe("dashboard snapshot parser", () => {
       events: [],
       references: [{ url: "https://example.com", title: "<b>Example</b>", source: "example.com" }],
     });
-    const snapshot = parseDashboardSnapshotText("marketSummary", "gpt-5.2-codex", text);
+    const snapshot = parseDashboardSnapshotText("marketSummary", "gpt-5.5", text);
     expect(snapshot.summary).toBe("시장 변동성 확대");
     expect(snapshot.highlights).toEqual([
       "미국 고용지표 둔화",

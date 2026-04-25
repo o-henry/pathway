@@ -1,5 +1,4 @@
 import type { MutableRefObject } from "react";
-import { extractStringByPaths } from "../../../shared/lib/valueUtils";
 import {
   buildCodexMultiAgentDirective,
   buildDocumentCompletenessDirective,
@@ -14,7 +13,6 @@ import {
   injectOutputLanguageDirective,
   isLikelyWebPromptEcho,
   replaceInputPlaceholder,
-  stringifyInput,
 } from "../../../features/workflow/promptUtils";
 import { codexMultiAgentModeLabel, resolveNodeCwd } from "../../mainAppUtils";
 import {
@@ -112,7 +110,6 @@ export async function executeTurnNodeWithContext(
   const turnRuntimeConfig = resolveTurnRuntimeConfig(config);
   const nodeCwd = resolveNodeCwd(config.cwd ?? ctx.cwd, ctx.cwd);
   const promptTemplate = injectOutputLanguageDirective(String(config.promptTemplate ?? "{{input}}"), ctx.locale);
-  const nodeOllamaModel = String(config.ollamaModel ?? "llama3.1:8b").trim() || "llama3.1:8b";
   const qualityProfile = inferQualityProfile(node, config);
   const rawInputText = qualityProfile === "synthesis_final" ? extractFinalSynthesisInputText(input) : extractPromptInputText(input);
   const { text: inputText, clipped: inputTextClipped } = applyTurnInputBudget(rawInputText, turnRuntimeConfig);
@@ -195,32 +192,6 @@ export async function executeTurnNodeWithContext(
     if (multiAgentDirective) {
       textToSend = `${multiAgentDirective}\n\n${textToSend}`.trim();
       ctx.addNodeLog(node.id, `[멀티에이전트] Codex 최적화 모드 적용: ${codexMultiAgentModeLabel(ctx.codexMultiAgentMode)}`);
-    }
-  }
-  if (executor === "ollama") {
-    try {
-      const raw = await ctx.invokeFn<unknown>("ollama_generate", {
-        model: nodeOllamaModel,
-        prompt: textToSend,
-      });
-      const text = extractStringByPaths(raw, ["response", "message.content", "content"]) ?? stringifyInput(raw);
-      return {
-        ok: true,
-        output: { provider: "ollama", timestamp: new Date().toISOString(), text, raw },
-        executor,
-        provider: "ollama",
-        knowledgeTrace,
-        memoryTrace,
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        error: `Ollama 실행 실패: ${String(error)}`,
-        executor,
-        provider: "ollama",
-        knowledgeTrace,
-        memoryTrace,
-      };
     }
   }
   if (executor === "via_flow") {

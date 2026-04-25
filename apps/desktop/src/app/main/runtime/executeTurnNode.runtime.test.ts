@@ -5,7 +5,7 @@ import { executeTurnNodeWithContext } from "./executeTurnNode";
 
 function buildContext(): ExecuteTurnNodeContext {
   return {
-    model: "GPT-5.4",
+    model: "GPT-5.5",
     cwd: "/tmp/project",
     locale: "ko",
     workflowQuestion: "",
@@ -44,14 +44,14 @@ function buildContext(): ExecuteTurnNodeContext {
 }
 
 describe("executeTurnNodeWithContext", () => {
-  it("passes the real GPT-5.4 engine id and reasoning effort to turn_start", async () => {
+  it("passes the real GPT-5.5 engine id and reasoning effort to turn_start", async () => {
     const node: GraphNode = {
       id: "turn-node",
       type: "turn",
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         reasoningLevel: "매우 높음",
         temperature: 0.48,
         contextBudget: "wide",
@@ -75,7 +75,7 @@ describe("executeTurnNodeWithContext", () => {
 
     expect(result.ok).toBe(true);
     expect(invokeFn).toHaveBeenCalledWith("thread_start", {
-      model: "gpt-5.4",
+      model: "gpt-5.5",
       cwd: "/tmp/project",
     });
     const turnStartCall = vi.mocked(invokeFn).mock.calls.find((row) => row[0] === "turn_start_blocking");
@@ -96,7 +96,7 @@ describe("executeTurnNodeWithContext", () => {
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         temperature: 0.36,
         contextBudget: "tight",
         maxInputChars: 640,
@@ -134,7 +134,7 @@ describe("executeTurnNodeWithContext", () => {
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         qualityProfile: "synthesis_final",
         artifactType: "TaskPlanArtifact",
         temperature: 0.3,
@@ -170,7 +170,7 @@ describe("executeTurnNodeWithContext", () => {
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         promptTemplate: "{{input}}",
       },
     };
@@ -224,7 +224,7 @@ describe("executeTurnNodeWithContext", () => {
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         promptTemplate: "{{input}}",
       },
     };
@@ -255,7 +255,7 @@ describe("executeTurnNodeWithContext", () => {
       position: { x: 0, y: 0 },
       config: {
         executor: "codex",
-        model: "GPT-5.4",
+        model: "GPT-5.5",
         promptTemplate: "{{input}}",
       },
     };

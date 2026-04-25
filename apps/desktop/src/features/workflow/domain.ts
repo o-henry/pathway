@@ -11,8 +11,7 @@ export type TurnExecutor =
   | "web_perplexity"
   | "web_claude"
   | "web_steel"
-  | "web_lightpanda_experimental"
-  | "ollama";
+  | "web_lightpanda_experimental";
 
 export type PresetKind =
   | "validation"
@@ -70,7 +69,6 @@ export type TurnConfig = {
   knowledgeEnabled?: boolean;
   webResultMode?: WebResultMode;
   webTimeoutMs?: number;
-  ollamaModel?: string;
   qualityProfile?: QualityProfileId;
   qualityThreshold?: number;
   qualityCommandEnabled?: boolean;
@@ -95,7 +93,6 @@ export const TURN_EXECUTOR_OPTIONS = [
   "web_claude",
   "web_steel",
   "web_lightpanda_experimental",
-  "ollama",
 ] as const;
 
 export const TURN_EXECUTOR_LABELS: Record<TurnExecutor, string> = {
@@ -108,7 +105,6 @@ export const TURN_EXECUTOR_LABELS: Record<TurnExecutor, string> = {
   web_claude: "WEB / CLAUDE",
   web_steel: "WEB / STEEL",
   web_lightpanda_experimental: "WEB / LIGHTPANDA",
-  ollama: "Ollama",
 };
 
 export const WEB_PROVIDER_OPTIONS: ReadonlyArray<WebProvider> = [
@@ -121,34 +117,18 @@ export const WEB_PROVIDER_OPTIONS: ReadonlyArray<WebProvider> = [
   "lightpanda_experimental",
 ];
 
-export const TURN_MODEL_OPTIONS = [
-  "GPT-5.3-Codex",
-  "GPT-5.4",
-  "GPT-5.4-Mini",
-  "GPT-5.3-Codex-Spark",
-  "GPT-5.2-Codex",
-  "GPT-5.1-Codex-Max",
-  "GPT-5.2",
-  "GPT-5.1-Codex-Mini",
-] as const;
+export const TURN_MODEL_OPTIONS = ["GPT-5.5"] as const;
 
 export const DEFAULT_TURN_MODEL = TURN_MODEL_OPTIONS[0];
 
 export const COST_PRESET_DEFAULT_MODEL: Record<CostPreset, (typeof TURN_MODEL_OPTIONS)[number]> = {
-  conservative: "GPT-5.3-Codex",
-  balanced: "GPT-5.2-Codex",
-  aggressive: "GPT-5.1-Codex-Mini",
+  conservative: "GPT-5.5",
+  balanced: "GPT-5.5",
+  aggressive: "GPT-5.5",
 };
 
 export const TURN_MODEL_CANONICAL_PAIRS: Array<{ display: string; engine: string }> = [
-  { display: "GPT-5.3-Codex", engine: "gpt-5.3-codex" },
-  { display: "GPT-5.4", engine: "gpt-5.4" },
-  { display: "GPT-5.4-Mini", engine: "gpt-5.4-mini" },
-  { display: "GPT-5.3-Codex-Spark", engine: "gpt-5.3-codex-spark" },
-  { display: "GPT-5.2-Codex", engine: "gpt-5.2-codex" },
-  { display: "GPT-5.1-Codex-Max", engine: "gpt-5.1-codex-max" },
-  { display: "GPT-5.2", engine: "gpt-5.2" },
-  { display: "GPT-5.1-Codex-Mini", engine: "gpt-5.1-codex-mini" },
+  { display: "GPT-5.5", engine: "gpt-5.5" },
 ];
 
 export function toTurnModelDisplayName(value: string): string {
@@ -205,13 +185,9 @@ export function getCostPresetTargetModel(
   preset: CostPreset,
   isCritical: boolean,
 ): (typeof TURN_MODEL_OPTIONS)[number] {
-  if (preset === "aggressive") {
-    return isCritical ? "GPT-5.2-Codex" : "GPT-5.1-Codex-Mini";
-  }
-  if (preset === "conservative") {
-    return isCritical ? "GPT-5.3-Codex-Spark" : "GPT-5.3-Codex";
-  }
-  return isCritical ? "GPT-5.3-Codex" : "GPT-5.2-Codex";
+  void preset;
+  void isCritical;
+  return "GPT-5.5";
 }
 
 export function getTurnExecutor(config: TurnConfig): TurnExecutor {
@@ -220,9 +196,6 @@ export function getTurnExecutor(config: TurnConfig): TurnExecutor {
 }
 
 export function turnExecutorLabel(executor: TurnExecutor): string {
-  if (executor === "ollama") {
-    return t("feed.executor.ollama");
-  }
   if (executor === "via_flow") {
     return "RAG";
   }

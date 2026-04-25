@@ -4,7 +4,7 @@ import { GRAPH_SCHEMA_VERSION, defaultKnowledgeConfig, makePresetNode } from "./
 export function buildUnityGamePreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-unity-intake", "turn", 120, 120, {
-      model: "GPT-5.3-Codex-Spark",
+      model: "GPT-5.5",
       role: "UNITY CONCEPT AGENT",
       cwd: ".",
       promptTemplate:
@@ -13,7 +13,7 @@ export function buildUnityGamePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-system", "turn", 420, 40, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "UNITY SYSTEM DESIGN AGENT",
       cwd: ".",
       promptTemplate:
@@ -22,7 +22,7 @@ export function buildUnityGamePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-implementation", "turn", 420, 220, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "UNITY IMPLEMENTATION AGENT",
       cwd: ".",
       promptTemplate:
@@ -31,7 +31,7 @@ export function buildUnityGamePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-qa", "turn", 720, 120, {
-      model: "GPT-5.2",
+      model: "GPT-5.5",
       role: "UNITY QA AGENT",
       cwd: ".",
       promptTemplate:
@@ -54,7 +54,7 @@ export function buildUnityGamePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-unity-final", "turn", 1460, 40, {
-      model: "GPT-5.3-Codex",
+      model: "GPT-5.5",
       role: "UNITY FINALIZATION AGENT",
       cwd: ".",
       promptTemplate:
@@ -92,7 +92,7 @@ export function buildUnityGamePreset(): GraphData {
 export function buildFullstackPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-fullstack-intake", "turn", 120, 120, {
-      model: "GPT-5.3-Codex-Spark",
+      model: "GPT-5.5",
       role: "PRODUCT SPEC AGENT",
       cwd: ".",
       promptTemplate:
@@ -101,7 +101,7 @@ export function buildFullstackPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-fullstack-backend", "turn", 420, 40, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "BACKEND AGENT",
       cwd: ".",
       promptTemplate:
@@ -110,7 +110,7 @@ export function buildFullstackPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-fullstack-frontend", "turn", 420, 220, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "FRONTEND AGENT",
       cwd: ".",
       promptTemplate:
@@ -119,7 +119,7 @@ export function buildFullstackPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-fullstack-ops", "turn", 720, 120, {
-      model: "GPT-5.2",
+      model: "GPT-5.5",
       role: "OPS & SECURITY AGENT",
       cwd: ".",
       promptTemplate:
@@ -142,7 +142,7 @@ export function buildFullstackPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-fullstack-final", "turn", 1460, 40, {
-      model: "GPT-5.3-Codex",
+      model: "GPT-5.5",
       role: "FULLSTACK DELIVERY AGENT",
       cwd: ".",
       promptTemplate:
@@ -198,7 +198,7 @@ export function buildFullstackPreset(): GraphData {
 export function buildCreativePreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-creative-intake", "turn", 120, 120, {
-      model: "GPT-5.3-Codex-Spark",
+      model: "GPT-5.5",
       role: "PROBLEM REFRAME AGENT",
       cwd: ".",
       promptTemplate:
@@ -207,7 +207,7 @@ export function buildCreativePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-creative-diverge", "turn", 420, 40, {
-      model: "GPT-5.2",
+      model: "GPT-5.5",
       role: "IDEA DIVERGENCE AGENT",
       cwd: ".",
       promptTemplate:
@@ -216,7 +216,7 @@ export function buildCreativePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-creative-critic", "turn", 420, 220, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "IDEA CRITIC AGENT",
       cwd: ".",
       promptTemplate:
@@ -226,7 +226,7 @@ export function buildCreativePreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-creative-final", "turn", 1020, 40, {
-      model: "GPT-5.3-Codex",
+      model: "GPT-5.5",
       role: "CREATIVE SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:
@@ -258,7 +258,7 @@ export function buildCreativePreset(): GraphData {
 export function buildNewsTrendPreset(): GraphData {
   const nodes: GraphNode[] = [
     makePresetNode("turn-news-intake", "turn", 120, 120, {
-      model: "GPT-5.3-Codex-Spark",
+      model: "GPT-5.5",
       role: "NEWS BRIEF AGENT",
       cwd: ".",
       promptTemplate:
@@ -270,7 +270,7 @@ export function buildNewsTrendPreset(): GraphData {
       executor: "web_gemini",
       webResultMode: "bridgeAssisted",
       webTimeoutMs: 180000,
-      model: "GPT-5.2",
+      model: "GPT-5.5",
       role: "WEB NEWS SCAN AGENT A",
       cwd: ".",
       promptTemplate:
@@ -280,14 +280,14 @@ export function buildNewsTrendPreset(): GraphData {
       executor: "web_gemini",
       webResultMode: "bridgeAssisted",
       webTimeoutMs: 180000,
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "WEB TREND SCAN AGENT B",
       cwd: ".",
       promptTemplate:
         "트렌드 관점으로 신호(증가/감소/변곡점)를 찾아 요약해줘.\n입력: {{input}}",
     }),
     makePresetNode("turn-news-check", "turn", 720, 120, {
-      model: "GPT-5.2-Codex",
+      model: "GPT-5.5",
       role: "NEWS FACT CHECK AGENT",
       cwd: ".",
       promptTemplate:
@@ -310,7 +310,7 @@ export function buildNewsTrendPreset(): GraphData {
         "입력: {{input}}",
     }),
     makePresetNode("turn-news-final", "turn", 1460, 40, {
-      model: "GPT-5.3-Codex",
+      model: "GPT-5.5",
       role: "NEWS SYNTHESIS AGENT",
       cwd: ".",
       promptTemplate:

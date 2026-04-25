@@ -144,7 +144,7 @@ Chunk metadata:
 
 Default:
 
-- Ollama embeddings
+- Deterministic local embeddings by default
 - LanceDB local embedded vector store
 
 Optional:

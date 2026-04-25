@@ -257,7 +257,7 @@ async function normalizeResearchCollectionPrompt(params: {
   }
   try {
     const started = await params.invokeFn<{ threadId: string }>("thread_start", {
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       cwd: params.storageCwd,
       sandboxMode: "read-only",
     });

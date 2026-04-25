@@ -36,6 +36,7 @@ type TasksPageProps = {
   pathwayGoals?: GoalRecord[];
   activeGoalId?: string | null;
   activeGoalTitle?: string | null;
+  pathwayGoalAnalysis?: GoalAnalysisRecord | null;
   onSelectGoal?: (goalId: string | null) => void;
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
@@ -297,6 +298,42 @@ export default function TasksPage(props: TasksPageProps) {
   useEffect(() => {
     setComposerCursor(state.composerDraft.length);
   }, [state.composerDraft]);
+
+  useEffect(() => {
+    if (!props.pathwayMode || pathwayIntakePending) {
+      return;
+    }
+    const activeGoalId = String(props.activeGoalId ?? "").trim();
+    if (!activeGoalId) {
+      return;
+    }
+    const analysis = props.pathwayGoalAnalysis?.goal_id === activeGoalId ? props.pathwayGoalAnalysis : null;
+    setPathwayIntake((current) => {
+      if (current.goalId === activeGoalId && current.messages.length > 0) {
+        return current;
+      }
+      const goalText = String(props.activeGoalTitle ?? "").trim();
+      const messages: PathwayIntakeMessage[] = [];
+      if (goalText) {
+        messages.push(makePathwayMessage("user", goalText));
+      }
+      if (analysis?.followup_questions?.length) {
+        messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
+      }
+      return {
+        phase: analysis?.followup_questions?.length ? "clarifying" : "idle",
+        goalId: activeGoalId,
+        answers: [],
+        messages,
+      };
+    });
+  }, [
+    props.activeGoalId,
+    props.activeGoalTitle,
+    props.pathwayGoalAnalysis,
+    props.pathwayMode,
+    pathwayIntakePending,
+  ]);
 
   useEffect(() => {
     if (!state.composerDraft) {

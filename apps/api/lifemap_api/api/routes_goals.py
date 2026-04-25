@@ -114,6 +114,11 @@ def post_goal_analysis(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+    except ProviderInvocationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{goal_id}/current-state", response_model=CurrentStateSnapshot | None)

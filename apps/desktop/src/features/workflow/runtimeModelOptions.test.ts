@@ -2,22 +2,24 @@ import { describe, expect, it } from "vitest";
 import { findRuntimeModelOption, RUNTIME_MODEL_OPTIONS } from "./runtimeModelOptions";
 
 describe("runtimeModelOptions", () => {
-  it("exposes external web runtimes in the shared model menu options", () => {
-    const optionValues = RUNTIME_MODEL_OPTIONS.map((option) => option.value);
-    expect(optionValues).toContain("WEB / STEEL");
-    expect(optionValues).toContain("WEB / LIGHTPANDA");
+  it("exposes only Codex GPT-5.5 in the shared model menu options", () => {
+    expect(RUNTIME_MODEL_OPTIONS).toEqual([
+      {
+        value: "GPT-5.5",
+        label: "GPT-5.5",
+        allowsReasonLevel: true,
+        executor: "codex",
+        turnModel: "GPT-5.5",
+      },
+    ]);
   });
 
-  it("maps external web runtime labels to the correct executors", () => {
+  it("falls back to Codex GPT-5.5 for removed runtime labels", () => {
     expect(findRuntimeModelOption("WEB / STEEL")).toMatchObject({
-      label: "WEB / STEEL",
-      executor: "web_steel",
-      allowsReasonLevel: false,
-    });
-    expect(findRuntimeModelOption("WEB / LIGHTPANDA")).toMatchObject({
-      label: "WEB / LIGHTPANDA",
-      executor: "web_lightpanda_experimental",
-      allowsReasonLevel: false,
+      label: "GPT-5.5",
+      executor: "codex",
+      turnModel: "GPT-5.5",
+      allowsReasonLevel: true,
     });
   });
 });

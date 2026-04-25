@@ -229,7 +229,7 @@ describe("resolveTasksThreadWebProvider", () => {
   });
 
   it("returns null for codex-backed task models", () => {
-    expect(resolveTasksThreadWebProvider("GPT-5.4")).toBeNull();
+    expect(resolveTasksThreadWebProvider("GPT-5.5")).toBeNull();
   });
 });
 

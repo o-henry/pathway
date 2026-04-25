@@ -24,14 +24,9 @@ class Settings(BaseSettings):
     lancedb_uri: str = Field(default="./data/lancedb", alias="LIFEMAP_LANCEDB_URI")
     source_chunk_target_tokens: int = Field(default=700, alias="SOURCE_CHUNK_TARGET_TOKENS")
     source_chunk_overlap_tokens: int = Field(default=120, alias="SOURCE_CHUNK_OVERLAP_TOKENS")
-    ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
-    ollama_llm_model: str = Field(default="llama3.1", alias="OLLAMA_LLM_MODEL")
-    ollama_embedding_model: str = Field(
-        default="nomic-embed-text", alias="OLLAMA_EMBEDDING_MODEL"
-    )
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
-    openai_model: str = Field(default="", alias="OPENAI_MODEL")
+    openai_model: str = Field(default="gpt-5.5", alias="OPENAI_MODEL")
     source_fetch_enabled: bool = Field(default=False, alias="SOURCE_FETCH_ENABLED")
     source_fetch_rate_limit_per_minute: int = Field(
         default=10, alias="SOURCE_FETCH_RATE_LIMIT_PER_MINUTE"

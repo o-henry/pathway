@@ -110,9 +110,6 @@ export function nodeCardSummary(node: GraphNode): string {
 export function turnModelLabel(node: GraphNode): string {
   const config = node.config as TurnConfig;
   const executor = getTurnExecutor(config);
-  if (executor === "ollama") {
-    return `Ollama · ${String(config.ollamaModel ?? "llama3.1:8b")}`;
-  }
   if (executor !== "codex") {
     return turnExecutorLabel(executor);
   }

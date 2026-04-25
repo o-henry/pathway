@@ -7,8 +7,7 @@ type RoleResearchExecutor =
   | "web_gpt"
   | "web_grok"
   | "web_perplexity"
-  | "web_claude"
-  | "ollama";
+  | "web_claude";
 
 type RoleResearchViaNodeType =
   | "source.news"

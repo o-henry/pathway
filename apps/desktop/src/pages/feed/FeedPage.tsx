@@ -191,26 +191,6 @@ export default function FeedPage({ vm }: FeedPageProps) {
                         />
                       </label>
                     )}
-                    {feedInspectorTurnExecutor === "ollama" && (
-                      <label>
-                        {t("feed.ollamaModel")}
-                        <input
-                          disabled={!feedInspectorEditable}
-                          onChange={(event) => {
-                            if (!feedInspectorEditableNodeId) {
-                              return;
-                            }
-                            updateNodeConfigById(
-                              feedInspectorEditableNodeId,
-                              "ollamaModel",
-                              event.currentTarget.value,
-                            );
-                          }}
-                          placeholder={t("feed.ollamaPlaceholder")}
-                          value={String(feedInspectorTurnConfig?.ollamaModel ?? "llama3.1:8b")}
-                        />
-                      </label>
-                    )}
                     {getWebProviderFromExecutor(feedInspectorTurnExecutor) && (
                       <>
                         <label>
@@ -425,7 +405,6 @@ export default function FeedPage({ vm }: FeedPageProps) {
                         { value: "all", label: t("feed.executor.all") },
                         { value: "codex", label: "Codex" },
                         { value: "web", label: "WEB" },
-                        { value: "ollama", label: "Ollama" },
                       ]}
                       value={feedExecutorFilter}
                     />

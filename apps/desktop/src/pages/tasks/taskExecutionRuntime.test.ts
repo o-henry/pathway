@@ -22,7 +22,7 @@ function buildThreadDetail(): ThreadDetail {
       cwd: "/workspace/demo",
       branchLabel: "main",
       accessMode: "Local",
-      model: "GPT-5.4",
+      model: "GPT-5.5",
       reasoning: "중간",
       createdAt: "2026-03-20T00:00:00.000Z",
       updatedAt: "2026-03-20T00:00:00.000Z",

@@ -39,7 +39,7 @@
 
 ## 5. LLM providers
 
-- [x] Local Ollama works without external API keys.
+- [x] Codex GPT-5.5 login path is available for desktop agent execution.
 - [x] OpenAI provider is optional.
 - [x] External provider use is clearly env-driven.
 - [x] User can disable external providers by not configuring them.

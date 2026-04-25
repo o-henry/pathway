@@ -141,7 +141,7 @@ describe("TasksThreadComposer", () => {
         reasoning: "중간",
         reasoningLabel: "MEDIUM",
         selectedComposerRoleIds: [],
-        selectedModelOption: { value: "GPT-5.4", label: "GPT-5.4" },
+        selectedModelOption: { value: "GPT-5.5", label: "GPT-5.5" },
         showStopButton: false,
         stoppingComposerRun: false,
       }),
@@ -194,7 +194,7 @@ describe("TasksThreadComposer", () => {
         reasoning: "중간",
         reasoningLabel: "MEDIUM",
         selectedComposerRoleIds: [],
-        selectedModelOption: { value: "GPT-5.4", label: "GPT-5.4" },
+        selectedModelOption: { value: "GPT-5.5", label: "GPT-5.5" },
         showStopButton: false,
         stoppingComposerRun: false,
       }),
@@ -202,7 +202,7 @@ describe("TasksThreadComposer", () => {
 
     expect(html).not.toContain("tasks-model-dropdown");
     expect(html).not.toContain("tasks-reasoning-dropdown");
-    expect(html).not.toContain("GPT-5.4");
+    expect(html).not.toContain("GPT-5.5");
     expect(html).not.toContain("MEDIUM");
   });
 
@@ -249,7 +249,7 @@ describe("TasksThreadComposer", () => {
         reasoning: "중간",
         reasoningLabel: "MEDIUM",
         selectedComposerRoleIds: [],
-        selectedModelOption: { value: "GPT-5.4", label: "GPT-5.4" },
+        selectedModelOption: { value: "GPT-5.5", label: "GPT-5.5" },
         showStopButton: false,
         stoppingComposerRun: false,
       }),
@@ -305,7 +305,7 @@ describe("TasksThreadComposer", () => {
         reasoning: "중간",
         reasoningLabel: "MEDIUM",
         selectedComposerRoleIds: [],
-        selectedModelOption: { value: "GPT-5.4", label: "GPT-5.4" },
+        selectedModelOption: { value: "GPT-5.5", label: "GPT-5.5" },
         showStopButton: true,
         stoppingComposerRun: true,
       }),
@@ -367,7 +367,7 @@ describe("TasksThreadComposer", () => {
         reasoning: "중간",
         reasoningLabel: "MEDIUM",
         selectedComposerRoleIds: [],
-        selectedModelOption: { value: "GPT-5.4", label: "GPT-5.4" },
+        selectedModelOption: { value: "GPT-5.5", label: "GPT-5.5" },
         showStopButton: false,
         stoppingComposerRun: false,
       }),

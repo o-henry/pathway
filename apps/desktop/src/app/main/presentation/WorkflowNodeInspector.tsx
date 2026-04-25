@@ -205,16 +205,6 @@ export default function WorkflowNodeInspector({
               />
             </label>
           )}
-          {selectedTurnExecutor === "ollama" && (
-            <label>
-              {t("feed.ollamaModel")}
-              <input
-                onChange={(e) => updateSelectedNodeConfig("ollamaModel", e.currentTarget.value)}
-                placeholder={t("feed.ollamaPlaceholder")}
-                value={String((selectedNode.config as TurnConfig).ollamaModel ?? "llama3.1:8b")}
-              />
-            </label>
-          )}
           {selectedTurnExecutor === "via_flow" && (
             <label>
               VIA flow_id

@@ -60,7 +60,7 @@ describe("dashboard insights mapping", () => {
       {
         marketSummary: {
           topic: "marketSummary",
-          model: "gpt-5.2-codex",
+          model: "gpt-5.5",
           generatedAt: "2026-03-01T00:00:00.000Z",
           summary: "요약 생성 완료",
           highlights: [],

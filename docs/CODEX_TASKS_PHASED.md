@@ -46,7 +46,7 @@ Run tests and update docs/state/CURRENT_STATE.md.
 ```text
 Read AGENTS.md, docs/DYNAMIC_GRAPH_SPEC.md, docs/phases/phase-04-llm-generation-no-rag.md, and docs/SECURITY_CHECKLIST.md.
 Execute Phase 4 only.
-Implement provider-based LLM graph generation without RAG. Default to Ollama. Add optional OpenAI provider via environment variables only. Implement validate-repair-validate loop.
+Implement provider-based LLM graph generation without RAG. Use Codex GPT-5.5 for desktop agent execution. Backend graph generation may use stub or optional OpenAI via environment variables only. Implement validate-repair-validate loop.
 Run tests and update docs/state/CURRENT_STATE.md.
 ```
 
@@ -55,7 +55,7 @@ Run tests and update docs/state/CURRENT_STATE.md.
 ```text
 Read AGENTS.md, docs/RAG_AND_CRAWLING_SPEC.md, docs/SECURITY_CHECKLIST.md, and docs/phases/phase-05-source-library-rag.md.
 Execute Phase 5 only.
-Implement manual source ingestion, permitted URL ingestion policy stubs, chunking, Ollama embeddings, LanceDB vector storage, and retrieval endpoint.
+Implement manual source ingestion, permitted URL ingestion policy stubs, chunking, LanceDB vector storage, and retrieval endpoint.
 Do not implement broad crawling or bypass mechanisms.
 Run tests and update docs/state/CURRENT_STATE.md.
 ```

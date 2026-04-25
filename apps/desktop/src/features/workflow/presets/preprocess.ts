@@ -64,7 +64,7 @@ export function prependPreprocessAgent(kind: PresetKind, graphData: GraphData): 
       : 120;
 
   const preprocessNode = makePresetNode(preprocessNodeId, "turn", PREPROCESS_NODE_X, avgRootY, {
-    model: "GPT-5.3-Codex",
+    model: "GPT-5.5",
     role: "REQUEST PREPROCESS AGENT",
     cwd: ".",
     promptTemplate: buildPreprocessPrompt(kind),

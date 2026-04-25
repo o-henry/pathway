@@ -237,11 +237,6 @@ function formatRuntimeProviderBadgeLabel(raw: string): string {
   if (!normalized) {
     return "";
   }
-  if (normalized === "gpt") return "AI · GPT";
-  if (normalized === "gemini") return "AI · GEMINI";
-  if (normalized === "grok") return "AI · GROK";
-  if (normalized === "perplexity") return "AI · PERPLEXITY";
-  if (normalized === "claude") return "AI · CLAUDE";
   if (normalized === "steel") return "@STEEL";
   if (normalized === "lightpanda_experimental") return "@LIGHTPANDA";
   if (normalized === "scrapling") return "SCRAPLING";
@@ -346,18 +341,10 @@ function buildTasksE2EMockFinalSummary(prompt: string): string {
   ].join("\n");
 }
 
-export const COMPOSER_PROVIDER_MODEL_VALUES = [
-  "GPT-Web",
-  "Gemini",
-  "Grok",
-  "Perplexity",
-  "Claude",
-  "WEB / STEEL",
-  "WEB / LIGHTPANDA",
-] as const;
-export const AUTO_EXTERNAL_PROVIDER_MODEL_VALUES = ["WEB / STEEL", "WEB / LIGHTPANDA"] as const;
-export type ComposerProviderModel = (typeof COMPOSER_PROVIDER_MODEL_VALUES)[number];
-export type ExternalResearchProviderModel = (typeof AUTO_EXTERNAL_PROVIDER_MODEL_VALUES)[number];
+export type ComposerProviderModel = string;
+export type ExternalResearchProviderModel = string;
+export const COMPOSER_PROVIDER_MODEL_VALUES: readonly ComposerProviderModel[] = [];
+export const AUTO_EXTERNAL_PROVIDER_MODEL_VALUES: readonly ExternalResearchProviderModel[] = [];
 type ExternalProviderReadiness = {
   steel: boolean;
   lightpanda: boolean;
@@ -664,7 +651,7 @@ export function useTasksThreadState(params: Params) {
   const [activeThread, setActiveThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [composerDraft, setComposerDraft] = useState("");
-  const [model, setModel] = useState("GPT-5.4");
+  const [model, setModel] = useState("GPT-5.5");
   const [composerProviderOverrides, setComposerProviderOverrides] = useState<ComposerProviderModel[]>([]);
   const [composerCreativeMode, setComposerCreativeMode] = useState(false);
   const [reasoning, setReasoning] = useState("중간");

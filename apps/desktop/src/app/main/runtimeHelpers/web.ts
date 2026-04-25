@@ -99,9 +99,6 @@ export function resolveProviderByExecutor(executor: TurnExecutor): string {
   if (executor === "via_flow") {
     return "via";
   }
-  if (executor === "ollama") {
-    return "ollama";
-  }
   return "codex";
 }
 

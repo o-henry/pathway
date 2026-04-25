@@ -262,8 +262,8 @@ Backend:
 - SQLModel or SQLAlchemy
 - SQLite
 - LanceDB for local vector search
-- Ollama by default for local embeddings and local LLM provider
-- OpenAI provider optional through environment variables only
+- Codex GPT-5.5 by default for desktop agent execution
+- OpenAI provider optional through environment variables only for backend graph generation
 - pytest, ruff, mypy/pyright where practical
 - uv for Python dependency management
 

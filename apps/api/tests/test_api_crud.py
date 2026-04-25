@@ -3,13 +3,70 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from lifemap_api.api.dependencies import get_embedding_provider
+from lifemap_api.api.dependencies import get_embedding_provider, get_llm_provider
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
+from lifemap_api.infrastructure.llm_providers import StubPathwayProvider
 from lifemap_api.main import create_app
 
 from .fake_embeddings import FakeEmbeddingProvider
 from .graph_bundle_fixture import clone_bundle
+
+
+class FakeCrudAnalysisProvider:
+    is_deterministic_fallback = False
+    _graph_provider = StubPathwayProvider()
+
+    def generate_structured_json(self, *, messages, json_schema, schema_name):  # noqa: ANN001
+        if schema_name != "pathway_goal_analysis":
+            return self._graph_provider.generate_structured_json(
+                messages=messages,
+                json_schema=json_schema,
+                schema_name=schema_name,
+            )
+        del messages, json_schema
+        return """
+        {
+          "goal_id": "wrong_goal",
+          "analysis_summary": "목표를 실전 상황과 피드백 루프로 나누어 분석합니다.",
+          "resource_dimensions": [
+            {
+              "id": "practice_context",
+              "label": "Practice context",
+              "kind": "practice",
+              "value_type": "qualitative",
+              "question": "가장 먼저 자연스럽게 대화하고 싶은 상황은 무엇인가요?",
+              "relevance_reason": "상황에 따라 route와 자료가 달라집니다."
+            }
+          ],
+          "research_questions": ["영어 회화 실전 피드백 루틴"],
+          "followup_questions": [
+            {
+              "id": "practice_context",
+              "label": "Practice context",
+              "question": "가장 먼저 자연스럽게 대화하고 싶은 상황은 무엇인가요?",
+              "why_needed": "상황에 따라 route와 자료가 달라집니다.",
+              "answer_type": "qualitative",
+              "required": true,
+              "maps_to": ["practice_context"]
+            }
+          ],
+          "research_plan": {
+            "summary": "회화 루틴과 피드백 자료를 조사합니다.",
+            "collection_targets": [
+              {
+                "id": "practice_routes",
+                "label": "실전 회화 route",
+                "layer": "lived_experience",
+                "search_intent": "비슷한 목표의 실전 루틴을 찾습니다.",
+                "example_queries": ["영어 회화 실전 루틴"],
+                "preferred_collectors": ["crawl4ai"],
+                "reason": "그래프 route를 현실적으로 만들기 위해 필요합니다."
+              }
+            ]
+          }
+        }
+        """
 
 
 @pytest.fixture()
@@ -22,6 +79,7 @@ def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
 
     app = create_app()
     app.dependency_overrides[get_embedding_provider] = lambda: FakeEmbeddingProvider()
+    app.dependency_overrides[get_llm_provider] = lambda: FakeCrudAnalysisProvider()
 
     with TestClient(app) as test_client:
         yield test_client

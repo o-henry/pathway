@@ -942,20 +942,36 @@
   white-space: normal;
 }
 
+.tasks-thread-message-row.pathway-intake-message .tasks-thread-log-line.pathway-intake-message-body {
+  display: grid;
+  align-items: start;
+  justify-items: start;
+  gap: 10px;
+  width: min(720px, 100%);
+  max-width: min(720px, 100%);
+}
+
 .pathway-intake-message .pathway-intake-message-body {
   padding: 10px 12px;
-  border: 1px solid rgba(87, 119, 105, 0.15);
+  border: 0;
   border-radius: 4px;
-  background: rgba(243, 246, 244, 0.96);
+  background: whitesmoke;
+}
+
+.pathway-intake-message.is-assistant {
+  justify-items: start;
 }
 
 .pathway-intake-message.is-user .pathway-intake-message-body {
+  width: fit-content;
+  max-width: min(640px, 100%);
   border-color: rgba(116, 124, 138, 0.12);
   background: #ffffff;
 }
 
 .pathway-intake-message-body p {
   margin: 0;
+  max-width: 100%;
 }
 
 .pathway-intake-checklist {
@@ -1618,8 +1634,8 @@
 }
 
 .pathway-workflow-shell .mini-action-button {
-  min-height: 34px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 16px;
   font-size: 11px;
   line-height: 1;
   white-space: nowrap;
@@ -2347,6 +2363,11 @@
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.55;
+}
+
+.pathway-workflow-empty-panel .pathway-empty-state {
+  justify-items: center;
+  text-align: center;
 }
 
 .tone-slate {

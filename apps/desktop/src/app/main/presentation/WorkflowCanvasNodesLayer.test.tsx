@@ -13,7 +13,7 @@ describe("WorkflowCanvasNodesLayer", () => {
             position: { x: 0, y: 0 },
             config: {
               executor: "web_gpt",
-              model: "GPT-5.4",
+              model: "GPT-5.5",
               sourceKind: "handoff",
               handoffRoleId: "pm_planner",
             },
@@ -52,7 +52,7 @@ describe("WorkflowCanvasNodesLayer", () => {
         selectedNodeIds={[]}
         setNodeSelection={vi.fn()}
         setSelectedEdgeKey={vi.fn()}
-        turnModelLabel={() => "GPT-5.4"}
+        turnModelLabel={() => "GPT-5.5"}
         turnRoleLabel={() => "WEB 노드"}
       />,
     );

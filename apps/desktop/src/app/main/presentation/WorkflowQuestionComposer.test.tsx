@@ -71,7 +71,7 @@ describe("WorkflowQuestionComposer", () => {
 
     expect(html).not.toContain("agents-model-dropdown");
     expect(html).not.toContain("agents-reason-dropdown");
-    expect(html).not.toContain("GPT-5.4");
+    expect(html).not.toContain("GPT-5.5");
     expect(html).not.toContain("중간");
   });
 });

@@ -81,7 +81,7 @@ describe("feedKnowledgeHandlers.refreshFeedTimeline", () => {
           {
             topic: "globalHeadlines",
             runId: "topic-20260302-demo",
-            model: "gpt-5.2-codex",
+            model: "gpt-5.5",
             generatedAt: "2026-03-02T00:00:00.000Z",
             summary: "요약",
             highlights: ["포인트 1"],
@@ -100,7 +100,7 @@ describe("feedKnowledgeHandlers.refreshFeedTimeline", () => {
         nodeId: input.node.id,
         nodeType: "turn",
         executor: "codex",
-        agentName: "GPT-5.2-Codex",
+        agentName: "GPT-5.5",
         roleLabel: "DASHBOARD BRIEFING",
         status: input.status,
         createdAt: input.createdAt,
@@ -164,7 +164,7 @@ describe("feedKnowledgeHandlers.refreshFeedTimeline", () => {
           {
             topic: "globalHeadlines",
             runId: "topic-20260302-hidden",
-            model: "gpt-5.2-codex",
+            model: "gpt-5.5",
             generatedAt: "2026-03-02T12:00:00.000Z",
             summary: "hidden",
             highlights: [],

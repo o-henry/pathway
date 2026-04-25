@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::io::{BufRead, BufReader};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -48,6 +49,38 @@ fn apply_dev_app_icon(app: &AppHandle) {
 fn apply_dev_app_icon(_app: &AppHandle) {}
 
 struct ApiProcess(Mutex<Option<Child>>);
+struct CodexLoginProcess(Mutex<Option<Child>>);
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EngineLifecycleResult {
+    state: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AuthProbeResult {
+    state: String,
+    source_method: String,
+    auth_mode: String,
+    raw: serde_json::Value,
+    detail: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LoginChatgptResult {
+    auth_url: String,
+    device_code: Option<String>,
+    raw: serde_json::Value,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UsageCheckResult {
+    source_method: String,
+    raw: serde_json::Value,
+}
 
 #[derive(Clone, Serialize)]
 struct CollectorHealthResult {
@@ -229,6 +262,176 @@ fn resolve_command_path(name: &str) -> Option<PathBuf> {
 
 fn command_available(name: &str) -> bool {
     resolve_command_path(name).is_some()
+}
+
+fn strip_ansi(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for code_ch in chars.by_ref() {
+                if code_ch.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+            continue;
+        }
+        output.push(ch);
+    }
+
+    output
+}
+
+fn run_codex_command(args: &[&str], cwd: Option<&Path>) -> Result<(bool, String), String> {
+    let codex_path = resolve_command_path("codex")
+        .ok_or_else(|| "codex CLI was not found on PATH".to_string())?;
+    let mut command = Command::new(codex_path);
+    command
+        .args(args)
+        .env("PATH", augmented_path_env())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+
+    let output = command
+        .output()
+        .map_err(|error| format!("Failed to run codex: {error}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let raw = strip_ansi(&format!("{stdout}{stderr}")).trim().to_string();
+    Ok((output.status.success(), raw))
+}
+
+fn parse_codex_auth_state(raw: &str) -> (String, String) {
+    let normalized = raw.to_lowercase();
+    if normalized.contains("not logged in")
+        || normalized.contains("login required")
+        || normalized.contains("not authenticated")
+    {
+        return ("login_required".to_string(), "unknown".to_string());
+    }
+    if normalized.contains("logged in") {
+        let auth_mode = if normalized.contains("api key") {
+            "apikey"
+        } else if normalized.contains("chatgpt") {
+            "chatgpt"
+        } else {
+            "unknown"
+        };
+        return ("authenticated".to_string(), auth_mode.to_string());
+    }
+    ("unknown".to_string(), "unknown".to_string())
+}
+
+fn raw_text_value(raw: &str) -> serde_json::Value {
+    serde_json::json!({ "text": raw })
+}
+
+fn parse_codex_device_login(raw: &str) -> (Option<String>, Option<String>) {
+    let mut auth_url = None;
+    let mut device_code = None;
+    let mut previous_line_mentions_code = false;
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+            auth_url = Some(trimmed.to_string());
+        }
+        if previous_line_mentions_code && !trimmed.is_empty() && !trimmed.contains(' ') {
+            device_code = Some(trimmed.to_string());
+        }
+        previous_line_mentions_code = trimmed.to_lowercase().contains("one-time code");
+    }
+
+    (auth_url, device_code)
+}
+
+fn start_codex_device_login(
+    state: tauri::State<'_, CodexLoginProcess>,
+    cwd: Option<&Path>,
+) -> Result<LoginChatgptResult, String> {
+    let codex_path = resolve_command_path("codex")
+        .ok_or_else(|| "codex CLI was not found on PATH".to_string())?;
+
+    {
+        let mut guard = state.0.lock().expect("codex login mutex poisoned");
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    let mut command = Command::new(codex_path);
+    command
+        .arg("login")
+        .arg("--device-auth")
+        .env("PATH", augmented_path_env())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Failed to start codex login: {error}"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Failed to read codex login output".to_string())?;
+    let mut reader = BufReader::new(stdout);
+    let started = Instant::now();
+    let mut raw = String::new();
+    let mut auth_url = None;
+    let mut device_code = None;
+
+    while started.elapsed() < Duration::from_secs(8) {
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(0) => {
+                if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+                    let clean_raw = strip_ansi(&raw);
+                    return Err(format!(
+                        "codex login exited before returning a device code (status: {status}; output: {clean_raw})"
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Ok(_) => {
+                raw.push_str(&line);
+                let clean_raw = strip_ansi(&raw);
+                let parsed = parse_codex_device_login(&clean_raw);
+                auth_url = parsed.0;
+                device_code = parsed.1;
+                if auth_url.is_some() && device_code.is_some() {
+                    break;
+                }
+            }
+            Err(error) => return Err(format!("Failed to read codex login output: {error}")),
+        }
+    }
+
+    let clean_raw = strip_ansi(&raw);
+    let Some(auth_url) = auth_url else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(format!(
+            "codex login did not return an auth URL: {clean_raw}"
+        ));
+    };
+
+    let mut guard = state.0.lock().expect("codex login mutex poisoned");
+    *guard = Some(child);
+
+    Ok(LoginChatgptResult {
+        auth_url,
+        device_code,
+        raw: raw_text_value(&clean_raw),
+    })
 }
 
 fn run_status(command: &str, args: &[&str], cwd: &Path) -> bool {
@@ -871,6 +1074,81 @@ fn wait_for_api() -> bool {
     false
 }
 
+#[tauri::command]
+fn engine_start(_cwd: Option<String>) -> EngineLifecycleResult {
+    EngineLifecycleResult {
+        state: "started".to_string(),
+    }
+}
+
+#[tauri::command]
+fn engine_stop(login_state: tauri::State<'_, CodexLoginProcess>) -> EngineLifecycleResult {
+    let mut guard = login_state.0.lock().expect("codex login mutex poisoned");
+    if let Some(mut child) = guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    EngineLifecycleResult {
+        state: "stopped".to_string(),
+    }
+}
+
+#[tauri::command]
+fn auth_probe() -> Result<AuthProbeResult, String> {
+    let (_success, raw) = run_codex_command(&["login", "status"], None)?;
+    let (state, auth_mode) = parse_codex_auth_state(&raw);
+    Ok(AuthProbeResult {
+        state,
+        source_method: "codex login status".to_string(),
+        auth_mode,
+        raw: raw_text_value(&raw),
+        detail: Some(raw),
+    })
+}
+
+#[tauri::command]
+fn login_chatgpt(
+    login_state: tauri::State<'_, CodexLoginProcess>,
+    cwd: Option<String>,
+) -> Result<LoginChatgptResult, String> {
+    let cwd_path = cwd.as_deref().map(Path::new);
+    start_codex_device_login(login_state, cwd_path)
+}
+
+#[tauri::command]
+fn logout_codex(
+    login_state: tauri::State<'_, CodexLoginProcess>,
+) -> Result<AuthProbeResult, String> {
+    {
+        let mut guard = login_state.0.lock().expect("codex login mutex poisoned");
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    let (_success, raw) = run_codex_command(&["logout"], None)?;
+    Ok(AuthProbeResult {
+        state: "login_required".to_string(),
+        source_method: "codex logout".to_string(),
+        auth_mode: "unknown".to_string(),
+        raw: raw_text_value(&raw),
+        detail: Some(raw),
+    })
+}
+
+#[tauri::command]
+fn usage_check() -> Result<UsageCheckResult, String> {
+    let (success, raw) = run_codex_command(&["login", "status"], None)?;
+    if !success {
+        return Err(raw);
+    }
+    Ok(UsageCheckResult {
+        source_method: "codex login status".to_string(),
+        raw: raw_text_value(&raw),
+    })
+}
+
 fn start_api_if_needed(app: &AppHandle) -> Result<Option<Child>, String> {
     if api_is_live() {
         return Ok(None);
@@ -947,7 +1225,15 @@ fn dashboard_crawl_provider_fetch_url(
 fn main() {
     tauri::Builder::default()
         .manage(ApiProcess(Mutex::new(None)))
+        .manage(CodexLoginProcess(Mutex::new(None)))
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            engine_start,
+            engine_stop,
+            auth_probe,
+            login_chatgpt,
+            logout_codex,
+            usage_check,
             dashboard_crawl_provider_health,
             dashboard_crawl_provider_install,
             dashboard_crawl_provider_fetch_url
@@ -979,6 +1265,18 @@ fn main() {
 
                 if let Some(mut child) = child {
                     let _ = child.kill();
+                    let _ = child.wait();
+                }
+
+                let login_process = app.state::<CodexLoginProcess>();
+                let login_child = {
+                    let mut guard = login_process.0.lock().expect("codex login mutex poisoned");
+                    guard.take()
+                };
+
+                if let Some(mut child) = login_child {
+                    let _ = child.kill();
+                    let _ = child.wait();
                 }
             }
         })

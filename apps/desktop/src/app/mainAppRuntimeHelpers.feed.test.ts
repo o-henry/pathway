@@ -10,7 +10,7 @@ describe("buildFeedPost dashboard snapshot output", () => {
         type: "turn",
         config: {
           executor: "codex",
-          model: "gpt-5.2-codex",
+          model: "gpt-5.5",
           role: "DASHBOARD BRIEFING",
         },
       },

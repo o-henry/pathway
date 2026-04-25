@@ -215,9 +215,7 @@ export function computeFeedDerivedState(params: {
         const normalizedExecutor =
           post.executor === "codex"
             ? "codex"
-            : post.executor === "ollama"
-              ? "ollama"
-              : post.executor
+            : post.executor
                 ? "web"
                 : "";
         if (normalizedExecutor !== feedExecutorFilter) {

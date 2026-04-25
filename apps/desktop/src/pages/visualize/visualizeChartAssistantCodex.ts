@@ -115,7 +115,7 @@ export async function runVisualizeChartAssistantWithCodex(
   params: VisualizeCodexChartAssistantParams,
 ): Promise<VisualizeCodexChartAssistantResult> {
   const thread = await params.invokeFn<{ threadId?: string | null }>("thread_start", {
-    model: "gpt-5.4",
+    model: "gpt-5.5",
     cwd: params.cwd,
   });
   const threadId = normalize(String(thread?.threadId ?? ""));

@@ -51,6 +51,7 @@ export type AgentRulesReadResult = {
 
 export type LoginChatgptResult = {
   authUrl: string;
+  deviceCode?: string | null;
   raw?: unknown;
 };
 
@@ -248,7 +249,7 @@ export type FeedPost = {
 };
 
 export type FeedStatusFilter = "all" | FeedPostStatus;
-export type FeedExecutorFilter = "all" | "codex" | "web" | "ollama";
+export type FeedExecutorFilter = "all" | "codex" | "web";
 export type FeedPeriodFilter = "all" | "today" | "7d";
 export type FeedTopicFilter = "all" | string;
 export type FeedCategory = "all_posts" | "completed_posts" | "web_posts" | "error_posts";

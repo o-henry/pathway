@@ -83,7 +83,7 @@ Implements:
 
 - SQLite repositories
 - LanceDB vector search
-- Ollama provider
+- OpenAI provider
 - OpenAI provider
 - Crawl4AI fetcher
 - Lightpanda-backed renderer when JS execution is needed
