@@ -90,8 +90,9 @@ echo "==> Preparing bundled Python runtime environment"
 echo
 echo "Installed: $INSTALL_DIR/$APP_NAME"
 echo
-echo "You can now launch PATHWAY from the Applications icon."
-echo "Terminal equivalent:"
+echo "You can now launch PATHWAY directly from the Applications icon."
+echo "The app will start its bundled local backend automatically."
+echo "Terminal equivalent, if needed:"
 echo "  open \"$INSTALL_DIR/$APP_NAME\""
 echo
 echo "If you only want the dev app with live collector status, use:"

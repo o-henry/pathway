@@ -1075,14 +1075,60 @@ fn wait_for_api() -> bool {
 }
 
 #[tauri::command]
-fn engine_start(_cwd: Option<String>) -> EngineLifecycleResult {
-    EngineLifecycleResult {
-        state: "started".to_string(),
+fn engine_start(
+    app: AppHandle,
+    api_process: tauri::State<'_, ApiProcess>,
+    _cwd: Option<String>,
+) -> Result<EngineLifecycleResult, String> {
+    if api_is_live() {
+        return Ok(EngineLifecycleResult {
+            state: "started".to_string(),
+        });
     }
+
+    {
+        let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    match start_api_if_needed(&app)? {
+        Some(child) => {
+            let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+            *guard = Some(child);
+        }
+        None => {
+            if !api_is_live() {
+                return Err(
+                    "Pathway local backend is not running and could not be started automatically."
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    Ok(EngineLifecycleResult {
+        state: "started".to_string(),
+    })
 }
 
 #[tauri::command]
-fn engine_stop(login_state: tauri::State<'_, CodexLoginProcess>) -> EngineLifecycleResult {
+fn engine_stop(
+    api_process: tauri::State<'_, ApiProcess>,
+    login_state: tauri::State<'_, CodexLoginProcess>,
+) -> EngineLifecycleResult {
+    let api_child = {
+        let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+        guard.take()
+    };
+
+    if let Some(mut child) = api_child {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
     let mut guard = login_state.0.lock().expect("codex login mutex poisoned");
     if let Some(mut child) = guard.take() {
         let _ = child.kill();

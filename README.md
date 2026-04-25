@@ -123,13 +123,9 @@ Build and install the current local PATHWAY app for Intel macOS:
 pnpm install:intel-mac
 ```
 
-After install, launch `PATHWAY.app` from `~/Applications` or run:
+After install, launch `PATHWAY.app` directly from `~/Applications`, Finder, Launchpad, or Spotlight.
 
-```bash
-pnpm start:intel-mac
-```
-
-The installer copies the local FastAPI source and Python lockfile into the app bundle resources so the installed app can start from the Applications icon.
+The installer copies the local FastAPI source and Python lockfile into the app bundle resources so the installed app can start its local backend from the Applications icon without a separate `pnpm start:*` command.
 
 ## Verification
 

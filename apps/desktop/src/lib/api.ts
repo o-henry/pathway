@@ -10,9 +10,33 @@ import type {
 } from './types';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
+const RETRYABLE_FETCH_ERROR_PATTERN = /failed to fetch|networkerror|load failed/i;
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let lastError: unknown = null;
+  for (const delayMs of [0, 250, 750, 1500]) {
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
+    try {
+      return await fetch(input, init);
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error ?? '');
+      if (!RETRYABLE_FETCH_ERROR_PATTERN.test(message)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Pathway local backend is not reachable');
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -29,7 +53,7 @@ async function parseJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchGoals(): Promise<GoalRecord[]> {
-  return parseJson<GoalRecord[]>(await fetch(`${API_BASE_URL}/goals`));
+  return parseJson<GoalRecord[]>(await apiFetch(`${API_BASE_URL}/goals`));
 }
 
 export async function createGoal(payload: {
@@ -39,7 +63,7 @@ export async function createGoal(payload: {
   success_criteria: string;
 }): Promise<GoalRecord> {
   return parseJson<GoalRecord>(
-    await fetch(`${API_BASE_URL}/goals`, {
+    await apiFetch(`${API_BASE_URL}/goals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -59,7 +83,7 @@ export async function updateGoal(
   }>
 ): Promise<GoalRecord> {
   return parseJson<GoalRecord>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}`, {
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -69,7 +93,7 @@ export async function updateGoal(
 
 export async function deleteGoal(goalId: string): Promise<void> {
   await parseJson<null>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}`, {
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}`, {
       method: 'DELETE'
     })
   );
@@ -77,19 +101,19 @@ export async function deleteGoal(goalId: string): Promise<void> {
 
 export async function analyzeGoal(goalId: string): Promise<GoalAnalysisRecord> {
   return parseJson<GoalAnalysisRecord>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}/analysis`, {
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}/analysis`, {
       method: 'POST'
     })
   );
 }
 
 export async function fetchGoalMaps(goalId: string): Promise<LifeMap[]> {
-  return parseJson<LifeMap[]>(await fetch(`${API_BASE_URL}/goals/${goalId}/maps`));
+  return parseJson<LifeMap[]>(await apiFetch(`${API_BASE_URL}/goals/${goalId}/maps`));
 }
 
 export async function generatePathway(goalId: string): Promise<LifeMap> {
   return parseJson<LifeMap>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}/pathways/generate`, {
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}/pathways/generate`, {
       method: 'POST'
     })
   );
@@ -97,12 +121,12 @@ export async function generatePathway(goalId: string): Promise<LifeMap> {
 
 export async function fetchCurrentState(goalId: string): Promise<CurrentStateSnapshot | null> {
   return parseJson<CurrentStateSnapshot | null>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}/current-state`)
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}/current-state`)
   );
 }
 
 export async function fetchStateUpdates(goalId: string): Promise<StateUpdateRecord[]> {
-  return parseJson<StateUpdateRecord[]>(await fetch(`${API_BASE_URL}/goals/${goalId}/state-updates`));
+  return parseJson<StateUpdateRecord[]>(await apiFetch(`${API_BASE_URL}/goals/${goalId}/state-updates`));
 }
 
 export async function createStateUpdate(
@@ -122,7 +146,7 @@ export async function createStateUpdate(
   }
 ): Promise<StateUpdateRecord> {
   return parseJson<StateUpdateRecord>(
-    await fetch(`${API_BASE_URL}/goals/${goalId}/state-updates`, {
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}/state-updates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -132,7 +156,7 @@ export async function createStateUpdate(
 
 export async function fetchRouteSelection(pathwayId: string): Promise<RouteSelectionRecord | null> {
   return parseJson<RouteSelectionRecord | null>(
-    await fetch(`${API_BASE_URL}/pathways/${pathwayId}/route-selection`)
+    await apiFetch(`${API_BASE_URL}/pathways/${pathwayId}/route-selection`)
   );
 }
 
@@ -141,7 +165,7 @@ export async function updateRouteSelection(
   payload: { selected_node_id: string; rationale: string }
 ): Promise<RouteSelectionRecord> {
   return parseJson<RouteSelectionRecord>(
-    await fetch(`${API_BASE_URL}/pathways/${pathwayId}/route-selection`, {
+    await apiFetch(`${API_BASE_URL}/pathways/${pathwayId}/route-selection`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -154,7 +178,7 @@ export async function createRevisionPreview(
   payload: { checkin_id: string }
 ): Promise<RevisionProposalRecord> {
   return parseJson<RevisionProposalRecord>(
-    await fetch(`${API_BASE_URL}/maps/${mapId}/revision-proposals`, {
+    await apiFetch(`${API_BASE_URL}/maps/${mapId}/revision-proposals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -164,13 +188,13 @@ export async function createRevisionPreview(
 
 export async function fetchRevisionPreview(proposalId: string): Promise<RevisionProposalRecord> {
   return parseJson<RevisionProposalRecord>(
-    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}`)
+    await apiFetch(`${API_BASE_URL}/revision-previews/${proposalId}`)
   );
 }
 
 export async function acceptRevisionPreview(proposalId: string): Promise<LifeMap> {
   return parseJson<LifeMap>(
-    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}/accept`, {
+    await apiFetch(`${API_BASE_URL}/revision-previews/${proposalId}/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: '' })
@@ -180,7 +204,7 @@ export async function acceptRevisionPreview(proposalId: string): Promise<LifeMap
 
 export async function rejectRevisionPreview(proposalId: string): Promise<RevisionProposalRecord> {
   return parseJson<RevisionProposalRecord>(
-    await fetch(`${API_BASE_URL}/revision-previews/${proposalId}/reject`, {
+    await apiFetch(`${API_BASE_URL}/revision-previews/${proposalId}/reject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note: '' })

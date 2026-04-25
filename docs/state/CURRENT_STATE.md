@@ -2305,3 +2305,76 @@ The highest-value follow-up options are now:
   - The intake analysis path is real Codex GPT-5.5 now, so the first checklist can take about a minute.
 - Next recommended task:
   - Restart the desktop app/API and retry the goal; the verified endpoint now returns a checklist instead of 502.
+
+## Latest micro-update
+
+- Completed work:
+  - Confirmed `pnpm dev` maps to `tauri dev`, which starts `pnpm dev:desktop:services` via `beforeDevCommand`.
+  - Reproduced the user's USER-only screen against the dev API flow.
+  - Found the frontend state bug: when `createGoal` succeeded but `analyzeGoal` failed, React state had not yet updated `activeGoalId`, so the analysis error was attached to the wrong/previous goal and the Tasks effect rebuilt the timeline as USER-only.
+  - Fixed `handleStartPathwayIntake` to track the newly created goal ID locally and attach analysis errors to that exact goal.
+  - Kept the backend provider error unwrapped so future Codex CLI/session failures can surface the actual reason instead of a generic schema-valid message.
+  - Started `pnpm dev:desktop:services` for verification, then stopped the temporary 1420/8000 processes to avoid conflicting with the user's own dev run.
+- Changed files:
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm dev:desktop:services`
+  - `curl -sS -i -X POST http://127.0.0.1:8000/goals/goal_b34a233eb80240058fbb34b92d4abac6/analysis`
+  - `PYTHONPATH=apps/api UV_CACHE_DIR=.uv-cache uv run python - <<'PY' ...`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+  - `kill 91142 91141 91263`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `lsof -iTCP:8000 -sTCP:LISTEN`
+- Known gaps:
+  - In the Codex tool sandbox, direct `codex exec` from the API fails with `~/.codex/sessions` permission denial; a normal user terminal should not have that sandbox restriction.
+  - If the user's local terminal also cannot write `~/.codex/sessions`, the PATHWAY timeline should now display that concrete Codex session error instead of disappearing.
+- Next recommended task:
+  - Restart `pnpm dev` from a normal terminal and retry the goal; if it still fails, read the PATHWAY error message now shown in the conversation timeline.
+
+## Latest micro-update
+
+- Completed work:
+  - Clarified the product/runtime contract: Codex GPT-5.5 is the model runner, while the local FastAPI backend owns storage, schema validation, graph APIs, and Codex CLI orchestration.
+  - Found the actual auto-start bug: the Tauri `engine_start` command returned `"started"` without starting or verifying the local API.
+  - Updated `engine_start` so it checks `127.0.0.1:8000`, kills stale tracked API children, starts the local API through `start_api_if_needed`, stores the child process, and errors only if the backend still cannot be reached.
+  - Updated `engine_stop` to stop both the local API child and Codex login child.
+  - Added short retry/backoff around desktop API fetches so UI requests survive the backend startup window.
+  - Replaced the vague Korean network error copy with a Pathway backend readiness message.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `src-tauri/src/main.rs`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+- Known gaps:
+  - A fresh `pnpm dev` restart is needed to load the corrected Tauri `engine_start` command.
+  - Codex GPT-5.5 intake can still take close to a minute, but the backend now has a 180s timeout and the frontend no longer treats startup races as immediate failure.
+- Next recommended task:
+  - Restart `pnpm dev` and retry the same goal; Pathway should now auto-start/reconnect the local backend before analysis.
+
+## Latest micro-update
+
+- Completed work:
+  - Confirmed the intended install flow is `pnpm install:intel-mac` once, then launching `PATHWAY.app` directly from Applications/Finder/Launchpad without `pnpm start:intel-mac`.
+  - Updated README install guidance to make the Applications icon the primary installed-app launch path.
+  - Updated the Intel installer success message to say the installed app starts its bundled local backend automatically.
+  - Clarified that Vercel is not a good fit for the current runtime because Pathway depends on local SQLite/LanceDB storage and the user's logged-in Codex CLI session.
+- Changed files:
+  - `README.md`
+  - `scripts/install-intel-mac.sh`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `sed -n '112,136p' README.md`
+  - `sed -n '84,105p' scripts/install-intel-mac.sh`
+- Known gaps:
+  - The installed app still requires the bundled resource copy prepared by `pnpm install:intel-mac`; it is not yet a Python-free native sidecar.
+- Next recommended task:
+  - Run `pnpm install:intel-mac`, open `~/Applications/PATHWAY.app` directly, and confirm the backend starts through the corrected Tauri `engine_start` path.

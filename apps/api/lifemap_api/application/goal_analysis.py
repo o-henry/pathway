@@ -244,7 +244,10 @@ def analyze_goal(
                 llm_provider=llm_provider,
             )
         )
-    except (ProviderInvocationError, ValidationError, ValueError) as exc:
+    except ProviderInvocationError:
+        raise
+    except (ValidationError, ValueError) as exc:
         raise ProviderInvocationError(
-            "Goal intake analysis failed before producing schema-valid follow-up questions."
+            "Goal intake analysis returned invalid structured JSON: "
+            f"{str(exc)[:1200]}"
         ) from exc

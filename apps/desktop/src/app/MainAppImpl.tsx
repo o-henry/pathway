@@ -236,7 +236,7 @@ function getVisibleNodeFields(node: GraphNodeRecord): Array<[string, unknown]> {
 function formatUiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
-    return '로컬 API에 아직 연결되지 않았습니다.';
+    return 'Pathway 로컬 백엔드가 아직 준비되지 않았습니다. 잠시 후 자동 재시도하거나 pnpm dev의 api 서비스를 확인하세요.';
   }
   return message || fallback;
 }
@@ -912,6 +912,7 @@ export default function MainApp() {
     if (!normalizedGoal) {
       throw new Error('목표를 먼저 입력해 주세요.');
     }
+    let createdGoalId: string | null = null;
     try {
       setIsBusy(true);
       setErrorMessage('');
@@ -925,6 +926,7 @@ export default function MainApp() {
         category: 'general',
         success_criteria: buildIntakeSuccessCriteria(normalizedGoal),
       });
+      createdGoalId = goal.id;
       setGoals((current) => [goal, ...current.filter((item) => item.id !== goal.id)]);
       setActiveGoalId(goal.id);
       setActiveGoal(goal);
@@ -942,8 +944,8 @@ export default function MainApp() {
     } catch (error) {
       const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
       setErrorMessage(message);
-      if (activeGoalId) {
-        setGoalAnalysisError({ goalId: activeGoalId, message });
+      if (createdGoalId) {
+        setGoalAnalysisError({ goalId: createdGoalId, message });
       }
       throw new Error(message);
     } finally {
