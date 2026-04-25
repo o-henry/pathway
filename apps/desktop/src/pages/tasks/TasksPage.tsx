@@ -199,42 +199,6 @@ function renderPathwayMessageContent(content: string) {
   return output;
 }
 
-function PathwayFirstTabPreview({ onOpenWorkflow }: { onOpenWorkflow?: () => void }) {
-  return (
-    <section aria-label="Pathway 첫 탭 UI 미리보기" className="pathway-first-tab-preview" role="group">
-      <div className="pathway-first-tab-preview-head">
-        <span>DEMO FLOW</span>
-        <strong>목표를 말하면 필요한 확인만 묻고 그래프로 넘깁니다.</strong>
-      </div>
-      <div className="pathway-first-tab-preview-thread">
-        <article className="pathway-preview-message is-user">
-          <span>USER</span>
-          <p>6개월 안에 일본어 여행 회화를 할 수 있게 되고 싶어.</p>
-        </article>
-        <article className="pathway-preview-message is-pathway">
-          <span>PATHWAY</span>
-          <p>바로 그래프를 만들기 전에 필요한 것만 확인할게요.</p>
-          <ul>
-            <li>주당 실제로 쓸 수 있는 시간</li>
-            <li>월 예산과 선호 학습 방식</li>
-            <li>여행 날짜처럼 고정된 마감</li>
-          </ul>
-        </article>
-        <article className="pathway-preview-message is-user">
-          <span>USER</span>
-          <p>주 4시간, 월 5만원 이하. 말하기 위주였으면 좋겠어.</p>
-        </article>
-      </div>
-      <article className="pathway-preview-handoff">
-        <div>
-          <span>READY</span>
-          <strong>OK 받으면 워크플로우 탭에서 루트/근거/가정 그래프 생성</strong>
-        </div>
-        <button onClick={onOpenWorkflow} type="button">워크플로우 보기</button>
-      </article>
-    </section>
-  );
-}
 const EMPTY_LIVE_EVENTS: never[] = [];
 
 export default function TasksPage(props: TasksPageProps) {
@@ -806,7 +770,6 @@ export default function TasksPage(props: TasksPageProps) {
                     <p>입력된 목표를 기준으로 필요한 확인만 이어서 묻고, 승인 후 그래프로 넘깁니다.</p>
                   </div>
                 )}
-                <PathwayFirstTabPreview onOpenWorkflow={props.onOpenWorkflow} />
               </section>
             ) : (
               <section aria-label="Pathway 상담 타임라인" className="tasks-thread-timeline pathway-intake-timeline" role="log">

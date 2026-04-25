@@ -148,6 +148,12 @@ def test_full_phase_one_crud_flow(client: TestClient) -> None:
 
     delete_response = client.delete(f"/goals/{goal_id}")
     assert delete_response.status_code == 204
+    assert client.get(f"/goals/{goal_id}").status_code == 404
+    assert client.get(f"/maps/{map_id}").status_code == 404
+    assert client.get(f"/pathways/{map_id}").status_code == 404
+    assert client.get(f"/goals/{goal_id}/maps").status_code == 404
+    assert client.get(f"/goals/{goal_id}/checkins").status_code == 404
+    assert client.get(f"/goals/{goal_id}/state-updates").status_code == 404
 
 
 def test_invalid_graph_bundle_is_rejected_at_api_boundary(client: TestClient) -> None:

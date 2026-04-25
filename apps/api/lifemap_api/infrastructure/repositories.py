@@ -302,6 +302,18 @@ class SqliteGoalRepository:
         record = self.session.get(GoalRecord, goal_id)
         if record is None:
             return False
+        for model in (
+            RevisionProposalRecord,
+            RouteSelectionRecord,
+            StateUpdateRecord,
+            CurrentStateSnapshotRecord,
+            CheckInRecord,
+            LifeMapRecord,
+            GoalAnalysisRecord,
+        ):
+            records = self.session.exec(select(model).where(model.goal_id == goal_id)).all()
+            for dependent_record in records:
+                self.session.delete(dependent_record)
         self.session.delete(record)
         self.session.commit()
         return True

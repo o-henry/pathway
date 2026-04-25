@@ -3,6 +3,32 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the workflow tab's hardcoded demo graph fallback, so a graph is no longer shown when there is no active persisted map.
+  - Deleted the desktop `exampleGraphBundle` helper that was keeping the demo graph alive.
+  - Updated the workflow canvas to show an explicit empty state when a selected goal has not generated a graph yet.
+  - Changed goal deletion to remove the goal's related maps/pathways, analyses, check-ins, state snapshots, state updates, route selections, and revision proposals.
+  - Added API regression checks proving that a deleted goal no longer leaves its map/pathway endpoints reachable.
+- Changed files:
+  - `apps/api/lifemap_api/infrastructure/repositories.py`
+  - `apps/api/tests/test_api_crud.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/exampleGraphBundle.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "buildExampleGraphBundle|exampleGraphBundle|demoBundle|데모 그래프|displayBundle" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src apps/api/lifemap_api/infrastructure/repositories.py apps/api/tests/test_api_crud.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_api_crud.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - Deleting an intake/chat message is still separate from deleting the goal; the graph lifecycle is currently tied to goal/map deletion.
+- Next recommended task:
+  - Run the desktop dev UI, confirm the workflow tab shows no graph without an active map, then confirm deleting a goal removes its generated graph.
+
+## Latest micro-update
+
+- Completed work:
   - Adjusted the Pathway first-tab preview width again so the right-side whitespace is closer to the workflow tab.
   - Pathway mode now uses `--tasks-reading-width: min(1160px, calc(100vw - 620px))` instead of the overly wide 1280px surface.
   - Verified in local Chrome at 1800px viewport: first-tab preview width is 1160px and right gap is 118px.
@@ -1774,6 +1800,27 @@ The highest-value follow-up options are now:
   - Learning quiz generation remains deterministic/local and still needs the intended agent-backed question-generation path.
 - Next recommended task:
   - Replace the current local quiz builder with an agent-backed quiz synthesis step that uses task notes, linked resources, and recent graph state as inputs.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the temporary hardcoded first-tab demo preview from `TasksPage`.
+  - Deleted the fake demo conversation/READY handoff markup containing the Japanese-learning sample text.
+  - Removed the now-unused `.pathway-first-tab-preview`, `.pathway-preview-message`, and `.pathway-preview-handoff` CSS.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "PathwayFirstTabPreview|DEMO FLOW|6개월|주 4시간|월 5만원|..." apps/desktop/src`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm install:intel-mac`
+  - `rg -n "PathwayFirstTabPreview|DEMO FLOW|6개월 안에 일본어|..." apps/desktop/src "$HOME/Applications/PATHWAY.app/Contents/Resources"`
+  - `git diff --check`
+- Known gaps:
+  - None for the temporary first-tab demo; source and installed app resources no longer contain the removed demo identifiers/text.
+- Next recommended task:
+  - Relaunch `PATHWAY.app` from Applications and continue checking the real intake flow.
 
 ## Latest micro-update
 
