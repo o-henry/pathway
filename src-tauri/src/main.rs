@@ -153,28 +153,100 @@ fn collector_definition(provider: &str) -> Option<&'static CollectorDefinition> 
 }
 
 fn collector_root(app: &AppHandle, cwd: Option<String>) -> PathBuf {
+    let fallback = repo_root(app);
     let requested = cwd
         .map(PathBuf::from)
-        .filter(|path| path.exists() && path.is_dir());
-    requested.unwrap_or_else(|| repo_root(app))
+        .and_then(|path| {
+            if path.is_absolute() {
+                Some(path)
+            } else {
+                std::env::current_dir()
+                    .ok()
+                    .map(|current| current.join(path))
+            }
+        })
+        .and_then(|path| path.canonicalize().ok())
+        .filter(|path| path.exists() && path.is_dir())
+        .filter(|path| api_entry(path).exists() || path.join("pyproject.toml").exists());
+    requested.unwrap_or(fallback)
+}
+
+fn common_command_dirs() -> &'static [&'static str] {
+    &[
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+        "/opt/homebrew/sbin",
+        "/usr/local/sbin",
+    ]
+}
+
+fn augmented_path_env() -> String {
+    let mut entries: Vec<String> = std::env::var_os("PATH")
+        .map(|value| {
+            std::env::split_paths(&value)
+                .map(|path| path.to_string_lossy().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for dir in common_command_dirs() {
+        if !entries.iter().any(|entry| entry == dir) {
+            entries.push((*dir).to_string());
+        }
+    }
+
+    std::env::join_paths(entries.iter().map(PathBuf::from))
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|_| entries.join(":"))
+}
+
+fn resolve_command_path(name: &str) -> Option<PathBuf> {
+    let requested = PathBuf::from(name);
+    if requested.is_absolute() && requested.exists() {
+        return Some(requested);
+    }
+
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            let candidate = dir.join(name);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    for dir in common_command_dirs() {
+        let candidate = Path::new(dir).join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
 }
 
 fn command_available(name: &str) -> bool {
-    Command::new("which")
-        .arg(name)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    resolve_command_path(name).is_some()
 }
 
 fn run_status(command: &str, args: &[&str], cwd: &Path) -> bool {
-    Command::new(command)
+    let Some(command_path) = resolve_command_path(command) else {
+        return false;
+    };
+
+    let mut child = Command::new(command_path);
+    child
         .args(args)
         .current_dir(cwd)
+        .env("PATH", augmented_path_env())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+    if command == "uv" {
+        child.env("UV_CACHE_DIR", cwd.join(".uv-cache"));
+    }
+    child
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
@@ -701,13 +773,14 @@ fn fetch_url_with_collector(
     url: &str,
     topic: &str,
 ) -> Result<CollectorFetchResult, String> {
-    if !command_available("uv") {
+    let Some(uv_path) = resolve_command_path("uv") else {
         return Err("uv is required to run local collector fetches".into());
-    }
+    };
 
-    let output = Command::new("uv")
+    let output = Command::new(uv_path)
         .current_dir(root)
-        .env("UV_CACHE_DIR", ".uv-cache")
+        .env("PATH", augmented_path_env())
+        .env("UV_CACHE_DIR", root.join(".uv-cache"))
         .arg("run")
         .arg("python3")
         .arg("-c")
@@ -750,10 +823,13 @@ fn api_is_live() -> bool {
 
 fn spawn_dev_api(root: &Path) -> Result<Child, String> {
     let app_path = api_entry(root);
+    let uv_path = resolve_command_path("uv")
+        .ok_or_else(|| "uv is required to launch the local Pathway API".to_string())?;
 
-    Command::new("uv")
+    Command::new(uv_path)
         .current_dir(root)
-        .env("UV_CACHE_DIR", ".uv-cache")
+        .env("PATH", augmented_path_env())
+        .env("UV_CACHE_DIR", root.join(".uv-cache"))
         .arg("run")
         .arg("fastapi")
         .arg("run")

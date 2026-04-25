@@ -3,6 +3,183 @@
 ## Latest micro-update
 
 - Completed work:
+  - Expanded the Pathway first-tab reading surface so the preview uses the right side of the workspace more like the workflow canvas.
+  - Pathway mode now overrides `--tasks-reading-width` to `min(1280px, calc(100vw - 500px))`, and the first-tab preview/current-goal copy use that full width.
+  - Verified in local Chrome at 1800px viewport: first-tab preview width is 1280px and its right gap is 58px.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm dev:desktop-ui`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome first-tab expanded-width verification..."`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `kill 7484`
+- Known gaps:
+  - None for this bounded layout adjustment.
+- Next recommended task:
+  - Tune message block widths inside the expanded preview if the wider board needs denser left/right rhythm.
+
+## Latest micro-update
+
+- Completed work:
+  - Restored the workflow node-click behavior that opens the right context island automatically.
+  - `handleSelectNode` now sets `showWorkflowInspector` to `true` whenever a graph node is selected.
+  - Verified in local Chrome that clicking a workflow node creates one `.pathway-workflow-sidebar.is-open` and changes the workflow body to `has-inspector`.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm dev:desktop-ui`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome node-click sidebar verification..."`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `kill 6399`
+- Known gaps:
+  - None for this bounded fix.
+- Next recommended task:
+  - Keep node-click opening as the default, while the explicit inspector icon remains useful for reopening workspace-level context.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed Pathway graph split routing so source-side branch trunks no longer get averaged with nearby target merge lanes.
+  - Added an opt-out flag to the shared edge renderer and disabled close split/merge lane alignment only for Pathway canvas rendering.
+  - Verified the workflow canvas in local Chrome; source split branches now leave the node, meet a nearby vertical trunk, then branch rightward like the requested reference shape.
+- Changed files:
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm dev:desktop-ui`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome workflow edge routing verification..."`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `kill 5093`
+- Known gaps:
+  - `apps/desktop` does not currently have `vitest` installed, so `renderEdges.test.ts` could not be run directly from that package.
+- Next recommended task:
+  - Add a runnable desktop unit-test setup or move edge-routing tests under an installed test runner so this regression can be checked without browser verification.
+
+## Latest micro-update
+
+- Completed work:
+  - Refined the first-tab hardcoded Pathway preview so it no longer reads as a colored card nested inside a gray empty-state panel.
+  - Replaced the stale "목표를 먼저 말해 주세요." copy with a current-goal summary whenever an active goal already exists.
+  - Increased demo conversation spacing, reduced the color palette to neutral white/gray surfaces, and kept only the workflow action as a dark button.
+  - Verified the running UI in local Chrome: old headline absent, empty-state background transparent, preview background white, and message thread gap `22px`.
+  - Retuned the preview grid area to a barely tinted paper surface and removed the remaining box shadows from preview message and handoff blocks.
+  - Added low-saturation role backgrounds so USER, PATHWAY, and READY logs are distinguishable without restoring heavy shadows or bright colors.
+  - Set USER log backgrounds back to pure white and neutralized the preview grid background to an off-white gray with no visible yellow cast.
+  - Added subtle 1px borders to USER, PATHWAY, and READY log blocks while keeping shadows removed.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_FIRST_TAB_PREVIEW_REFINEMENT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome first-tab style verification..."`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome beige/flat preview verification..."`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome subtle paper preview verification..."`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome role background verification..."`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome neutral user-white verification..."`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome message border verification..."`
+- Known gaps:
+  - The preview remains intentionally hardcoded for UI review; the real persisted intake transcript is still a separate follow-up.
+- Next recommended task:
+  - Replace the preview-only transcript with persisted intake messages once the final first-tab conversation structure is accepted.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the Pathway workflow row placement that pushed directly connected nodes onto different rows; parent-child nodes now keep their inferred shared row unless there is a real same-row collision to resolve.
+  - Aligned the terminal goal node to its primary incoming route row, so the last visible route node and `GOAL` render on the same centerline.
+  - Removed borders from `.pathway-first-tab-preview`, `.pathway-preview-message`, and `.pathway-preview-handoff`.
+  - Changed Collector Doctor browser-preview fallback from red failure dots to neutral checking dots; actual ready/error coloring is now reserved for Tauri health results.
+  - Verified the running UI with local Chrome: final visible route and `GOAL` both centered at Y=380, first-tab preview borders computed as `0px`, and visible collector status-message rows counted as `0`.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `git diff --check`
+  - `curl -sS http://127.0.0.1:1420/`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome UI verification..."`
+- Known gaps:
+  - In browser preview, Collector Doctor cannot call the Tauri health bridge, so dots stay neutral instead of green/red.
+  - In the Tauri app, `steel` still requires explicit Steel/CDP configuration and `lightpanda_experimental` still requires the external `lightpanda` binary.
+- Next recommended task:
+  - Restart the Tauri app and use Settings `새로고침` to confirm installed collectors turn green while only missing/unconfigured external providers stay red.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed Collector Doctor runtime detection so the Tauri app no longer depends on a shell-inherited PATH to find `uv`, `pnpm`, or optional collector binaries.
+  - Updated Tauri health/install/fetch/API launch commands to use an augmented PATH and repo-local `.uv-cache`, avoiding the `~/.cache/uv` permission failure that made installed Python collectors appear unavailable.
+  - Kept Collector Doctor rows dot-only as intended; health messages remain available as hover/debug titles but are not rendered as visible text.
+  - Verified local collector prerequisites: `scrapling`, `crawl4ai`, `browser_use`, `scrapy`, `scrapy_playwright`, and desktop Playwright resolve in this workspace; `lightpanda` is still not installed, so that row should remain red.
+  - Reworked the hardcoded first-tab preview into a wider normal message-thread layout instead of a nested two-column card grid.
+  - Pulled the terminal goal lane closer and softened the goal-entry routing so the graph no longer stretches as far to the right.
+- Changed files:
+  - `src-tauri/src/main.rs`
+  - `apps/desktop/src/pages/settings/SettingsPage.tsx`
+  - `apps/desktop/src/styles/layout/shell/settings-hub.css`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `docs/state/EXECPLAN_COLLECTOR_DOCTOR_RUNTIME_FIX.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run python3 -c "...collector import probe..."`
+  - `pnpm --filter desktop exec playwright --version`
+  - `which uv; which pnpm; which lightpanda || true`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome visual verification..."`
+  - `git diff --check`
+- Known gaps:
+  - `steel` still requires explicit Steel API/CDP configuration.
+  - `lightpanda_experimental` still requires the external `lightpanda` binary.
+- Next recommended task:
+  - Restart the Tauri app, open Settings, press `새로고침`, and confirm installed collectors now turn green while only unconfigured external providers remain red.
+
+## Latest micro-update
+
+- Completed work:
+  - Added a hardcoded first-tab Pathway intake preview so the initial goal UI/UX can be reviewed before real conversation state exists.
+  - Increased Pathway graph top layout clearance so the upper-left stats/auto-layout strip does not overlap the demo graph nodes.
+  - Added a centered target-entry edge routing hook and applied it to Pathway goal nodes, making the final goal connection enter on a single horizontal centerline.
+  - Verified the first tab and workflow canvas with local Chrome screenshots; DOM overlap check reported no stats-strip/node overlaps.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/features/workflow/graph-utils/renderEdges.ts`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_FIRST_TAB_AND_GRAPH_ALIGNMENT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `lsof -iTCP:1420 -sTCP:LISTEN`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome Playwright verification..."`
+- Known gaps:
+  - The first-tab preview is a hardcoded review mock and should be replaced by the persisted intake transcript once the target interaction is accepted.
+- Next recommended task:
+  - Review the first-tab preview visually, then promote the chosen structure into the real intake transcript/history model.
+
+## Latest micro-update
+
+- Completed work:
   - Reworked the Pathway first tab into an o-rail-style agent intake conversation instead of a direct task-thread fallback.
   - The first user message now creates a goal, runs goal analysis, and renders backend follow-up questions as a checklist in the conversation surface.
   - User clarification answers are preserved on the goal record, and graph generation starts only after an approval message such as `OK`.

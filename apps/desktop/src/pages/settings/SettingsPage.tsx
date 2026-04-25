@@ -121,7 +121,7 @@ export default function SettingsPage({
         </div>
         <div className="settings-collector-doctor-list">
           {collectorDoctorStatuses.map((collector) => (
-            <article className="settings-collector-card" key={collector.id}>
+            <article className="settings-collector-card" key={collector.id} title={collector.message}>
               <div className="settings-collector-card-head">
                 <span
                   aria-hidden="true"

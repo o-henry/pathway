@@ -32,6 +32,8 @@ type BuildCanvasEdgeLinesParams = {
   routeStyle?: "orthogonal" | "straight";
   separateIncomingTargetAnchors?: (node: GraphNode) => boolean;
   preferNearTargetElbow?: (node: GraphNode) => boolean;
+  forceCenteredTargetEntry?: (node: GraphNode) => boolean;
+  alignCloseBundledSplitMergeLanes?: boolean;
 };
 
 const BUNDLED_LANE_ALIGNMENT_THRESHOLD = 72;
@@ -103,6 +105,8 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
     routeStyle = "orthogonal",
     separateIncomingTargetAnchors,
     preferNearTargetElbow,
+    forceCenteredTargetEntry,
+    alignCloseBundledSplitMergeLanes = true,
   } = params;
 
   const groupedFrom = new Map<string, CanvasEdgeEntry[]>();
@@ -244,30 +248,32 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
     );
   });
 
-  for (const entry of entries) {
-    const fromId = entry.edge.from.nodeId;
-    const toId = entry.edge.to.nodeId;
-    const fromSide = bundledFromSideByNodeId.get(fromId);
-    const toSide = bundledToSideByNodeId.get(toId);
-    if (!fromSide || !toSide || !sidesFaceAcrossLane(fromSide, toSide)) {
-      continue;
-    }
-    if (laneAxisForSide(fromSide) !== laneAxisForSide(toSide)) {
-      continue;
-    }
+  if (alignCloseBundledSplitMergeLanes) {
+    for (const entry of entries) {
+      const fromId = entry.edge.from.nodeId;
+      const toId = entry.edge.to.nodeId;
+      const fromSide = bundledFromSideByNodeId.get(fromId);
+      const toSide = bundledToSideByNodeId.get(toId);
+      if (!fromSide || !toSide || !sidesFaceAcrossLane(fromSide, toSide)) {
+        continue;
+      }
+      if (laneAxisForSide(fromSide) !== laneAxisForSide(toSide)) {
+        continue;
+      }
 
-    const fromLane = bundledFromLaneByNodeId.get(fromId);
-    const toLane = bundledToLaneByNodeId.get(toId);
-    if (fromLane == null || toLane == null) {
-      continue;
-    }
-    if (Math.abs(fromLane - toLane) > BUNDLED_LANE_ALIGNMENT_THRESHOLD) {
-      continue;
-    }
+      const fromLane = bundledFromLaneByNodeId.get(fromId);
+      const toLane = bundledToLaneByNodeId.get(toId);
+      if (fromLane == null || toLane == null) {
+        continue;
+      }
+      if (Math.abs(fromLane - toLane) > BUNDLED_LANE_ALIGNMENT_THRESHOLD) {
+        continue;
+      }
 
-    const sharedLane = Math.round((fromLane + toLane) / 2);
-    bundledFromLaneByNodeId.set(fromId, sharedLane);
-    bundledToLaneByNodeId.set(toId, sharedLane);
+      const sharedLane = Math.round((fromLane + toLane) / 2);
+      bundledFromLaneByNodeId.set(fromId, sharedLane);
+      bundledToLaneByNodeId.set(toId, sharedLane);
+    }
   }
 
   return entries
@@ -331,6 +337,7 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
       const toHorizontal = routeToSide === "left" || routeToSide === "right";
       const fromVertical = !fromHorizontal;
       const toVertical = !toHorizontal;
+      const shouldForceCenteredTargetEntry = (forceCenteredTargetEntry?.(toNode) ?? false) && toHorizontal;
 
       if (!hasManualControl && !hasExplicitSides && !bundledFromSide && !bundledToSide) {
         const aligned = alignAutoEdgePoints(
@@ -362,6 +369,12 @@ export function buildCanvasEdgeLines(params: BuildCanvasEdgeLinesParams): Canvas
           ? fromPoint
           : snapPoint(getNodeAnchorPoint(fromNode, virtualFromSide, fromSize));
         fromPoint = virtualFromPoint;
+        if (shouldForceCenteredTargetEntry) {
+          toPoint = {
+            ...toPoint,
+            y: Math.round(toNode.position.y + toSize.height / 2),
+          };
+        }
         const verticalGap = Math.abs(toPoint.y - virtualFromPoint.y);
         const horizontalGapRaw = Math.abs(toPoint.x - virtualFromPoint.x);
         const sharedLaneX =

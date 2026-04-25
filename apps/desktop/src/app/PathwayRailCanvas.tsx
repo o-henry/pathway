@@ -495,9 +495,8 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const laneSiblingGap = 168;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
-  const goalDepth = goalNodeId ? depth.get(goalNodeId) ?? null : null;
   let laneCursorX = 120;
-  laneDepths.forEach((laneDepth, index) => {
+  laneDepths.forEach((laneDepth) => {
     const laneNodes = bundle.nodes.filter((node) => (depth.get(node.id) ?? 0) === laneDepth);
     const laneFootprintWidth = Math.max(
       ...laneNodes.map((node) => nodeFootprintById.get(node.id)?.footprintWidth ?? 0),
@@ -507,9 +506,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     const mergePullLeft = laneHasMergeTarget && laneDepth > 0 ? 36 : 0;
     laneCursorX -= mergePullLeft;
     laneStartX.set(laneDepth, laneCursorX);
-    const nextLaneDepth = laneDepths[index + 1] ?? null;
-    const isBeforeGoalLane = nextLaneDepth !== null && goalDepth !== null && nextLaneDepth === goalDepth;
-    laneCursorX += laneFootprintWidth + horizontalGap + (isBeforeGoalLane ? 132 : 0);
+    laneCursorX += laneFootprintWidth + horizontalGap;
   });
   const rowByNodeId = new Map<string, number>();
   roots.forEach((node, index) => {
@@ -562,15 +559,41 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
         return compareNodeIds(leftId, rightId);
       });
 
+      const originalRows = new Map(orderedNodeIds.map((nodeId) => [nodeId, rowByNodeId.get(nodeId) ?? 0]));
       for (let index = 1; index < orderedNodeIds.length; index += 1) {
         const prevId = orderedNodeIds[index - 1];
         const nextId = orderedNodeIds[index];
+        const originalPrevRow = originalRows.get(prevId) ?? 0;
+        const originalNextRow = originalRows.get(nextId) ?? 0;
+        if (Math.abs(originalNextRow - originalPrevRow) >= 0.75) {
+          continue;
+        }
         const minRow = (rowByNodeId.get(prevId) ?? 0) + minRowGapForNodes(prevId, nextId);
         if ((rowByNodeId.get(nextId) ?? 0) < minRow) {
           rowByNodeId.set(nextId, minRow);
         }
       }
     });
+
+  if (goalNodeId) {
+    const primaryGoalParent = (parents.get(goalNodeId) ?? [])
+      .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
+      .sort((leftId, rightId) => {
+        const depthDiff = (depth.get(rightId) ?? 0) - (depth.get(leftId) ?? 0);
+        if (depthDiff !== 0) {
+          return depthDiff;
+        }
+        const leftRow = rowByNodeId.get(leftId) ?? 0;
+        const rightRow = rowByNodeId.get(rightId) ?? 0;
+        if (Math.abs(leftRow - rightRow) > 0.0001) {
+          return leftRow - rightRow;
+        }
+        return compareNodeIds(leftId, rightId);
+      })[0];
+    if (primaryGoalParent) {
+      rowByNodeId.set(goalNodeId, rowByNodeId.get(primaryGoalParent) ?? 0);
+    }
+  }
 
   const minRow = Math.min(...[...rowByNodeId.values()], 0);
   const baseCenterY = rootBaseY + NODE_HEIGHT / 2;
@@ -632,7 +655,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const contentWidth = Math.max(1, maxX - minX);
   const contentHeight = Math.max(1, maxY - minY);
   const horizontalPadding = 20;
-  const topPadding = 16;
+  const topPadding = 78;
   const bottomPadding = 24;
 
   const normalized = positioned.map((item) => ({
@@ -1011,6 +1034,12 @@ export default function PathwayRailCanvas({
         }
         return { width: NODE_WIDTH, height: NODE_HEIGHT };
       },
+      forceCenteredTargetEntry: (node) => {
+        const config = node.config as Record<string, unknown> | undefined;
+        return String(config?.sourceKind ?? "").trim() === "pathway"
+          && String(config?.pathwayFamily ?? "").trim() === "goal";
+      },
+      alignCloseBundledSplitMergeLanes: false,
     }).map((line) => {
       const previewVisual = previewEdgeMap.get(line.edgeKey);
       return {

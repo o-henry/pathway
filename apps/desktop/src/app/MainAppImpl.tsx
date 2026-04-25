@@ -376,7 +376,7 @@ export default function MainApp() {
     setCollectorDoctorStatuses(
       COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
         ...collector,
-        state: 'error',
+        state: 'checking',
         message,
         installable: false,
         installed: false,
@@ -675,6 +675,10 @@ export default function MainApp() {
   async function refreshCollectorDoctor() {
     setCollectorDoctorPending(true);
     try {
+      if (!hasTauriRuntime) {
+        setCollectorDoctorPreviewFallback('브라우저 프리뷰에서는 수집기 상태를 확인할 수 없습니다. Tauri 앱에서 다시 확인하세요.');
+        return;
+      }
       await ensureEngineStarted();
       const results = await Promise.all(
         COLLECTOR_DOCTOR_DEFINITIONS.map(async (collector) => {
@@ -706,6 +710,16 @@ export default function MainApp() {
               configured: Boolean(health?.configured),
             } satisfies CollectorDoctorStatus;
           } catch (error) {
+            if (isTauriUnavailableError(error)) {
+              return {
+                ...collector,
+                state: 'checking',
+                message: 'Tauri 앱에서 확인할 수 있습니다.',
+                installable: false,
+                installed: false,
+                configured: false,
+              } satisfies CollectorDoctorStatus;
+            }
             return {
               ...collector,
               state: 'error',
@@ -938,6 +952,7 @@ export default function MainApp() {
 
   async function handleSelectNode(nodeId: string) {
     setSelectedNodeId(nodeId);
+    setShowWorkflowInspector(true);
     if (revisionPreview) {
       return;
     }
