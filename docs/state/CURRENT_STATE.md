@@ -3,6 +3,30 @@
 ## Latest micro-update
 
 - Completed work:
+  - Retuned the desktop Pathway graph layout to match the supplied reference screenshot more closely.
+  - Restored larger Pathway node dimensions, widened column spacing, increased same-lane branch separation, aligned root nodes to the left edge of their lane, and biased the initial graph fit upward.
+  - Verified the English 6-node graph used in the screenshot with Playwright; node positions now follow the reference structure and the DOM overlap check reports no overlaps.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/EXECPLAN_WORKFLOW_VISUAL_REPAIR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh open http://127.0.0.1:1420/`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e10`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-layout-reference-tuned.png`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh click e227`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-english-reference-tuned.png`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh eval "...node coordinate and overlap check..."`
+  - `npm_config_cache=/tmp/npm-cache /Users/henry/.codex/skills/playwright/scripts/playwright_cli.sh screenshot --filename output/playwright/pathway-reference-layout-final.png`
+- Known gaps:
+  - The bottom reality-update floater can still visually cover the lower branch in a short full-window screenshot; the graph layout itself now matches the reference crop and has no node overlaps.
+- Next recommended task:
+  - Rework the reality-update composer into a collapsible or docked control so it cannot cover lower graph branches on shorter windows.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed the desktop workflow graph overlap regression by making same-lane row spacing depend on actual node heights plus a visible gap instead of a tiny fixed row delta.
   - Tightened Pathway node footprints and lowered the canvas minimum fit zoom so compact route maps fit inside the visible canvas instead of sliding under side controls or the context panel.
   - Changed the workflow inspector to stay closed by default and not auto-open on node selection, keeping the graph as the first visible workspace; the inspector remains available from the in-canvas icon.

@@ -151,15 +151,15 @@ function measurePathwayNode(_node: GraphNodeRecord, _depth: number, _childCount:
     normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
     TERMINAL_GOAL_DATA_ROLE
   ) {
-    return { width: 250, height: 62 };
+    return { width: 280, height: 64 };
   }
   if (
     normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
     PERSONAL_LEARNING_DATA_ROLE
   ) {
-    return { width: 220, height: 56 };
+    return { width: 250, height: 58 };
   }
-  return { width: 190, height: 54 };
+  return { width: 220, height: 56 };
 }
 
 function makeUniqueNodeId(baseId: string, existingIds: Set<string>): string {
@@ -481,7 +481,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     nodeFootprintById.set(node.id, {
       ...measured,
       childCount,
-      footprintWidth: measured.width + 76,
+      footprintWidth: measured.width + 132,
       footprintHeight: measured.height + 44,
     });
   });
@@ -490,9 +490,9 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
-  const horizontalGap = 48;
-  const rootRowGap = 60;
-  const laneSiblingGap = 26;
+  const horizontalGap = 96;
+  const rootRowGap = 68;
+  const laneSiblingGap = 168;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
   const goalDepth = goalNodeId ? depth.get(goalNodeId) ?? null : null;
@@ -610,7 +610,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
       const width = footprint?.width ?? NODE_WIDTH;
       const height = footprint?.height ?? NODE_HEIGHT;
       const hasParent = (parents.get(node.id)?.length ?? 0) > 0;
-      const nodeX = hasParent
+      const nodeX = hasParent || laneDepth === 0
         ? Math.round(laneX)
         : Math.round(laneX + Math.max(0, (laneFootprintWidth - width) / 2));
       positioned.push({
@@ -631,8 +631,8 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const maxY = Math.max(...positioned.map((item) => item.y + item.height), 0);
   const contentWidth = Math.max(1, maxX - minX);
   const contentHeight = Math.max(1, maxY - minY);
-  const horizontalPadding = 56;
-  const topPadding = 96;
+  const horizontalPadding = 20;
+  const topPadding = 16;
   const bottomPadding = 24;
 
   const normalized = positioned.map((item) => ({
@@ -749,12 +749,12 @@ const EMPTY_NODE_STATES: Record<string, NodeRunState> = {};
 const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_DIRECT_INPUTS: Set<string> = new Set();
 const EMPTY_ANCHORS: readonly NodeAnchorSide[] = [];
-const PATHWAY_STAGE_INSET_X = 72;
-const PATHWAY_STAGE_INSET_Y = 132;
+const PATHWAY_STAGE_INSET_X = 16;
+const PATHWAY_STAGE_INSET_Y = 20;
 const PATHWAY_STAGE_INSET_BOTTOM = 132;
 
 function clampZoom(value: number): number {
-  return Math.max(0.42, Math.min(1.8, Number(value.toFixed(2))));
+  return Math.max(0.5, Math.min(1.8, Number(value.toFixed(2))));
 }
 
 function buildCollapsedDescendantSet(bundle: GraphBundle, collapsedNodeIds: Set<string>): Set<string> {
@@ -974,7 +974,7 @@ export default function PathwayRailCanvas({
       const contentCenterX = ((visibleBounds.minX + visibleBounds.maxX) / 2) * nextZoom;
       const contentCenterY = ((visibleBounds.minY + visibleBounds.maxY) / 2) * nextZoom;
       const targetScrollLeft = Math.max(0, PATHWAY_STAGE_INSET_X + contentCenterX - bounds.width / 2);
-      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + contentCenterY - bounds.height / 2);
+      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + contentCenterY - bounds.height / 2 + 56);
       canvas.scrollLeft = targetScrollLeft;
       canvas.scrollTop = targetScrollTop;
     };

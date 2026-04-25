@@ -61,9 +61,11 @@ Expected results:
   - Same-lane node spacing now uses node heights plus a visible gap, preventing overlap when siblings share similar parent rows.
   - Pathway node footprint widths were tightened and the canvas min zoom was lowered so graphs fit in the visible canvas instead of sliding under side chrome.
   - The workflow inspector no longer opens automatically on graph load or node selection; the graph stays dominant until the user explicitly opens the inspector.
+  - Follow-up reference-match pass retuned the graph toward the supplied Image #2: root nodes now align to the left edge of their lane, columns are wider, the lower branch sits on a distinct bottom row, and initial fit biases the graph upward to match the reference framing.
 - Tests run:
   - `pnpm --filter desktop exec tsc --noEmit`
   - Playwright screenshot checks for default graph view and inspector-open view.
   - Playwright DOM overlap check returned `count: 8` and `overlaps: []`.
+  - Playwright reference-layout check on the English 6-node graph returned no node overlaps.
 - Known gaps:
   - The desktop-specific graph layout still lacks a configured unit-test script; overlap was verified in the live browser instead.
