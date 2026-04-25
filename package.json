@@ -14,6 +14,8 @@
     "dev:desktop": "tauri dev",
     "build": "zsh ./scripts/with-modern-node.sh pnpm --filter desktop build",
     "build:desktop": "tauri build",
+    "install:intel-mac": "bash ./scripts/install-intel-mac.sh",
+    "start:intel-mac": "bash ./scripts/run-installed-intel-mac.sh",
     "check": "zsh ./scripts/with-modern-node.sh pnpm --filter desktop typecheck",
     "check:desktop": "cargo check --manifest-path src-tauri/Cargo.toml",
     "lint": "pnpm lint:web && pnpm lint:api",

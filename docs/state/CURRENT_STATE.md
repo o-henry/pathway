@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Adjusted the Pathway first-tab preview width again so the right-side whitespace is closer to the workflow tab.
+  - Pathway mode now uses `--tasks-reading-width: min(1160px, calc(100vw - 620px))` instead of the overly wide 1280px surface.
+  - Verified in local Chrome at 1800px viewport: first-tab preview width is 1160px and right gap is 118px.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm --filter desktop exec node --input-type=module -e "...local Chrome first-tab right-gap verification..."`
+- Known gaps:
+  - None for this bounded spacing adjustment.
+- Next recommended task:
+  - Compare the target Tauri window size visually once more before committing this post-push tweak.
+
+## Latest micro-update
+
+- Completed work:
   - Expanded the Pathway first-tab reading surface so the preview uses the right side of the workspace more like the workflow canvas.
   - Pathway mode now overrides `--tasks-reading-width` to `min(1280px, calc(100vw - 500px))`, and the first-tab preview/current-goal copy use that full width.
   - Verified in local Chrome at 1800px viewport: first-tab preview width is 1280px and its right gap is 58px.
@@ -1756,6 +1774,84 @@ The highest-value follow-up options are now:
   - Learning quiz generation remains deterministic/local and still needs the intended agent-backed question-generation path.
 - Next recommended task:
   - Replace the current local quiz builder with an agent-backed quiz synthesis step that uses task notes, linked resources, and recent graph state as inputs.
+
+## Latest micro-update
+
+- Completed work:
+  - Changed the Intel macOS install path so `pnpm install:intel-mac` prepares an app that can be launched from the `~/Applications/PATHWAY.app` icon.
+  - Updated the installer to copy `apps/api/lifemap_api`, `pyproject.toml`, and `uv.lock` into the app bundle's `Contents/Resources`, then run `uv sync` inside that bundled resource root.
+  - Made Playwright browser installation opt-in for the Intel installer so app installation does not hang on the browser download step; set `PATHWAY_SKIP_PLAYWRIGHT_BROWSER_INSTALL=0` to include it.
+  - Updated the Tauri API bootstrap so a bundled/resource-root launch stores SQLite/LanceDB data under the macOS app data directory instead of relying on the source repo cwd.
+  - Changed `pnpm start:intel-mac` to open the installed `.app`, matching the same path as clicking the Applications icon.
+  - Ran `pnpm install:intel-mac` successfully and verified `~/Applications/PATHWAY.app` contains the bundled API source plus `.venv`.
+  - Opened `~/Applications/PATHWAY.app` with the macOS `open` command and verified the installed app started the local API; `GET /health` returned `{"status":"ok"}`.
+- Changed files:
+  - `src-tauri/src/main.rs`
+  - `scripts/install-intel-mac.sh`
+  - `scripts/run-installed-intel-mac.sh`
+  - `README.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `bash -n scripts/install-intel-mac.sh scripts/run-installed-intel-mac.sh`
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm install:intel-mac`
+  - `open "$HOME/Applications/PATHWAY.app"`
+  - `curl -sS http://127.0.0.1:8000/health`
+- Known gaps:
+  - The installer still requires `uv`, `pnpm`, and Rust tooling on the build machine. Runtime app launch still expects `uv` to be available on the installed Mac path.
+  - The installed-app runtime bundles Python dependencies, but Node-backed `playwright_local` is still not a fully bundled browser runtime story.
+- Next recommended task:
+  - Run `pnpm install:intel-mac`, open `~/Applications/PATHWAY.app` from Finder, and verify the Settings Collector Doctor from the installed app.
+
+## Latest micro-update
+
+- Completed work:
+  - Audited why Collector Doctor does not turn green under the current `pnpm dev:desktop-ui` browser preview: collector health is checked through Tauri IPC (`dashboard_crawl_provider_health`), so plain Vite/browser preview cannot produce real ready states.
+  - Verified the repo-local collector dependencies are present for the main local providers: `scrapling`, `crawl4ai`, `browser_use`, `scrapy`, `scrapy_playwright`, and desktop Playwright CLI.
+  - Added an Intel macOS local install command that builds the Tauri app, copies `PATHWAY.app` into `~/Applications`, and keeps a repo-backed launcher for the current non-standalone API/runtime design.
+  - Documented the new Intel macOS install/start commands in `README.md`.
+- Changed files:
+  - `package.json`
+  - `README.md`
+  - `scripts/install-intel-mac.sh`
+  - `scripts/run-installed-intel-mac.sh`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `uv run python3 - <<'PY' ...`
+  - `pnpm --filter desktop exec playwright --version`
+  - `bash -n scripts/install-intel-mac.sh scripts/run-installed-intel-mac.sh`
+  - `node -e "const pkg=require('./package.json'); console.log(pkg.scripts['install:intel-mac']); console.log(pkg.scripts['start:intel-mac'])"`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - `PATHWAY.app` is still a repo-backed local install, not a fully standalone distribution. The API/runtime bundling work called out in `docs/TAURI_PACKAGING_NOTE.md` is still needed for Finder-only standalone launch.
+  - `lightpanda_experimental` remains red unless a `lightpanda` binary is installed, and `steel` remains red until its API key/CDP endpoint is configured.
+- Next recommended task:
+  - Test Collector Doctor inside `pnpm dev` or `pnpm start:intel-mac`, not `pnpm dev:desktop-ui`, and then decide whether browser preview should hide Collector Doctor entirely or show a clear neutral "Tauri required" state.
+
+## Latest micro-update
+
+- Completed work:
+  - Matched the Pathway goals tab root shell (`tasks-thread-layout.workspace-tab-panel.pathway-goals-workspace`) to the workflow tab shell (`pathway-workflow-shell.workspace-tab-panel`) instead of adjusting only the inner demo preview width.
+  - Shared the same workspace child padding for goals and workflow shells.
+  - Removed the goals tab root's extra app-background frame, rounded clipping, and hidden overflow through the Tasks workspace override point.
+  - Verified in Chrome that the goals and workflow root shells now have the same x/y, width, right gap, padding, transparent background, 0px radius, and visible overflow.
+- Changed files:
+  - `apps/desktop/src/pathway.css`
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm dev:desktop-ui`
+  - `pnpm --filter desktop exec node --input-type=module -e '<Playwright Chrome layout comparison>'`
+- Known gaps:
+  - The goals tab still uses a two-column Tasks grid internally, while workflow uses its own canvas/body structure; this update aligns the outer shell contract the user called out.
+- Next recommended task:
+  - Review the inner goals canvas/message composition only after the shell consistency is accepted.
 
 ## Latest micro-update
 

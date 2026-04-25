@@ -117,6 +117,20 @@ Build the desktop app:
 pnpm build:desktop
 ```
 
+Build and install the current local PATHWAY app for Intel macOS:
+
+```bash
+pnpm install:intel-mac
+```
+
+After install, launch `PATHWAY.app` from `~/Applications` or run:
+
+```bash
+pnpm start:intel-mac
+```
+
+The installer copies the local FastAPI source and Python lockfile into the app bundle resources so the installed app can start from the Applications icon.
+
 ## Verification
 
 Frontend:

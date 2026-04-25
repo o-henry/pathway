@@ -821,15 +821,29 @@ fn api_is_live() -> bool {
     TcpStream::connect((API_HOST, API_PORT)).is_ok()
 }
 
-fn spawn_dev_api(root: &Path) -> Result<Child, String> {
+fn spawn_dev_api(root: &Path, data_root: Option<&Path>) -> Result<Child, String> {
     let app_path = api_entry(root);
     let uv_path = resolve_command_path("uv")
         .ok_or_else(|| "uv is required to launch the local Pathway API".to_string())?;
 
-    Command::new(uv_path)
+    let mut command = Command::new(uv_path);
+    command
         .current_dir(root)
         .env("PATH", augmented_path_env())
-        .env("UV_CACHE_DIR", root.join(".uv-cache"))
+        .env("UV_CACHE_DIR", root.join(".uv-cache"));
+
+    if let Some(data_root) = data_root {
+        let data_dir = data_root.join("data");
+        command
+            .env("LIFEMAP_DATA_DIR", &data_dir)
+            .env(
+                "LIFEMAP_SQLITE_URL",
+                format!("sqlite:///{}", data_dir.join("local.db").display()),
+            )
+            .env("LIFEMAP_LANCEDB_URI", data_dir.join("lancedb"));
+    }
+
+    command
         .arg("run")
         .arg("fastapi")
         .arg("run")
@@ -867,7 +881,22 @@ fn start_api_if_needed(app: &AppHandle) -> Result<Option<Child>, String> {
         return Ok(None);
     }
 
-    let child = spawn_dev_api(&root)?;
+    let bundled_root = app
+        .path()
+        .resource_dir()
+        .ok()
+        .and_then(|path| path.canonicalize().ok());
+    let root_is_bundled = bundled_root.as_ref().is_some_and(|path| path == &root);
+    let app_data_dir =
+        if root_is_bundled {
+            Some(app.path().app_data_dir().map_err(|error| {
+                format!("Failed to resolve Pathway app data directory: {error}")
+            })?)
+        } else {
+            None
+        };
+
+    let child = spawn_dev_api(&root, app_data_dir.as_deref())?;
     if wait_for_api() {
         Ok(Some(child))
     } else {

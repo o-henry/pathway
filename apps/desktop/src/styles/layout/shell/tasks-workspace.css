@@ -35,6 +35,12 @@
   border-radius: 10px;
 }
 
+.tasks-thread-layout.workspace-tab-panel.pathway-goals-workspace {
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
 .tasks-thread-nav,
 .tasks-thread-main-surface,
 .tasks-thread-detail-panel {
