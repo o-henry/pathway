@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     sqlite_url: str = Field(default="sqlite:///./data/local.db", alias="LIFEMAP_SQLITE_URL")
     llm_provider: str = Field(default="codex", alias="LIFEMAP_LLM_PROVIDER")
     llm_request_timeout_seconds: float = Field(
-        default=60.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
+        default=180.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
     )
     llm_max_repair_attempts: int = Field(default=2, alias="LIFEMAP_LLM_MAX_REPAIR_ATTEMPTS")
     generation_query_limit: int = Field(default=6, alias="LIFEMAP_GENERATION_QUERY_LIMIT")

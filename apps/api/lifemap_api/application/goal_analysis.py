@@ -137,6 +137,7 @@ def _build_system_prompt() -> str:
 
 
 def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str:
+    del schema
     return dedent(
         f"""
         Analyze this Pathway goal.
@@ -147,14 +148,17 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         Default profile:
         {_serialize_profile(profile)}
 
-        JSON Schema:
-        {json.dumps(schema, ensure_ascii=False, indent=2)}
-
         Output requirements:
         - `goal_id` must equal `{goal.id}`.
+        - Return exactly one JSON object with:
+          `goal_id`, `analysis_summary`, `resource_dimensions`,
+          `research_questions`, `followup_questions`, and `research_plan`.
+        - Ask 4 to 6 necessary follow-up questions.
         - `resource_dimensions` and `followup_questions` should be aligned,
           but not necessarily one-to-one.
         - `research_plan.collection_targets` should explain what to collect and why.
+        - `research_plan.expected_graph_complexity` must be one of:
+          `low`, `moderate`, or `high`.
         - `research_questions` should be concrete search/retrieval queries derived from the plan.
         - Prefer Korean user-facing copy when the goal is Korean or mixed Korean/English.
         """

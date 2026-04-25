@@ -277,6 +277,7 @@ export default function MainApp() {
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<GoalRecord | null>(null);
   const [goalAnalysis, setGoalAnalysis] = useState<GoalAnalysisRecord | null>(null);
+  const [goalAnalysisError, setGoalAnalysisError] = useState<{ goalId: string; message: string } | null>(null);
   const [, setMaps] = useState<LifeMap[]>([]);
   const [activeMapId, setActiveMapId] = useState<string | null>(null);
   const [activeMap, setActiveMap] = useState<LifeMap | null>(null);
@@ -420,6 +421,7 @@ export default function MainApp() {
     if (nextGoals.length === 0) {
       setActiveGoalId(null);
       setActiveGoal(null);
+      setGoalAnalysis(null);
       setActiveMap(null);
       setActiveMapId(null);
       setCurrentState(null);
@@ -490,9 +492,12 @@ export default function MainApp() {
   async function handleSelectPathwayGoal(goalId: string | null) {
     setActiveGoalId(goalId);
     setErrorMessage('');
+    setGoalAnalysis(null);
+    setGoalAnalysisError(null);
 
     if (!goalId) {
       setActiveGoal(null);
+      setGoalAnalysisError(null);
       setActiveMap(null);
       setActiveMapId(null);
       setCurrentState(null);
@@ -507,6 +512,22 @@ export default function MainApp() {
     const nextGoal = goals.find((item) => item.id === goalId) ?? null;
     setActiveGoal(nextGoal);
     await refreshGoalWorkspace(goalId);
+    try {
+      setIsBusy(true);
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
+      const analysis = await analyzeGoal(goalId);
+      setGoalAnalysis(analysis);
+      setGoalAnalysisError(null);
+      setStatusMessage('선택한 목표의 확인 질문을 갱신했습니다.');
+    } catch (error) {
+      const message = formatUiError(error, '선택한 목표의 확인 질문을 생성하지 못했습니다.');
+      setErrorMessage(message);
+      setGoalAnalysisError({ goalId, message });
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function handleDeletePathwayGoal(goalId: string) {
@@ -517,6 +538,8 @@ export default function MainApp() {
       if (deletedActiveGoal) {
         setActiveGoalId(null);
         setActiveGoal(null);
+        setGoalAnalysis(null);
+        setGoalAnalysisError(null);
         setActiveMap(null);
         setActiveMapId(null);
         setCurrentState(null);
@@ -868,11 +891,17 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
+      setGoalAnalysisError(null);
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
       const analysis = await analyzeGoal(activeGoalId);
       setGoalAnalysis(analysis);
       setStatusMessage('목표 분석이 갱신되었습니다. 필요한 자원 축과 조사 입력이 업데이트되었습니다.');
     } catch (error) {
-      setErrorMessage(formatUiError(error, '목표 분석에 실패했습니다.'));
+      const message = formatUiError(error, '목표 분석에 실패했습니다.');
+      setErrorMessage(message);
+      setGoalAnalysisError({ goalId: activeGoalId, message });
     } finally {
       setIsBusy(false);
     }
@@ -886,6 +915,10 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
+      setGoalAnalysisError(null);
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
       const goal = await createGoal({
         title: buildIntakeGoalTitle(normalizedGoal),
         description: normalizedGoal,
@@ -903,11 +936,15 @@ export default function MainApp() {
       setRevisionPreview(null);
       const analysis = await analyzeGoal(goal.id);
       setGoalAnalysis(analysis);
+      setGoalAnalysisError(null);
       setStatusMessage('목표를 만들고 에이전트가 필요한 확인 질문을 정리했습니다.');
       return { goal, analysis };
     } catch (error) {
       const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
       setErrorMessage(message);
+      if (activeGoalId) {
+        setGoalAnalysisError({ goalId: activeGoalId, message });
+      }
       throw new Error(message);
     } finally {
       setIsBusy(false);
@@ -1527,6 +1564,7 @@ export default function MainApp() {
         }}
         onStartPathwayIntake={handleStartPathwayIntake}
         pathwayGoalAnalysis={goalAnalysis}
+        pathwayGoalAnalysisError={goalAnalysisError}
         pathwayGoals={goals}
         pathwayMode
         publishAction={() => {}}

@@ -2219,3 +2219,89 @@ The highest-value follow-up options are now:
   - Pathway data is still not rooted under the selected workspace folder such as `obsidian_ai`.
 - Next recommended task:
   - Run the desktop app with Codex logged in and confirm a new goal produces `gpt-5.5` follow-up questions through the Codex CLI path.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed the Codex CLI intake provider command for the installed CLI by removing the unsupported `--ask-for-approval` argument.
+  - Added `--ephemeral` to the Codex CLI intake call so Pathway analysis does not need to persist Codex session threads.
+  - Verified the Codex CLI structured JSON path outside the sandbox with the logged-in ChatGPT/Codex session.
+  - Updated existing-goal selection so clicking a saved Pathway goal clears stale analysis, refreshes the workspace, and immediately calls `analyzeGoal(goalId)` to populate the PATHWAY follow-up checklist.
+  - Confirmed the live API failure for the user's goal was a `502` from `/goals/{goal_id}/analysis`, which explains the USER-only log in the UI.
+- Changed files:
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `curl -sS http://127.0.0.1:8000/health`
+  - `curl -sS http://127.0.0.1:8000/goals`
+  - `curl -sS -i -X POST http://127.0.0.1:8000/goals/goal_62d47b2487a1402990a9bdd6229f062d/analysis`
+  - `codex login status`
+  - `PYTHONPATH=apps/api LIFEMAP_LLM_PROVIDER=codex LIFEMAP_CODEX_MODEL=gpt-5.5 UV_CACHE_DIR=.uv-cache uv run python - <<'PY' ...`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+- Known gaps:
+  - The currently running API process was launched before this fix and must be restarted to pick up the corrected Codex CLI command.
+  - Pathway data is still not rooted under the selected workspace folder such as `obsidian_ai`.
+- Next recommended task:
+  - Restart the desktop app/API, click the saved goal again, and confirm the PATHWAY checklist appears under the USER message.
+
+## Latest micro-update
+
+- Completed work:
+  - Confirmed the user's blank Pathway intake panel was happening while `127.0.0.1:8000` was not reachable, so the follow-up analysis request could not reach the API.
+  - Added engine-start guarding before goal analysis calls in the desktop app when running under Tauri.
+  - Added explicit per-goal analysis error state and passed it into `TasksPage`.
+  - Updated the Pathway intake timeline so saved-goal analysis failures appear as a PATHWAY message instead of disappearing after the pending state.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `curl -sS -i -X POST http://127.0.0.1:8000/goals/goal_62d47b2487a1402990a9bdd6229f062d/analysis`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+- Known gaps:
+  - The running desktop/API process must be restarted or re-triggered through `engine_start` to use the latest provider command fix.
+  - Pathway data is still not rooted under the selected workspace folder such as `obsidian_ai`.
+- Next recommended task:
+  - Restart the app/API and retry the saved goal; if Codex generation still fails, the PATHWAY timeline should now show the exact failure reason.
+
+## Latest micro-update
+
+- Completed work:
+  - Reproduced the user's failure directly through the HTTP analysis endpoint instead of relying on the screenshot.
+  - Found the second backend failure: Pydantic's full `GoalAnalysis` schema was too heavy and not Codex strict-schema friendly, causing schema rejection and then 60s timeouts.
+  - Replaced the Codex output schema for `GoalAnalysis` with a compact strict schema tailored to Pathway intake.
+  - Removed the full JSON schema dump from the user prompt and replaced it with concise output requirements.
+  - Forced `research_plan.expected_graph_complexity` to `low | moderate | high` so Pydantic validation does not fail on long prose.
+  - Increased the default LLM request timeout from 60s to 180s because verified Codex GPT-5.5 intake analysis took about 60s.
+  - Verified direct provider execution: `ELAPSED 59.6`, `FOLLOWUPS 6`.
+  - Verified real HTTP endpoint execution on port 8002: `POST /goals/{id}/analysis` returned `200 OK` with a full `followup_questions` checklist.
+  - Stopped the temporary verification servers on ports 8001 and 8002.
+- Changed files:
+  - `.env.example`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `PYTHONPATH=apps/api LIFEMAP_LLM_PROVIDER=codex LIFEMAP_CODEX_MODEL=gpt-5.5 LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS=180 ... uv run python - <<'PY' ...`
+  - `PYTHONPATH=apps/api LIFEMAP_LLM_PROVIDER=codex LIFEMAP_CODEX_MODEL=gpt-5.5 ... uv run fastapi run apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8002`
+  - `curl -sS -X POST http://127.0.0.1:8002/goals ...`
+  - `curl -sS -i -X POST http://127.0.0.1:8002/goals/goal_6a1f3ba2ed0945d5bc1cba7ef6713591/analysis`
+  - `kill 73305 78980`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+  - `lsof -iTCP:8001 -sTCP:LISTEN`
+  - `lsof -iTCP:8002 -sTCP:LISTEN`
+- Known gaps:
+  - The user's currently running desktop/API process must be restarted to load this latest compact schema and timeout fix.
+  - The intake analysis path is real Codex GPT-5.5 now, so the first checklist can take about a minute.
+- Next recommended task:
+  - Restart the desktop app/API and retry the goal; the verified endpoint now returns a checklist instead of 502.

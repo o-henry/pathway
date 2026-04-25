@@ -12,6 +12,159 @@ from lifemap_api.application.errors import AppConfigurationError, ProviderInvoca
 from lifemap_api.config import Settings
 
 
+def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    if schema.get("title") == "GoalAnalysis":
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "goal_id": {"type": "string"},
+                "analysis_summary": {"type": "string"},
+                "resource_dimensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "label": {"type": "string"},
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "time",
+                                    "money",
+                                    "energy",
+                                    "motivation",
+                                    "skill",
+                                    "environment",
+                                    "schedule",
+                                    "support",
+                                    "location",
+                                    "tooling",
+                                    "practice",
+                                ],
+                            },
+                            "value_type": {"type": "string"},
+                            "question": {"type": "string"},
+                            "relevance_reason": {"type": "string"},
+                        },
+                        "required": [
+                            "id",
+                            "label",
+                            "kind",
+                            "value_type",
+                            "question",
+                            "relevance_reason",
+                        ],
+                    },
+                },
+                "research_questions": {"type": "array", "items": {"type": "string"}},
+                "followup_questions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "label": {"type": "string"},
+                            "question": {"type": "string"},
+                            "why_needed": {"type": "string"},
+                            "answer_type": {"type": "string"},
+                            "required": {"type": "boolean"},
+                            "maps_to": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": [
+                            "id",
+                            "label",
+                            "question",
+                            "why_needed",
+                            "answer_type",
+                            "required",
+                            "maps_to",
+                        ],
+                    },
+                },
+                "research_plan": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "summary": {"type": "string"},
+                        "collection_targets": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "label": {"type": "string"},
+                                    "layer": {"type": "string"},
+                                    "search_intent": {"type": "string"},
+                                    "example_queries": {"type": "array", "items": {"type": "string"}},
+                                    "preferred_collectors": {"type": "array", "items": {"type": "string"}},
+                                    "source_examples": {"type": "array", "items": {"type": "string"}},
+                                    "reason": {"type": "string"},
+                                    "max_sources": {"type": "integer"},
+                                },
+                                "required": [
+                                    "id",
+                                    "label",
+                                    "layer",
+                                    "search_intent",
+                                    "example_queries",
+                                    "preferred_collectors",
+                                    "source_examples",
+                                    "reason",
+                                    "max_sources",
+                                ],
+                            },
+                        },
+                        "verification_checks": {"type": "array", "items": {"type": "string"}},
+                        "expected_graph_complexity": {
+                            "type": "string",
+                            "enum": ["low", "moderate", "high"],
+                        },
+                    },
+                    "required": [
+                        "summary",
+                        "collection_targets",
+                        "verification_checks",
+                        "expected_graph_complexity",
+                    ],
+                },
+            },
+            "required": [
+                "goal_id",
+                "analysis_summary",
+                "resource_dimensions",
+                "research_questions",
+                "followup_questions",
+                "research_plan",
+            ],
+        }
+
+    def convert(value: Any) -> Any:
+        if isinstance(value, list):
+            return [convert(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+
+        converted = {
+            key: convert(item)
+            for key, item in value.items()
+            if key != "default"
+        }
+        properties = converted.get("properties")
+        if isinstance(properties, dict):
+            converted["required"] = list(properties.keys())
+            converted.setdefault("additionalProperties", False)
+        return converted
+
+    converted_schema = convert(schema)
+    if not isinstance(converted_schema, dict):
+        raise AppConfigurationError("Codex output schema must be a JSON object")
+    return converted_schema
+
+
 class CodexCliProvider:
     def __init__(self, settings: Settings) -> None:
         if not settings.codex_model:
@@ -52,18 +205,17 @@ class CodexCliProvider:
                 schema_path = temp_path / f"{schema_name}.schema.json"
                 output_path = temp_path / f"{schema_name}.json"
                 schema_path.write_text(
-                    json.dumps(json_schema, ensure_ascii=False, indent=2),
+                    json.dumps(_to_codex_output_schema(json_schema), ensure_ascii=False, indent=2),
                     encoding="utf-8",
                 )
                 command = [
                     "codex",
                     "exec",
+                    "--ephemeral",
                     "--model",
                     self._settings.codex_model,
                     "--sandbox",
                     "read-only",
-                    "--ask-for-approval",
-                    "never",
                     "--output-schema",
                     str(schema_path),
                     "--output-last-message",

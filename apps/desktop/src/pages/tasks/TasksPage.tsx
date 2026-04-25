@@ -37,6 +37,7 @@ type TasksPageProps = {
   activeGoalId?: string | null;
   activeGoalTitle?: string | null;
   pathwayGoalAnalysis?: GoalAnalysisRecord | null;
+  pathwayGoalAnalysisError?: { goalId: string; message: string } | null;
   onSelectGoal?: (goalId: string | null) => void;
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
@@ -308,6 +309,7 @@ export default function TasksPage(props: TasksPageProps) {
       return;
     }
     const analysis = props.pathwayGoalAnalysis?.goal_id === activeGoalId ? props.pathwayGoalAnalysis : null;
+    const analysisError = props.pathwayGoalAnalysisError?.goalId === activeGoalId ? props.pathwayGoalAnalysisError.message.trim() : "";
     const hasFollowups = Boolean(analysis?.followup_questions?.length);
     setPathwayIntake((current) => {
       if (current.goalId === activeGoalId && current.messages.length > 0) {
@@ -317,6 +319,14 @@ export default function TasksPage(props: TasksPageProps) {
             ...current,
             phase: "clarifying",
             messages: [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
+          };
+        }
+        const hasSameError = analysisError && current.messages.some((message) => message.content === analysisError);
+        if (!hasFollowups && analysisError && !hasSameError) {
+          return {
+            ...current,
+            phase: "idle",
+            messages: [...current.messages, makePathwayMessage("assistant", analysisError)],
           };
         }
         return current;
@@ -329,6 +339,9 @@ export default function TasksPage(props: TasksPageProps) {
       if (hasFollowups && analysis) {
         messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
       }
+      if (!hasFollowups && analysisError) {
+        messages.push(makePathwayMessage("assistant", analysisError));
+      }
       return {
         phase: hasFollowups ? "clarifying" : "idle",
         goalId: activeGoalId,
@@ -340,6 +353,7 @@ export default function TasksPage(props: TasksPageProps) {
     props.activeGoalId,
     props.activeGoalTitle,
     props.pathwayGoalAnalysis,
+    props.pathwayGoalAnalysisError,
     props.pathwayMode,
     pathwayIntakePending,
   ]);
