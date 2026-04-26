@@ -3,6 +3,37 @@
 ## Latest micro-update
 
 - Completed work:
+  - Enabled Codex CLI live web search for Pathway structured generation by default using `codex --search exec`.
+  - Added `LIFEMAP_CODEX_WEB_SEARCH_ENABLED` so web search can be turned off explicitly when needed.
+  - Updated goal-analysis prompts to ask Codex to discover concrete public candidate URLs and include community, SNS, forum, blog, learner diary, review, and public discussion sources as lived-experience material.
+  - Expanded the desktop collector seed resolver with lived-experience source candidates for English-speaking goals, including blogs, forums, and public Reddit threads.
+  - Documented the new web-search setting and the anecdotal-treatment rule for community/SNS/blog material.
+- Changed files:
+  - `.env.example`
+  - `README.md`
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_codex_cli_provider.py`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `codex exec --help`
+  - `codex --help`
+  - `codex --search exec --ephemeral --model gpt-5.5 --sandbox read-only "In one short sentence, name one public source type useful for language-learning lived experience research."`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_codex_cli_provider.py apps/api/tests/test_goal_analysis.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `env PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - Community/SNS pages are still subject to robots, login, captcha, and platform policy; Pathway should treat them as anecdotal and avoid raw scraping when unsafe.
+  - A dedicated discovery trace table is still missing, so web-discovered candidates are currently carried through research-plan fields rather than a first-class discovery store.
+- Next recommended task:
+  - Add a discovery result model that records candidate URL, source family, policy state, and whether Pathway fetched full content, metadata only, or skipped it.
+
+## Latest micro-update
+
+- Completed work:
   - Changed automatic research collection from sequential execution to bounded parallel execution with 4 workers.
   - Added provider-readiness promise caching so parallel jobs do not all try to install/prepare the same collector at once.
   - Stopped creating DuckDuckGo search-result collection jobs; those URLs are blocked by robots.txt and caused `성공 0건 / 실패 12건`.

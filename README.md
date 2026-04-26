@@ -69,6 +69,8 @@ The reset script clears stale desktop/API listeners before booting the workspace
 The desktop/web Vite scripts automatically prefer a modern Node runtime from `~/.nvm/versions/node/` because `vite@7` does not run on the older system Node.
 The desktop workflow and Pathway intake analysis use the logged-in Codex CLI session with `GPT-5.5` by default.
 Backend graph generation may still use the deterministic `stub` provider for local fallback, but user-facing AI analysis should run through `LIFEMAP_LLM_PROVIDER=codex` with `LIFEMAP_CODEX_MODEL=gpt-5.5`.
+Codex web search is enabled by default with `LIFEMAP_CODEX_WEB_SEARCH_ENABLED=true`, which makes Pathway call `codex exec --search` while planning research targets.
+Community posts, SNS threads, blogs, and learner stories may be used as public candidate sources when they are accessible without login and treated as anecdotal evidence rather than universal proof.
 
 ## Other development commands
 

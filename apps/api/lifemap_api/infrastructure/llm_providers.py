@@ -428,6 +428,7 @@ class CodexCliProvider:
                 )
                 command = [
                     "codex",
+                    *(["--search"] if self._settings.codex_web_search_enabled else []),
                     "exec",
                     "--ephemeral",
                     "--model",

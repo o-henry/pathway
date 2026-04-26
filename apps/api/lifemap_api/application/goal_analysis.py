@@ -130,6 +130,18 @@ def _build_system_prompt() -> str:
         - Prefer 4 to 8 follow-up questions.
         - Include lived experience, formal/structured options, open learning media,
           failure modes, and route-switching evidence when relevant.
+        - When live web search is available, use it to discover public candidate URLs
+          for the research plan instead of relying only on generic search phrases.
+        - Include community, forum, blog, learner diary, review, and public social
+          discussion sources when they can add lived-experience signal.
+        - Treat community/SNS/blog material as anecdotal evidence: useful for friction,
+          failure modes, route switches, and user language, but not as universal proof.
+        - For community/SNS/blog candidates, prefer public pages that are accessible
+          without login and can be cited by URL. Do not include private groups,
+          paywalled posts, captcha-gated pages, or sources requiring session cookies.
+        - If a candidate community/SNS source may not be safely fetched, still list it
+          as a URL example only when it is public, and mark the collection intent as
+          metadata/summary rather than raw-content scraping.
         - Name collectors as preferences only; collectors are tools, not autonomous agents.
         - Do not suggest scraping private, logged-in, paywalled, captcha, or forbidden sources.
         """
@@ -157,6 +169,12 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         - `resource_dimensions` and `followup_questions` should be aligned,
           but not necessarily one-to-one.
         - `research_plan.collection_targets` should explain what to collect and why.
+        - Put concrete public candidate URLs in `source_examples` whenever web search
+          finds useful sources. Mix official/research sources with lived-experience
+          sources such as public forum threads, blogs, reviews, and learner stories.
+        - For each lived-experience target, include queries that find stories with
+          constraints similar to the user: starting level, budget, time, anxiety,
+          tool choice, and failure or route-switching moments.
         - `research_plan.expected_graph_complexity` must be one of:
           `low`, `moderate`, or `high`.
         - `research_questions` should be concrete search/retrieval queries derived from the plan.

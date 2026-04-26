@@ -48,6 +48,26 @@ const SOURCE_HINT_URL_SEEDS: ReadonlyArray<{ patterns: string[]; url: string }> 
     patterns: ['task repetition', 'oral performance'],
     url: 'https://www.sciencedirect.com/science/article/pii/S0346251X25002787',
   },
+  {
+    patterns: ['learner experience', 'learned english', 'how i learned english'],
+    url: 'https://www.fluentu.com/blog/english/how-did-you-learn-english/',
+  },
+  {
+    patterns: ['native speaker', 'language exchange', 'free tutor'],
+    url: 'https://reallifeglobal.com/the-truth-about-speaking-with-native-speakers/',
+  },
+  {
+    patterns: ['englishclub', 'confidence', 'speaking'],
+    url: 'https://www.englishclub.com/esl-forums/viewtopic.php?t=70225',
+  },
+  {
+    patterns: ['reddit', 'confidence', 'speaking'],
+    url: 'https://www.reddit.com/r/EnglishLearning/comments/1s8zjrh/how_can_i_become_more_confidence_on_speaking/',
+  },
+  {
+    patterns: ['reddit', 'native speaker', 'talk'],
+    url: 'https://www.reddit.com/r/EnglishLearning/comments/1crpj60/how_to_meet_a_native_english_speaker_to_talk/',
+  },
 ];
 
 function cleanLine(value: unknown): string {

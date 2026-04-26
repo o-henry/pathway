@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     source_chunk_target_tokens: int = Field(default=700, alias="SOURCE_CHUNK_TARGET_TOKENS")
     source_chunk_overlap_tokens: int = Field(default=120, alias="SOURCE_CHUNK_OVERLAP_TOKENS")
     codex_model: str = Field(default="gpt-5.5", alias="LIFEMAP_CODEX_MODEL")
+    codex_web_search_enabled: bool = Field(default=True, alias="LIFEMAP_CODEX_WEB_SEARCH_ENABLED")
     local_api_token: str | None = Field(default=None, alias="LIFEMAP_LOCAL_API_TOKEN")
     source_fetch_enabled: bool = Field(default=False, alias="SOURCE_FETCH_ENABLED")
     source_fetch_rate_limit_per_minute: int = Field(
