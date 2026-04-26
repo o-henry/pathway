@@ -139,6 +139,10 @@ function isApprovalText(input: string): boolean {
   return APPROVAL_PATTERN.test(input.trim());
 }
 
+function isTransientBackendMessage(input: string): boolean {
+  return /Pathway 로컬 백엔드가 아직 준비되지 않았습니다|failed to fetch|networkerror|load failed/i.test(input);
+}
+
 function normalizePathwayIntakeState(input: unknown, goalId: string): PathwayIntakeState | null {
   if (!input || typeof input !== "object") {
     return null;
@@ -425,7 +429,7 @@ export default function TasksPage(props: TasksPageProps) {
           }
         }
         const hasSameError = analysisError && restored.messages.some((message) => message.content === analysisError);
-        if (!hasFollowups && analysisError && !hasSameError) {
+        if (!hasFollowups && analysisError && !hasSameError && !isTransientBackendMessage(analysisError)) {
           return {
             ...restored,
             phase: "idle",
@@ -442,7 +446,7 @@ export default function TasksPage(props: TasksPageProps) {
       if (hasFollowups && analysis) {
         messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
       }
-      if (!hasFollowups && analysisError) {
+      if (!hasFollowups && analysisError && !isTransientBackendMessage(analysisError)) {
         messages.push(makePathwayMessage("assistant", analysisError));
       }
       return {

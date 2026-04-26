@@ -3,6 +3,25 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed Pathway stop behavior so it no longer calls `engine_stop`; stopping a Pathway run now cancels the UI run without killing the local API backend.
+  - Added a local API transient-error guard for background goal analysis so temporary `failed to fetch` states do not become PATHWAY chat messages.
+  - Kept backend-unavailable errors out of the intake conversation log while preserving non-transient analysis errors.
+  - Ensured background analysis calls `ensureEngineStarted()` before calling the goal-analysis endpoint.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `rg -n "engine_stop|Pathway 로컬 백엔드가 아직 준비되지 않았습니다|isTransientBackendMessage|isLocalApiTransientError" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src/pages/tasks/TasksPage.tsx`
+- Known gaps:
+  - `engine_stop` is still used for explicit Codex logout, where stopping the local engine is intentional.
+- Next recommended task:
+  - Add a regression around Pathway stop: stop during background analysis, then create another goal and verify the API stays reachable.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the remaining hardcoded fallback checklist questions from `formatPathwayFollowups`.
   - Added an explicit `analyzing` intake phase so a newly created goal does not enter `clarifying` until GPT-5.5-generated follow-up questions arrive.
   - Kept the interim message generic and non-domain-specific; Pathway no longer invents checklist questions in frontend code.

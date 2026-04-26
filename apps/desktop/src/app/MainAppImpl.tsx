@@ -343,6 +343,11 @@ function formatUiError(error: unknown, fallback: string): string {
   return message || fallback;
 }
 
+function isLocalApiTransientError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /failed to fetch|networkerror|load failed|Pathway local backend is not reachable/i.test(message);
+}
+
 function buildIntakeGoalTitle(input: string): string {
   const normalized = input.replace(/\s+/g, ' ').trim();
   if (!normalized) {
@@ -1172,6 +1177,9 @@ export default function MainApp() {
 
   async function analyzeGoalInBackground(goalId: string) {
     try {
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
       const analysis = await analyzeGoal(goalId);
       if (pathwayWorkCancelledRef.current) {
         return;
@@ -1181,6 +1189,10 @@ export default function MainApp() {
       setStatusMessage('목표 분석이 백그라운드에서 갱신되었습니다.');
     } catch (error) {
       if (pathwayWorkCancelledRef.current) {
+        return;
+      }
+      if (isLocalApiTransientError(error)) {
+        setStatusMessage('목표 분석은 백그라운드에서 대기 중입니다. 로컬 API가 준비되면 다시 이어집니다.');
         return;
       }
       const message = formatUiError(error, '백그라운드 목표 분석에 실패했습니다.');
@@ -1337,15 +1349,6 @@ export default function MainApp() {
     setIsBusy(false);
     setResearchPlanCollecting(false);
     setStatusMessage('Pathway 작업을 중단했습니다.');
-    if (!hasTauriRuntime) {
-      return;
-    }
-    try {
-      await invoke('engine_stop');
-      setEngineStarted(false);
-    } catch {
-      // UI cancellation still prevents late async results from mutating the current intake log.
-    }
   }
 
   async function handleSelectNode(nodeId: string) {
