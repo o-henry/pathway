@@ -3,6 +3,26 @@
 ## Latest micro-update
 
 - Completed work:
+  - Changed the selected-node context metric cards from a 2x2 grid to a 1x3 grid on normal sidebar widths.
+  - Added a `따라 할 설명` section for selected graph nodes that derives guidance from actionable node data, evidence state, assumptions, and the node summary.
+  - Updated graph generation prompts so future nodes may include compact actionable fields such as `next_action`, `practice_step`, `checkpoint`, `switch_condition`, and `verification_step`.
+- Changed files:
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+- Known gaps:
+  - Existing graphs generated before this prompt change may not have explicit action fields, so the UI falls back to guidance derived from summary/evidence/assumptions.
+- Next recommended task:
+  - Regenerate a sample graph and visually confirm the context panel reads cleanly with action-rich node data.
+
+## Latest micro-update
+
+- Completed work:
   - Added academic/paper collection guidance to Pathway goal analysis: arXiv, PubMed/PMC, OpenReview, Semantic Scholar, DOI/publisher pages, systematic reviews, meta-analyses, and empirical studies.
   - Added an `academic_research` fallback collection target so graph generation can include paper-style evidence when provider output omits a plan.
   - Added desktop collector seed URLs for arXiv, Semantic Scholar, PubMed, OpenReview, and DOI/publisher hints.

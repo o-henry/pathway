@@ -76,10 +76,13 @@ def _build_system_prompt() -> str:
           but never jokey enough to reduce clarity.
         - Keep field values compact and readable for a graph-first UI.
         - Include only the evidence items actually referenced by at least one node.
-        - For this structured-output path, keep `ontology.node_types[].fields`,
-          `node.data`, `node.style_overrides`, `edge.style_overrides`, and
-          `node.revision_meta` as empty objects/arrays unless a repair prompt
-          explicitly asks otherwise.
+        - For each node, include compact actionable fields in `node.data` when useful:
+          `next_action`, `practice_step`, `checkpoint`, `switch_condition`,
+          `verification_step`, or similarly named dynamic fields. These fields should
+          tell the user what to try, check, or record for that node.
+        - Keep `ontology.node_types[].fields`, `node.style_overrides`,
+          `edge.style_overrides`, and `node.revision_meta` as empty objects/arrays
+          unless a repair prompt explicitly asks otherwise.
         """
     ).strip()
 
@@ -123,6 +126,9 @@ def _build_user_prompt(
         - Prefer route families that show tradeoffs and switching conditions
           instead of collapsing everything into one default path.
         - Use node summaries that explain tradeoffs, not just labels.
+        - Make each node actionable enough for a context panel: if the user clicks
+          it, the node summary and `node.data` should explain what to do, what to
+          verify, or when to switch routes.
         - Keep scores within 0 and 1.
         - Every node must include `scores` with `time_load`, `money_load`,
           `energy_load`, and `uncertainty`.

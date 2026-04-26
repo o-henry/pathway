@@ -43,6 +43,7 @@ import {
   type ResearchPlanCollectorJob,
 } from './researchPlanCollectorJobs';
 import type {
+  AssumptionItem,
   CurrentStateSnapshot,
   EvidenceItem,
   GoalAnalysisRecord,
@@ -165,6 +166,44 @@ function evidenceReliabilityLabel(item: EvidenceItem): string {
     return '사용자/수동 노트';
   }
   return item.reliability;
+}
+
+function extractActionableNodeEntries(node: GraphNodeRecord): Array<[string, string]> {
+  const actionPattern = /action|step|next|todo|task|instruction|how|routine|practice|checkpoint|milestone|criteria|plan|실행|단계|다음|방법|루틴|연습|검증|기준/i;
+  return Object.entries(node.data ?? {})
+    .filter(([key, value]) => actionPattern.test(key) && value != null && String(value).trim())
+    .slice(0, 5)
+    .map(([key, value]) => [key.replaceAll('_', ' '), formatFieldValue(value)]);
+}
+
+function buildNodeActionGuidance(
+  node: GraphNodeRecord,
+  evidence: EvidenceItem[],
+  assumptions: AssumptionItem[],
+): { intro: string; steps: string[]; note: string } {
+  const actionableEntries = extractActionableNodeEntries(node);
+  const contentEvidence = evidence.filter((item) => !isMetadataOnlyEvidence(item));
+  const metadataEvidence = evidence.filter(isMetadataOnlyEvidence);
+  const steps = actionableEntries.map(([key, value]) => `${key}: ${value}`);
+  if (steps.length === 0) {
+    if (contentEvidence.length > 0) {
+      steps.push(`연결된 근거 ${contentEvidence.length}개를 기준으로 '${node.label}'에 해당하는 행동을 하나 정하고 실행 기록에 남기세요.`);
+    } else if (metadataEvidence.length > 0) {
+      steps.push(`후보 URL ${metadataEvidence.length}개는 원문 검토 전입니다. 먼저 출처를 확인한 뒤 이 노드를 실행 경로로 믿을지 판단하세요.`);
+    } else {
+      steps.push(`'${node.label}'에 해당하는 실제 행동이나 확인 결과를 업데이트 입력창에 기록해 이 노드가 현재 상태와 맞는지 검증하세요.`);
+    }
+  }
+  if (assumptions.length > 0) {
+    steps.push(`전제 ${assumptions.length}개가 틀릴 경우 경로가 바뀔 수 있으니, 실행 전 가장 약한 전제부터 확인하세요.`);
+  }
+  return {
+    intro: node.summary || '이 노드가 현재 그래프에서 맡는 역할을 먼저 확인하세요.',
+    steps: steps.slice(0, 4),
+    note: contentEvidence.length > 0
+      ? '근거가 붙은 노드입니다. 실행 후 실제 결과를 기록하면 그래프가 이 경로를 유지할지 조정할지 판단할 수 있습니다.'
+      : '근거가 부족한 노드입니다. 실행보다 먼저 확인이나 기록을 통해 이 노드의 신뢰도를 높이는 편이 좋습니다.',
+  };
 }
 
 function NavIcon({ tab }: { tab: WorkspaceTab; active?: boolean }) {
@@ -455,6 +494,9 @@ export default function MainApp() {
   const selectedMetadataEvidence = selectedEvidence.filter(isMetadataOnlyEvidence);
   const selectedContentEvidence = selectedEvidence.filter((item) => !isMetadataOnlyEvidence(item));
   const selectedAssumptions = selectedNode && displayBundle ? getAssumptionsForNode(displayBundle, selectedNode.id) : [];
+  const selectedNodeActionGuidance = selectedNode
+    ? buildNodeActionGuidance(selectedNode, selectedEvidence, selectedAssumptions)
+    : null;
   const selectedNodePreviewChange =
     selectedNode && revisionPreview
       ? revisionPreview.diff.node_changes.find((item) => item.node_id === selectedNode.id) ?? null
@@ -1799,6 +1841,19 @@ export default function MainApp() {
                           <strong>{selectedAssumptions.length}개</strong>
                         </article>
                       </div>
+
+                      {selectedNodeActionGuidance ? (
+                        <section className="pathway-inspector-section pathway-node-action-guide">
+                          <span className="pathway-panel-kicker">따라 할 설명</span>
+                          <p className="pathway-panel-copy">{selectedNodeActionGuidance.intro}</p>
+                          <ol className="pathway-action-list">
+                            {selectedNodeActionGuidance.steps.map((step, index) => (
+                              <li key={`${selectedNode.id}:action:${index}`}>{step}</li>
+                            ))}
+                          </ol>
+                          <p className="pathway-panel-copy">{selectedNodeActionGuidance.note}</p>
+                        </section>
+                      ) : null}
 
                       {selectedNodePreviewChange ? (
                         <section className="pathway-inspector-section">
