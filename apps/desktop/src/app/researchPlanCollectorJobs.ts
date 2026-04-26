@@ -5,6 +5,7 @@ export type ResearchPlanCollectorJob = {
   targetId: string;
   targetLabel: string;
   provider: string;
+  providerCandidates: string[];
   url: string;
   topic: string;
   kind: 'explicit_url' | 'search_probe';
@@ -13,7 +14,7 @@ export type ResearchPlanCollectorJob = {
 const URL_PATTERN = /https?:\/\/[^\s<>()"'`]+/gi;
 const MAX_TOTAL_RESEARCH_PLAN_JOBS = 12;
 const MAX_SEARCH_PROBES_PER_TARGET = 2;
-const DEFAULT_COLLECTOR = 'crawl4ai';
+const DEFAULT_COLLECTOR_ORDER = ['scrapling', 'crawl4ai', 'lightpanda_experimental'];
 const SUPPORTED_FETCH_COLLECTORS = new Set([
   'crawl4ai',
   'scrapling',
@@ -46,8 +47,9 @@ function searchProbeUrl(query: string): string {
   return `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 }
 
-function resolveProvider(preferredCollectors: string[]): string {
-  return preferredCollectors.map(cleanLine).find((collector) => SUPPORTED_FETCH_COLLECTORS.has(collector)) ?? DEFAULT_COLLECTOR;
+function resolveProviderCandidates(preferredCollectors: string[]): string[] {
+  const preferred = preferredCollectors.map(cleanLine).filter((collector) => SUPPORTED_FETCH_COLLECTORS.has(collector));
+  return uniqueStrings([...preferred, ...DEFAULT_COLLECTOR_ORDER]);
 }
 
 export function buildResearchPlanCollectorJobs(
@@ -61,7 +63,8 @@ export function buildResearchPlanCollectorJobs(
       break;
     }
 
-    const provider = resolveProvider(target.preferred_collectors);
+    const providerCandidates = resolveProviderCandidates(target.preferred_collectors);
+    const provider = providerCandidates[0] ?? DEFAULT_COLLECTOR_ORDER[0]!;
     const targetBudget = Math.max(1, Math.min(target.max_sources || 1, MAX_TOTAL_RESEARCH_PLAN_JOBS - jobs.length));
     const rawHints = [
       target.search_intent,
@@ -78,6 +81,7 @@ export function buildResearchPlanCollectorJobs(
         targetId: target.id,
         targetLabel: target.label,
         provider,
+        providerCandidates,
         url,
         topic,
         kind: 'explicit_url',
@@ -98,6 +102,7 @@ export function buildResearchPlanCollectorJobs(
         targetId: target.id,
         targetLabel: target.label,
         provider,
+        providerCandidates,
         url: searchProbeUrl(query),
         topic,
         kind: 'search_probe',

@@ -68,6 +68,9 @@ Expected results:
 
 - Completed:
   - Implemented local collector fetch bridge and research-plan job execution from the workflow sidebar.
+  - Repaired automatic graph-gating collection so each research-plan URL tries multiple supported local collectors before failing.
+  - Added automatic install/prepare attempts for installable collectors before falling through to the next provider.
+  - Preserved and surfaced per-target/provider failure reasons instead of collapsing all failures into an opaque count.
 - Tests run:
   - `cargo fmt --manifest-path src-tauri/Cargo.toml`
   - `cargo check --manifest-path src-tauri/Cargo.toml`
@@ -77,3 +80,4 @@ Expected results:
   - `env UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
 - Known gaps:
   - Broad source discovery and result-page expansion remain the next phase.
+  - If every safe collector/provider path rejects a URL, graph generation still stops as intended, but the UI now reports the concrete provider errors.

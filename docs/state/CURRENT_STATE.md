@@ -3,6 +3,27 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the automatic research collection failure path that previously swallowed every per-job exception and only showed `성공 0건 / 실패 N건`.
+  - Added per-job collector fallback order so research-plan collection tries supported local collectors (`scrapling`, `crawl4ai`, `lightpanda_experimental`) instead of failing after one provider.
+  - Added automatic install/prepare attempts for installable collectors during auto collection, so graph generation no longer depends on a separate manual collector setup click.
+  - Added visible failure summaries for the first failed targets/providers so the next failure identifies the actual cause, such as provider readiness, fetch rejection, or source-library upsert failure.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `docs/state/EXECPLAN_COLLECTOR_FETCH_BRIDGE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `env PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - This pass improves collection fallback and diagnostics; it does not yet expand search-result pages into vetted result URLs.
+- Next recommended task:
+  - Run the full `pnpm dev` Tauri path against a real goal and capture the concrete provider/source-library result from the updated status if any target still fails.
+
+## Latest micro-update
+
+- Completed work:
   - Changed Pathway goal intake analysis so deterministic stub providers are rejected instead of producing generic follow-up questions.
   - Removed the unused hardcoded stub goal-analysis question builder from the backend provider file.
   - Kept graph-generation stub support intact for local fallback, but documented that intake follow-up questions require a real structured provider (`openai` with `gpt-5.5`).

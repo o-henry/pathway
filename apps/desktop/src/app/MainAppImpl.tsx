@@ -104,6 +104,10 @@ type CollectorFetchResult = {
   error?: string;
 };
 
+type CollectorJobAttemptResult =
+  | { ok: true; provider: string }
+  | { ok: false; error: string };
+
 const COLLECTOR_DOCTOR_DEFINITIONS: ReadonlyArray<{
   id: string;
   label: string;
@@ -129,6 +133,18 @@ function formatFieldValue(value: unknown): string {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function cleanCollectorMessage(value: unknown): string {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function truncateCollectorMessage(value: string, maxLength = 220): string {
+  const clean = cleanCollectorMessage(value);
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return `${clean.slice(0, maxLength - 1)}…`;
 }
 
 function NavIcon({ tab }: { tab: WorkspaceTab; active?: boolean }) {
@@ -945,18 +961,63 @@ export default function MainApp() {
     if (health?.ready) {
       return;
     }
+    if (health?.installable) {
+      const initialMessage = String(health?.message ?? '').trim();
+      setResearchPlanCollectionStatus(
+        `${providerId} 수집기가 아직 준비되지 않아 자동 설치/준비를 시도합니다.${initialMessage ? ` · ${initialMessage}` : ''}`,
+      );
+      await invoke<CollectorInstallResult>('dashboard_crawl_provider_install', {
+        cwd,
+        provider: providerId,
+      });
+      const recheckedHealth = await invoke<CollectorHealthResult>('dashboard_crawl_provider_health', {
+        cwd,
+        provider: providerId,
+      });
+      if (recheckedHealth?.ready) {
+        return;
+      }
+      const recheckedMessage =
+        String(recheckedHealth?.message ?? '').trim() || `${providerId} 수집기 자동 설치 후에도 준비되지 않았습니다.`;
+      throw new Error(`${providerId}: ${recheckedMessage}`);
+    }
     const message = String(health?.message ?? '').trim() || `${providerId} 수집기가 준비되지 않았습니다.`;
     throw new Error(`${providerId}: ${message}`);
   }
 
-  async function runResearchPlanCollectorJob(job: ResearchPlanCollectorJob): Promise<CollectorFetchResult> {
-    await ensureCollectorReadyForJob(job.provider);
+  async function runResearchPlanCollectorJob(job: ResearchPlanCollectorJob, provider: string): Promise<CollectorFetchResult> {
+    await ensureCollectorReadyForJob(provider);
     return invoke<CollectorFetchResult>('dashboard_crawl_provider_fetch_url', {
       cwd,
-      provider: job.provider,
+      provider,
       url: job.url,
       topic: job.topic,
     });
+  }
+
+  async function runResearchPlanCollectorJobWithFallbacks(job: ResearchPlanCollectorJob): Promise<CollectorJobAttemptResult> {
+    const providers = job.providerCandidates.length > 0 ? job.providerCandidates : [job.provider];
+    const errors: string[] = [];
+
+    for (const provider of providers) {
+      try {
+        const result = await runResearchPlanCollectorJob(job, provider);
+        const ok = String(result?.status ?? '').toLowerCase() === 'ok';
+        const sourceError = cleanCollectorMessage(result?.source_meta?.source_library_error);
+        if (ok && !sourceError) {
+          return { ok: true, provider };
+        }
+        const resultError = cleanCollectorMessage(result?.error || sourceError || result?.status || 'fetch failed');
+        errors.push(`${provider}: ${resultError}`);
+      } catch (error) {
+        errors.push(`${provider}: ${formatUiError(error, '실패')}`);
+      }
+    }
+
+    return {
+      ok: false,
+      error: truncateCollectorMessage(errors.join(' / '), 360),
+    };
   }
 
   async function collectResearchPlanTargetsForGraph(triggerLabel: string) {
@@ -970,31 +1031,38 @@ export default function MainApp() {
     setErrorMessage('');
     let successCount = 0;
     let failureCount = 0;
+    const failureReasons: string[] = [];
     try {
       await ensureEngineStarted();
       for (let index = 0; index < researchPlanCollectorJobs.length; index += 1) {
         const job = researchPlanCollectorJobs[index]!;
+        const providers = job.providerCandidates.length > 0 ? job.providerCandidates : [job.provider];
         setResearchPlanCollectionStatus(
-          `${triggerLabel} 전 자동 수집 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel}`,
+          `${triggerLabel} 전 자동 수집 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel} · ${providers.join(' → ')}`,
         );
-        try {
-          const result = await runResearchPlanCollectorJob(job);
-          const ok = String(result?.status ?? '').toLowerCase() === 'ok';
-          const sourceError = String(result?.source_meta?.source_library_error ?? '').trim();
-          if (ok && !sourceError) {
-            successCount += 1;
-          } else {
-            failureCount += 1;
-          }
-        } catch {
+        const result = await runResearchPlanCollectorJobWithFallbacks(job);
+        if (result.ok) {
+          successCount += 1;
+        } else {
           failureCount += 1;
+          failureReasons.push(`${job.targetLabel}: ${result.error}`);
         }
       }
       setResearchPlanCollectionStatus(
         `자동 수집 완료 · source library 적재 성공 ${successCount}건 / 실패 ${failureCount}건`,
       );
       if (successCount === 0) {
-        throw new Error(`자동 수집이 완료되지 않아 ${triggerLabel}을 중단했습니다. 성공 0건 / 실패 ${failureCount}건`);
+        const reasonSummary = failureReasons.slice(0, 3).join(' / ');
+        throw new Error(
+          `자동 수집이 완료되지 않아 ${triggerLabel}을 중단했습니다. 성공 0건 / 실패 ${failureCount}건. ${reasonSummary}`,
+        );
+      }
+      if (failureReasons.length > 0) {
+        setResearchPlanCollectionStatus(
+          `자동 수집 완료 · source library 적재 성공 ${successCount}건 / 실패 ${failureCount}건 · 일부 실패: ${failureReasons
+            .slice(0, 2)
+            .join(' / ')}`,
+        );
       }
       setStatusMessage(`자동 수집을 완료했습니다. 수집된 자료를 바탕으로 ${triggerLabel}을 계속합니다.`);
     } catch (error) {
