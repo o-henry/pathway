@@ -2445,6 +2445,33 @@
   word-break: break-word;
 }
 
+.pathway-workflow-sidebar .pathway-detail-list .pathway-evidence-item {
+  gap: 6px;
+}
+
+.pathway-evidence-item.is-metadata-only {
+  opacity: 0.92;
+}
+
+.pathway-evidence-badge {
+  width: fit-content;
+  padding: 3px 7px;
+  border: 1px solid #c8d0d9;
+  background: #eef1f4;
+  color: #4f5967;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.pathway-evidence-item.is-metadata-only .pathway-evidence-badge {
+  border-color: #d6c28c;
+  background: #f5edcf;
+  color: #6d5b20;
+}
+
 @media (max-width: 1120px) {
   .pathway-workflow-header {
     flex-direction: column;

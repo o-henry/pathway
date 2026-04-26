@@ -43,6 +43,7 @@ import {
 } from './researchPlanCollectorJobs';
 import type {
   CurrentStateSnapshot,
+  EvidenceItem,
   GoalAnalysisRecord,
   GoalRecord,
   GraphBundle,
@@ -146,6 +147,23 @@ function truncateCollectorMessage(value: string, maxLength = 220): string {
     return clean;
   }
   return `${clean.slice(0, maxLength - 1)}…`;
+}
+
+function isMetadataOnlyEvidence(item: EvidenceItem): boolean {
+  return item.reliability === 'public_url_metadata' || /metadata-only|candidate source/i.test(item.quote_or_summary);
+}
+
+function evidenceReliabilityLabel(item: EvidenceItem): string {
+  if (isMetadataOnlyEvidence(item)) {
+    return '후보 URL · 원문 미수집';
+  }
+  if (item.reliability === 'public_url_allowed') {
+    return '원문 수집됨';
+  }
+  if (item.reliability === 'manual_note') {
+    return '사용자/수동 노트';
+  }
+  return item.reliability;
 }
 
 function NavIcon({ tab }: { tab: WorkspaceTab; active?: boolean }) {
@@ -426,6 +444,8 @@ export default function MainApp() {
   const selectedNode = displayBundle ? findSelectedNode(displayBundle, effectiveSelectedNodeId) : null;
   const selectedNodeVisibleFields = selectedNode ? getVisibleNodeFields(selectedNode) : [];
   const selectedEvidence = selectedNode && displayBundle ? getEvidenceForNode(displayBundle, selectedNode.id) : [];
+  const selectedMetadataEvidence = selectedEvidence.filter(isMetadataOnlyEvidence);
+  const selectedContentEvidence = selectedEvidence.filter((item) => !isMetadataOnlyEvidence(item));
   const selectedAssumptions = selectedNode && displayBundle ? getAssumptionsForNode(displayBundle, selectedNode.id) : [];
   const selectedNodePreviewChange =
     selectedNode && revisionPreview
@@ -1662,7 +1682,11 @@ export default function MainApp() {
                       <div className="pathway-node-summary-grid" aria-label="선택 노드 요약">
                         <article className="pathway-node-summary-card">
                           <span className="pathway-panel-kicker">연결 근거</span>
-                          <strong>{selectedEvidence.length}개</strong>
+                          <strong>{selectedContentEvidence.length}개</strong>
+                        </article>
+                        <article className="pathway-node-summary-card">
+                          <span className="pathway-panel-kicker">후보 URL</span>
+                          <strong>{selectedMetadataEvidence.length}개</strong>
                         </article>
                         <article className="pathway-node-summary-card">
                           <span className="pathway-panel-kicker">연결 가정</span>
@@ -1706,10 +1730,14 @@ export default function MainApp() {
                         ) : (
                           <ul className="pathway-detail-list">
                             {selectedEvidence.map((item) => (
-                              <li key={item.id}>
+                              <li
+                                className={isMetadataOnlyEvidence(item) ? 'pathway-evidence-item is-metadata-only' : 'pathway-evidence-item'}
+                                key={item.id}
+                              >
+                                <em className="pathway-evidence-badge">{evidenceReliabilityLabel(item)}</em>
                                 <strong>{item.title}</strong>
                                 <span>{item.quote_or_summary}</span>
-                                <p>{item.reliability}</p>
+                                {item.url ? <p>{item.url}</p> : null}
                               </li>
                             ))}
                           </ul>

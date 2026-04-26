@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from threading import Lock
 
 import lancedb
 
@@ -9,6 +10,7 @@ from lifemap_api.application.source_pipeline import build_search_snippet
 from lifemap_api.domain.models import SourceChunk, SourceDocument, SourceSearchHit
 
 TABLE_NAME = "source_chunks"
+_TABLE_WRITE_LOCK = Lock()
 
 
 class LanceDBSourceSearchIndex:
@@ -51,18 +53,26 @@ class LanceDBSourceSearchIndex:
             for chunk, embedding in zip(chunks, embeddings, strict=True)
         ]
 
-        db = self._connect()
-        if self._table_exists(db):
-            table = db.open_table(TABLE_NAME)
+        with _TABLE_WRITE_LOCK:
+            db = self._connect()
+            if self._table_exists(db):
+                table = db.open_table(TABLE_NAME)
+                try:
+                    table.delete(f"source_id = '{source.id}'")
+                    table.add(rows)
+                    return
+                except Exception:
+                    # Recreate the table when the stored schema lags behind the current row shape.
+                    db.drop_table(TABLE_NAME)
+
             try:
+                db.create_table(TABLE_NAME, data=rows)
+            except ValueError as error:
+                if "already exists" not in str(error):
+                    raise
+                table = db.open_table(TABLE_NAME)
                 table.delete(f"source_id = '{source.id}'")
                 table.add(rows)
-                return
-            except Exception:
-                # Recreate the table when the stored schema lags behind the current row shape.
-                db.drop_table(TABLE_NAME)
-
-        db.create_table(TABLE_NAME, data=rows)
 
     def search(self, *, query_embedding: list[float], limit: int) -> list[SourceSearchHit]:
         db = self._connect()

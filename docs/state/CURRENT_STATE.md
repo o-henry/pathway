@@ -3,6 +3,57 @@
 ## Latest micro-update
 
 - Completed work:
+  - Marked metadata-only source hits as discovery candidates in the graph-generation prompt so they are not treated as proof for page claims.
+  - Added a grounding warning for packets that only contain `public_url_metadata` candidates.
+  - Updated the workflow inspector to separate content-backed evidence counts from candidate URL counts.
+  - Added `후보 URL · 원문 미수집` badges for metadata-only evidence items in the context panel.
+- Changed files:
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_library.py apps/api/tests/test_codex_cli_provider.py`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `git diff --check`
+  - `env PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - UI now labels candidate URLs in the inspector, but the canvas node itself does not yet show a distinct source badge when a node only references metadata-only candidates.
+- Next recommended task:
+  - Add node-level visual affordance for candidate-only routes so the graph canvas itself distinguishes review-needed nodes from evidence-backed nodes.
+
+## Latest micro-update
+
+- Completed work:
+  - Added metadata-only collector fallback for public candidate URLs that cannot be full-text fetched because of robots, auth, forbidden, captcha, login, or paywall signals.
+  - Preserved the no-stealth/no-bypass boundary while letting community/SNS/forum/blog candidates remain usable as discovery clues.
+  - Fixed a LanceDB table creation race hit by parallel source ingestion; source chunk writes are now guarded and recover if another worker creates the table first.
+  - Verified robots-blocked DuckDuckGo and Reddit URLs now upsert as `public_url_metadata` with `metadata_only: true` instead of failing the whole collection batch.
+- Changed files:
+  - `src-tauri/src/main.rs`
+  - `apps/api/lifemap_api/infrastructure/vector_store.py`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `node --input-type=module -e "...extract COLLECTOR_FETCH_SCRIPT..."`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run fastapi run apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run python3 /tmp/pathway_collector_fetch_script.py scrapling 'https://duckduckgo.com/html/?q=CEFR%20spoken%20interaction%20B1%20B2%20C1%20descriptors%20conversation' pathway:metadata_validation`
+  - `node --input-type=module -e "...parallel reddit metadata-only validation..."`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_library.py apps/api/tests/test_codex_cli_provider.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `env PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - Metadata-only records are intentionally weak evidence; graph generation should treat them as discovery clues unless user-provided excerpts or allowed full-text sources back the claim.
+- Next recommended task:
+  - Add UI labeling for `public_url_metadata` so the graph/sidebar clearly distinguishes “candidate source only” from “content-backed evidence.”
+
+## Latest micro-update
+
+- Completed work:
   - Enabled Codex CLI live web search for Pathway structured generation by default using `codex --search exec`.
   - Added `LIFEMAP_CODEX_WEB_SEARCH_ENABLED` so web search can be turned off explicitly when needed.
   - Updated goal-analysis prompts to ask Codex to discover concrete public candidate URLs and include community, SNS, forum, blog, learner diary, review, and public discussion sources as lived-experience material.

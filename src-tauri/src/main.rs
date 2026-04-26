@@ -1031,6 +1031,68 @@ def upsert_source(provider, topic, url, title, content, robots_status):
     return response.json()
 
 
+def should_store_metadata_only(message):
+    lowered = str(message or "").lower()
+    return any(
+        token in lowered
+        for token in [
+            "robots.txt disallows",
+            "401",
+            "403",
+            "forbidden",
+            "unauthorized",
+            "captcha",
+            "login",
+            "paywall",
+            "search probe returned no safe result urls",
+        ]
+    )
+
+
+def upsert_metadata_source(provider, topic, url, reason):
+    import httpx
+
+    parsed = urlparse(url)
+    title = parsed.netloc or url
+    content = normalize_text(
+        f"""
+        Metadata-only public source candidate.
+        URL: {url}
+        Collection policy: full-text fetch was not performed.
+        Reason: {reason}
+        Use this record only as a discovery clue or anecdotal candidate, not as evidence for page claims.
+        """
+    )
+    metadata = {
+        "collector_used": provider,
+        "collector_topic": topic,
+        "layer": topic,
+        "fetched_at": dt.datetime.now(dt.UTC).isoformat(),
+        "ingested_by": "dashboard_crawl_provider_fetch_url",
+        "policy_state": "public_url_metadata",
+        "metadata_only": True,
+        "metadata_only_reason": str(reason)[:800],
+    }
+    headers = {}
+    local_api_token = os.environ.get("LIFEMAP_LOCAL_API_TOKEN", "").strip()
+    if local_api_token:
+        headers["Authorization"] = f"Bearer {local_api_token}"
+    response = httpx.post(
+        f"{API_BASE_URL}/sources/manual",
+        headers=headers,
+        json={
+            "title": title[:200],
+            "content_text": content,
+            "url": url,
+            "source_type": "public_url_metadata",
+            "metadata": metadata,
+        },
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    return response.json(), title, content
+
+
 def main():
     provider = sys.argv[1].strip()
     url = sys.argv[2].strip()
@@ -1088,6 +1150,43 @@ def main():
         emit(payload)
         return 0
     except Exception as error:
+        message = str(error)
+        if should_store_metadata_only(message):
+            source_payload = {}
+            source_error = None
+            try:
+                validate_url(url)
+                source_payload, title, content = upsert_metadata_source(provider, topic, url, message)
+            except Exception as metadata_error:
+                return fail(provider, url, f"{message}; metadata-only upsert failed: {metadata_error}")
+            fetched_at = dt.datetime.now(dt.UTC).isoformat()
+            meta = {
+                "title": title,
+                "source_id": source_payload.get("id") if isinstance(source_payload, dict) else None,
+                "word_count": len(content.split()),
+                "provider_used": provider,
+                "policy_state": "public_url_metadata",
+                "metadata_only": True,
+                "metadata_only_reason": message[:800],
+                "source_library_error": source_error,
+            }
+            payload = {
+                "provider": provider,
+                "status": "ok",
+                "url": url,
+                "fetched_at": fetched_at,
+                "summary": compact_text(content)[:420],
+                "content": content[:6000],
+                "markdown_path": None,
+                "json_path": None,
+                "source_meta": meta,
+                "error": None,
+            }
+            markdown_path, json_path = write_artifacts(root, f"{provider}:metadata_only", url, title, content, payload)
+            payload["markdown_path"] = markdown_path
+            payload["json_path"] = json_path
+            emit(payload)
+            return 0
         return fail(provider, url, str(error))
 
 

@@ -313,7 +313,8 @@ def _layer_priority(layer: str) -> int:
         "personal_story": 4,
         "manual_note": 5,
         "public_url_allowed": 6,
-        "unknown": 7,
+        "public_url_metadata": 7,
+        "unknown": 8,
     }
     return order.get(layer, 50)
 
@@ -406,6 +407,11 @@ def _diversity_warning(selected_hits: list[RankedGroundingHit]) -> str | None:
         return None
 
     represented_layers = {_layer_key(item.hit) for item in selected_hits}
+    if represented_layers == {"public_url_metadata"}:
+        return (
+            "Retrieved sources are metadata-only discovery candidates, not content-backed "
+            "evidence. Use them only to mark review needs or candidate source availability."
+        )
     if len(represented_layers) < 2:
         return (
             "Retrieved evidence is still narrow and may underrepresent alternative routes, "

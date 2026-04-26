@@ -62,6 +62,9 @@ def _build_system_prompt() -> str:
         - Use retrieved evidence only through the evidence IDs provided in the grounding packet.
         - Never invent evidence IDs, source titles, or quotes.
         - If a claim is not supported by the grounding packet, express it as an assumption instead.
+        - Treat `public_url_metadata` items as discovery candidates only. Do not use them
+          as proof for claims about the page content unless the node is explicitly about
+          source availability or the need for user review.
         - When the grounding packet contains different evidence families such as lived experience,
           official guidance, failure cases, or alternative routes,
           reflect that breadth in the graph.
@@ -114,6 +117,9 @@ def _build_user_prompt(
         - Use assumptions when information is missing.
         - If evidence exists, connect it to specific nodes with `evidence_refs`.
         - If evidence does not exist for a claim, do not disguise it as evidence.
+        - If an evidence item has reliability `public_url_metadata`, use it only to
+          mark a candidate source, blocked fetch, or review need. Do not summarize
+          unsupported page claims from it.
         - Prefer route families that show tradeoffs and switching conditions
           instead of collapsing everything into one default path.
         - Use node summaries that explain tradeoffs, not just labels.
