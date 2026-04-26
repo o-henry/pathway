@@ -3,6 +3,29 @@
 ## Latest micro-update
 
 - Completed work:
+  - Identified why the first Pathway checklist could sit on "thinking" for minutes: `pathway_goal_analysis` was invoking Codex with web search enabled and asking for concrete source discovery during intake.
+  - Changed `CodexCliProvider` so `schema_name="pathway_goal_analysis"` does not pass `--search` to Codex CLI, while other structured generation still honors the global web-search setting.
+  - Reworded the goal-analysis prompt so intake does not perform live source discovery; it now asks for questions and source families/known stable examples, with scout collection deferred until after user approval.
+  - Added a regression test proving goal-intake analysis disables Codex web search even when web search is enabled globally.
+- Changed files:
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_codex_cli_provider.py`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_codex_cli_provider.py apps/api/tests/test_goal_analysis.py`
+  - `pnpm typecheck`
+  - `UV_CACHE_DIR=.uv-cache uv run python -m py_compile apps/api/lifemap_api/application/goal_analysis.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_codex_cli_provider.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/goal_analysis.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_codex_cli_provider.py` (failed on pre-existing repository-wide `llm_providers.py` formatting/line-length issues)
+- Known gaps:
+  - Intake still calls GPT-5.5 for structured questions, so it may take some time, but it no longer runs web-search source discovery before the checklist.
+  - The broad ruff command remains blocked by existing `llm_providers.py` style debt unrelated to this small change.
+- Next recommended task:
+  - Split `GoalAnalysis` into a small intake-question schema and a later research-plan schema so the first response has an even smaller model output contract.
+
+## Previous micro-update
+
+- Completed work:
   - Re-established the Pathway intake contract: a new goal request no longer returns `{ analysis: null }` as a successful path.
   - `handleStartPathwayIntake` now creates the goal, then awaits GPT goal analysis in the same async request and returns `{ goal, analysis }` only after checklist questions are ready.
   - `TasksPage` now treats `onStartPathwayIntake` analysis as required and moves directly into `clarifying` with the generated checklist instead of parking on a static pending message.

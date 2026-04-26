@@ -163,18 +163,16 @@ def _build_system_prompt() -> str:
         - For paper sources, prefer public abstract/full-text pages with stable URLs
           and metadata that collectors can safely fetch. Do not use Sci-Hub,
           credentialed library links, paywall bypasses, or private PDFs.
-        - When live web search is available, use it to discover public candidate URLs
-          for the research plan instead of relying only on generic search phrases.
+        - Do not perform live source discovery during intake analysis. This phase
+          is for asking the user better questions. Scout collectors run only after
+          the user answers and approves graph generation.
         - Include community, forum, blog, learner diary, review, and public social
           discussion sources when they can add lived-experience signal.
         - Treat community/SNS/blog material as anecdotal evidence: useful for friction,
           failure modes, route switches, and user language, but not as universal proof.
-        - For community/SNS/blog candidates, prefer public pages that are accessible
-          without login and can be cited by URL. Do not include private groups,
-          paywalled posts, captcha-gated pages, or sources requiring session cookies.
-        - If a candidate community/SNS source may not be safely fetched, still list it
-          as a URL example only when it is public, and mark the collection intent as
-          metadata/summary rather than raw-content scraping.
+        - For community/SNS/blog candidates, describe public source families and
+          search queries. Include concrete URLs only when they are stable, well-known
+          public pages. Do not fabricate URLs.
         - Name collectors as preferences only; collectors are tools, not autonomous agents.
         - Do not suggest scraping private, logged-in, paywalled, captcha, or forbidden sources.
         """
@@ -202,15 +200,16 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         - `resource_dimensions` and `followup_questions` should be aligned,
           but not necessarily one-to-one.
         - `research_plan.collection_targets` should explain what to collect and why.
-        - Put concrete public candidate URLs in `source_examples` whenever web search
-          finds useful sources. Mix official/research sources with lived-experience
+        - In `source_examples`, prefer source families, known official pages, or
+          stable public URLs you already know. Do not spend this intake phase
+          discovering URLs. Mix official/research source families with lived-experience
           sources such as public forum threads, blogs, reviews, and learner stories.
         - Include at least one `research_plan.collection_targets` entry for academic
           papers when the goal could benefit from empirical or theoretical evidence.
           Good source families include arxiv.org, pubmed.ncbi.nlm.nih.gov,
           ncbi.nlm.nih.gov/pmc, openreview.net, semanticscholar.org, doi.org,
           ACM/IEEE/Springer/Nature/ScienceDirect publisher pages, and university
-          repositories. Use stable public URLs in `source_examples` when available.
+          repositories.
         - For each lived-experience target, include queries that find stories with
           constraints similar to the user: starting level, budget, time, anxiety,
           tool choice, and failure or route-switching moments.

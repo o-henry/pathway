@@ -417,6 +417,10 @@ class CodexCliProvider:
         schema_name: str,
     ) -> str:
         prompt = self._build_prompt(messages=messages, schema_name=schema_name)
+        use_web_search = (
+            self._settings.codex_web_search_enabled
+            and schema_name != "pathway_goal_analysis"
+        )
         try:
             with tempfile.TemporaryDirectory(prefix="pathway-codex-") as temp_dir:
                 temp_path = Path(temp_dir)
@@ -428,7 +432,7 @@ class CodexCliProvider:
                 )
                 command = [
                     "codex",
-                    *(["--search"] if self._settings.codex_web_search_enabled else []),
+                    *(["--search"] if use_web_search else []),
                     "exec",
                     "--ephemeral",
                     "--model",

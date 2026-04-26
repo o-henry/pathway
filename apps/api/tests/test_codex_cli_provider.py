@@ -66,3 +66,33 @@ def test_codex_provider_can_disable_web_search(monkeypatch) -> None:
     command = captured["command"]
     assert isinstance(command, list)
     assert "--search" not in command
+    assert command[0:2] == ["codex", "exec"]
+
+
+def test_codex_provider_disables_web_search_for_goal_intake(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(command, *, input, text, capture_output, timeout, check):  # noqa: ANN001
+        del input, text, capture_output, timeout, check
+        captured["command"] = command
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        output_path.write_text(json.dumps({"ok": True}), encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    provider = CodexCliProvider(Settings())
+
+    provider.generate_structured_json(
+        messages=[{"role": "user", "content": "return ok"}],
+        json_schema={
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}},
+            "required": ["ok"],
+        },
+        schema_name="pathway_goal_analysis",
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert "--search" not in command
+    assert command[0:2] == ["codex", "exec"]
