@@ -43,6 +43,7 @@ type TasksPageProps = {
   onOpenWorkflow?: () => void;
   onStartPathwayIntake?: (goalText: string) => Promise<{ goal: GoalRecord; analysis: GoalAnalysisRecord }>;
   onGeneratePathwayFromIntake?: (goalId: string, answers: string[]) => Promise<void>;
+  onCancelPathwayWork?: () => Promise<void> | void;
   cwd: string;
   hasTauriRuntime: boolean;
   isActive?: boolean;
@@ -320,6 +321,7 @@ export default function TasksPage(props: TasksPageProps) {
   const [pathwayIntakePending, setPathwayIntakePending] = useState(false);
   const [pathwayPendingStartedAt, setPathwayPendingStartedAt] = useState<number | null>(null);
   const [pathwayPendingElapsedSeconds, setPathwayPendingElapsedSeconds] = useState(0);
+  const pathwayRunRef = useRef<{ id: number; cancelled: boolean }>({ id: 0, cancelled: false });
   const [pathwayIntake, setPathwayIntake] = useState<PathwayIntakeState>(
     () => loadStoredPathwayIntake(props.activeGoalId) ?? EMPTY_PATHWAY_INTAKE_STATE,
   );
@@ -533,6 +535,28 @@ export default function TasksPage(props: TasksPageProps) {
     void state.submitComposer();
   };
 
+  const beginPathwayRun = () => {
+    const nextRun = { id: pathwayRunRef.current.id + 1, cancelled: false };
+    pathwayRunRef.current = nextRun;
+    return nextRun.id;
+  };
+
+  const isCurrentPathwayRun = (runId: number) => pathwayRunRef.current.id === runId && !pathwayRunRef.current.cancelled;
+
+  const cancelPathwayRun = async () => {
+    pathwayRunRef.current = { ...pathwayRunRef.current, cancelled: true };
+    setPathwayIntakePending(false);
+    setPathwayIntake((current) => ({
+      ...current,
+      phase: current.phase === "generating" ? "ready" : current.phase,
+      messages: [
+        ...current.messages,
+        makePathwayMessage("assistant", "중단했습니다. 진행 중이던 응답이 늦게 도착해도 이 대화에는 반영하지 않습니다."),
+      ],
+    }));
+    await props.onCancelPathwayWork?.();
+  };
+
   const submitPathwayIntake = async () => {
     const input = pathwayIntakeDraft.trim();
     if (!input || pathwayIntakePending) {
@@ -557,8 +581,12 @@ export default function TasksPage(props: TasksPageProps) {
         return;
       }
       try {
+        const runId = beginPathwayRun();
         setPathwayIntakePending(true);
         const result = await props.onStartPathwayIntake(input);
+        if (!isCurrentPathwayRun(runId)) {
+          return;
+        }
         setPathwayIntake((current) => ({
           ...current,
           phase: "clarifying",
@@ -570,13 +598,18 @@ export default function TasksPage(props: TasksPageProps) {
           ],
         }));
       } catch (error) {
+        if (pathwayRunRef.current.cancelled) {
+          return;
+        }
         const message = error instanceof Error ? error.message : "목표 상담을 시작하지 못했습니다.";
         setPathwayIntake((current) => ({
           ...current,
           messages: [...current.messages, makePathwayMessage("assistant", message)],
         }));
       } finally {
-        setPathwayIntakePending(false);
+        if (!pathwayRunRef.current.cancelled) {
+          setPathwayIntakePending(false);
+        }
       }
       return;
     }
@@ -627,6 +660,7 @@ export default function TasksPage(props: TasksPageProps) {
         return;
       }
       try {
+        const runId = beginPathwayRun();
         setPathwayIntakePending(true);
         setPathwayIntake((current) => ({
           ...current,
@@ -637,6 +671,9 @@ export default function TasksPage(props: TasksPageProps) {
           ],
         }));
         await props.onGeneratePathwayFromIntake(pathwayIntake.goalId, pathwayIntake.answers);
+        if (!isCurrentPathwayRun(runId)) {
+          return;
+        }
         setPathwayIntake((current) => ({
           ...current,
           messages: [
@@ -645,6 +682,9 @@ export default function TasksPage(props: TasksPageProps) {
           ],
         }));
       } catch (error) {
+        if (pathwayRunRef.current.cancelled) {
+          return;
+        }
         const message = error instanceof Error ? error.message : "그래프 생성에 실패했습니다.";
         setPathwayIntake((current) => ({
           ...current,
@@ -652,7 +692,9 @@ export default function TasksPage(props: TasksPageProps) {
           messages: [...current.messages, makePathwayMessage("assistant", message)],
         }));
       } finally {
-        setPathwayIntakePending(false);
+        if (!pathwayRunRef.current.cancelled) {
+          setPathwayIntakePending(false);
+        }
       }
     }
   };
@@ -1028,7 +1070,7 @@ export default function TasksPage(props: TasksPageProps) {
           attachedFiles={state.attachedFiles}
           autoSelectedComposerRoleIds={autoSelectedComposerRoleIds}
           autoSelectedProviderModel={autoSelectedProviderModel}
-          canUseStopButton={state.canInterruptCurrentThread}
+          canUseStopButton={props.pathwayMode ? pathwayIntakePending : state.canInterruptCurrentThread}
           canInterruptCurrentThread={state.canInterruptCurrentThread}
           creativeModeEnabled={state.composerCreativeMode}
           composerCoordinationModeOverride={state.composerCoordinationModeOverride}
@@ -1047,7 +1089,7 @@ export default function TasksPage(props: TasksPageProps) {
           reasoningLabel={displayReasoningLabel(state.reasoning)}
           selectedComposerRoleIds={state.selectedComposerRoleIds}
           selectedModelOption={selectedModelOption}
-          showStopButton={props.pathwayMode ? false : showStopButton}
+          showStopButton={props.pathwayMode ? pathwayIntakePending : showStopButton}
           stoppingComposerRun={state.stoppingComposerRun}
           onComposerCursorChange={setComposerCursor}
           onComposerDraftChange={(value, cursor) => {
@@ -1078,9 +1120,11 @@ export default function TasksPage(props: TasksPageProps) {
             setIsReasonMenuOpen(false);
           }}
           onStop={() => {
-            if (!props.pathwayMode) {
-              void state.stopComposerRun();
+            if (props.pathwayMode) {
+              void cancelPathwayRun();
+              return;
             }
+            void state.stopComposerRun();
           }}
           onSubmit={() => {
             if (props.pathwayMode) {

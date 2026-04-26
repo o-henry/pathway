@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the remaining new-goal isolation bug where focus/tab refresh could reselect an existing goal while the user was composing a new Pathway goal.
+  - Added a dedicated new-goal mode so auto refresh preserves the blank new-goal state instead of falling back to the first existing goal.
+  - Added a Pathway stop action in the bottom composer during pending intake/generation; stopping marks the current run as cancelled, ignores late async responses, clears busy/collection state, and asks the local engine to stop when running in Tauri.
+  - Added cancellation guards in intake creation, answer persistence, auto collection, and graph generation paths so late completions do not mutate the current intake log after stop.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - The browser fetch/API request itself is not fully abortable yet; current cancellation stops UI mutation and engine work, but adding AbortController support to the API client would make cancellation stricter.
+- Next recommended task:
+  - Add a regression test that clicks `새 목표`, triggers focus refresh, submits a new goal, and verifies older goals remain unchanged and unselected.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed the Pathway new-goal intake path so entering new goal mode clears the previous selected goal's intake state immediately.
   - Removed the unsafe `activeGoal` fallback during intake answer persistence; graph generation now fetches the target goal by `goalId` before patching, so a newly created goal cannot inherit or mix state from the previously selected goal.
   - Added a desktop API helper for fetching a single goal by id.

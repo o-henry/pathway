@@ -378,6 +378,7 @@ export default function MainApp() {
   const [goals, setGoals] = useState<GoalRecord[]>([]);
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
   const [activeGoal, setActiveGoal] = useState<GoalRecord | null>(null);
+  const [pathwayNewGoalMode, setPathwayNewGoalMode] = useState(false);
   const [goalAnalysis, setGoalAnalysis] = useState<GoalAnalysisRecord | null>(null);
   const [goalAnalysisError, setGoalAnalysisError] = useState<{ goalId: string; message: string } | null>(null);
   const [, setMaps] = useState<LifeMap[]>([]);
@@ -412,6 +413,7 @@ export default function MainApp() {
   const collectorDoctorLastCheckedAtRef = useRef(0);
   const collectorDoctorInFlightRef = useRef(false);
   const collectorReadyPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
+  const pathwayWorkCancelledRef = useRef(false);
   const [, setResearchPlanCollecting] = useState(false);
   const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
 
@@ -571,6 +573,7 @@ export default function MainApp() {
     const nextGoals = await fetchGoals();
     setGoals(nextGoals);
     if (nextGoals.length === 0) {
+      setPathwayNewGoalMode(false);
       setActiveGoalId(null);
       setActiveGoal(null);
       setGoalAnalysis(null);
@@ -580,6 +583,11 @@ export default function MainApp() {
       setStateUpdates([]);
       setRouteSelection(null);
       setRevisionPreview(null);
+      return null;
+    }
+
+    if (preserveSelection && pathwayNewGoalMode) {
+      setActiveGoalId(null);
       return null;
     }
 
@@ -649,6 +657,7 @@ export default function MainApp() {
   }
 
   async function handleSelectPathwayGoal(goalId: string | null) {
+    setPathwayNewGoalMode(!goalId);
     setActiveGoalId(goalId);
     setErrorMessage('');
     setGoalAnalysis(null);
@@ -668,6 +677,7 @@ export default function MainApp() {
       return;
     }
 
+    setPathwayNewGoalMode(false);
     const nextGoal = goals.find((item) => item.id === goalId) ?? null;
     setActiveGoal(nextGoal);
     await refreshGoalWorkspace(goalId);
@@ -776,7 +786,7 @@ export default function MainApp() {
       window.removeEventListener('focus', syncIfPathwayVisible);
       document.removeEventListener('visibilitychange', syncIfPathwayVisible);
     };
-  }, [workspaceTab, activeGoalId, activeMapId, goals]);
+  }, [workspaceTab, activeGoalId, activeMapId, goals, pathwayNewGoalMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1165,6 +1175,7 @@ export default function MainApp() {
     if (!normalizedGoal) {
       throw new Error('목표를 먼저 입력해 주세요.');
     }
+    pathwayWorkCancelledRef.current = false;
     let createdGoalId: string | null = null;
     try {
       setIsBusy(true);
@@ -1179,7 +1190,12 @@ export default function MainApp() {
         category: 'general',
         success_criteria: buildIntakeSuccessCriteria(normalizedGoal),
       });
+      if (pathwayWorkCancelledRef.current) {
+        await deleteGoal(goal.id);
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       createdGoalId = goal.id;
+      setPathwayNewGoalMode(false);
       setGoals((current) => [goal, ...current.filter((item) => item.id !== goal.id)]);
       setActiveGoalId(goal.id);
       setActiveGoal(goal);
@@ -1190,6 +1206,9 @@ export default function MainApp() {
       setRouteSelection(null);
       setRevisionPreview(null);
       const analysis = await analyzeGoal(goal.id);
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       setGoalAnalysis(analysis);
       setGoalAnalysisError(null);
       setStatusMessage('목표를 만들고 에이전트가 필요한 확인 질문을 정리했습니다.');
@@ -1210,6 +1229,7 @@ export default function MainApp() {
     if (!goalId) {
       throw new Error('그래프를 만들 목표가 없습니다.');
     }
+    pathwayWorkCancelledRef.current = false;
     try {
       setIsBusy(true);
       setErrorMessage('');
@@ -1218,6 +1238,9 @@ export default function MainApp() {
       }
       const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
       const goal = await fetchGoal(goalId);
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       if (answerBlock) {
         const nextDescription = [
           goal?.description?.trim() || '',
@@ -1228,12 +1251,21 @@ export default function MainApp() {
           description: nextDescription,
           success_criteria: goal?.success_criteria || buildIntakeSuccessCriteria(answerBlock),
         });
+        if (pathwayWorkCancelledRef.current) {
+          throw new Error('Pathway 작업이 중단되었습니다.');
+        }
         setGoals((current) => current.map((item) => (item.id === updatedGoal.id ? updatedGoal : item)));
         setActiveGoalId(updatedGoal.id);
         setActiveGoal(updatedGoal);
       }
       await collectResearchPlanTargetsForGraph('그래프 생성');
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       const nextMap = await generatePathway(goalId);
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       setStatusMessage('상담 내용을 반영해 새 경로 그래프를 생성했습니다.');
       await refreshGoalWorkspace(goalId, nextMap.id);
       setWorkspaceTab('workflow');
@@ -1250,6 +1282,7 @@ export default function MainApp() {
     if (!activeGoalId) {
       return;
     }
+    pathwayWorkCancelledRef.current = false;
     try {
       setIsBusy(true);
       setErrorMessage('');
@@ -1257,7 +1290,13 @@ export default function MainApp() {
         await ensureEngineStarted();
       }
       await collectResearchPlanTargetsForGraph('그래프 생성');
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       const nextMap = await generatePathway(activeGoalId);
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
       setStatusMessage('새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.');
       await refreshGoalWorkspace(activeGoalId, nextMap.id);
       setWorkspaceTab('workflow');
@@ -1265,6 +1304,22 @@ export default function MainApp() {
       setErrorMessage(formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.'));
     } finally {
       setIsBusy(false);
+    }
+  }
+
+  async function handleCancelPathwayWork() {
+    pathwayWorkCancelledRef.current = true;
+    setIsBusy(false);
+    setResearchPlanCollecting(false);
+    setStatusMessage('Pathway 작업을 중단했습니다.');
+    if (!hasTauriRuntime) {
+      return;
+    }
+    try {
+      await invoke('engine_stop');
+      setEngineStarted(false);
+    } catch {
+      // UI cancellation still prevents late async results from mutating the current intake log.
     }
   }
 
@@ -1832,6 +1887,7 @@ export default function MainApp() {
         invokeFn={invoke}
         isActive={workspaceTab === 'tasks'}
         loginCompleted={loginCompleted}
+        onCancelPathwayWork={handleCancelPathwayWork}
         onOpenWorkflow={() => setWorkspaceTab('workflow')}
         onGeneratePathwayFromIntake={handleGeneratePathwayFromIntake}
         onDeleteGoal={(goalId) => {
