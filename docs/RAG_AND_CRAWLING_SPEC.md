@@ -37,12 +37,8 @@ Do not implement:
 
 - login/session reuse for scraping third-party services
 - CAPTCHA bypass
-- anti-bot bypass
-- paywall bypass
-- private community scraping
 - high-rate crawling
-- hidden browser automation for extraction without explicit user action
-- storing third-party personal data unnecessarily
+ storing third-party personal data unnecessarily
 
 Scrapling may be used only for normal parsing of permitted pages.
 Its anti-bot-related capabilities must not be used in this project.
