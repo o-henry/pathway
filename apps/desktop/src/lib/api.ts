@@ -66,6 +66,10 @@ export async function fetchGoals(): Promise<GoalRecord[]> {
   return parseJson<GoalRecord[]>(await apiFetch(`${API_BASE_URL}/goals`));
 }
 
+export async function fetchGoal(goalId: string): Promise<GoalRecord> {
+  return parseJson<GoalRecord>(await apiFetch(`${API_BASE_URL}/goals/${goalId}`));
+}
+
 export async function createGoal(payload: {
   title: string;
   description: string;

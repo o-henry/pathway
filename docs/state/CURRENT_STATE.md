@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the Pathway new-goal intake path so entering new goal mode clears the previous selected goal's intake state immediately.
+  - Removed the unsafe `activeGoal` fallback during intake answer persistence; graph generation now fetches the target goal by `goalId` before patching, so a newly created goal cannot inherit or mix state from the previously selected goal.
+  - Added a desktop API helper for fetching a single goal by id.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - This pass fixes the goal-state isolation bug; it did not add a full browser/Tauri reproduction test for the left-rail new-goal flow.
+- Next recommended task:
+  - Add a small Playwright/Tauri regression that creates two goals in sequence and verifies only the new goal receives intake-answer updates.
+
+## Latest micro-update
+
+- Completed work:
   - Marked metadata-only source hits as discovery candidates in the graph-generation prompt so they are not treated as proof for page claims.
   - Added a grounding warning for packets that only contain `public_url_metadata` candidates.
   - Updated the workflow inspector to separate content-backed evidence counts from candidate URL counts.

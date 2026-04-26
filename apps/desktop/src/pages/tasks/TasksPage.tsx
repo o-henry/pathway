@@ -395,6 +395,7 @@ export default function TasksPage(props: TasksPageProps) {
     }
     const activeGoalId = String(props.activeGoalId ?? "").trim();
     if (!activeGoalId) {
+      setPathwayIntake(EMPTY_PATHWAY_INTAKE_STATE);
       return;
     }
     const analysis = props.pathwayGoalAnalysis?.goal_id === activeGoalId ? props.pathwayGoalAnalysis : null;

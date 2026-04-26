@@ -12,6 +12,7 @@ import {
   createStateUpdate,
   deleteGoal,
   fetchCurrentState,
+  fetchGoal,
   fetchGoalAnalysis,
   fetchGoalMaps,
   fetchGoals,
@@ -1216,7 +1217,7 @@ export default function MainApp() {
         await ensureEngineStarted();
       }
       const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
-      const goal = goals.find((item) => item.id === goalId) ?? activeGoal;
+      const goal = await fetchGoal(goalId);
       if (answerBlock) {
         const nextDescription = [
           goal?.description?.trim() || '',
@@ -1228,6 +1229,7 @@ export default function MainApp() {
           success_criteria: goal?.success_criteria || buildIntakeSuccessCriteria(answerBlock),
         });
         setGoals((current) => current.map((item) => (item.id === updatedGoal.id ? updatedGoal : item)));
+        setActiveGoalId(updatedGoal.id);
         setActiveGoal(updatedGoal);
       }
       await collectResearchPlanTargetsForGraph('그래프 생성');
