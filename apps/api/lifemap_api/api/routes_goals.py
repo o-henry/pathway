@@ -121,6 +121,19 @@ def post_goal_analysis(
         ) from exc
 
 
+@router.get("/{goal_id}/analysis", response_model=GoalAnalysis | None)
+def read_goal_analysis(
+    goal_id: str,
+    goal_repo: SqliteGoalRepository = Depends(get_goal_repository),
+    analysis_repo: SqliteGoalAnalysisRepository = Depends(get_goal_analysis_repository),
+) -> GoalAnalysis | None:
+    try:
+        get_goal(goal_repo, goal_id)
+    except EntityNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return analysis_repo.get(goal_id)
+
+
 @router.get("/{goal_id}/current-state", response_model=CurrentStateSnapshot | None)
 def read_goal_current_state(
     goal_id: str,

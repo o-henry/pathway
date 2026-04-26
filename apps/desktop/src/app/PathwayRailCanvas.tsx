@@ -63,6 +63,10 @@ type PathwayTone = "sky" | "iris" | "mist" | "goal";
 
 const TERMINAL_GOAL_DATA_ROLE = "terminal_goal";
 const PERSONAL_LEARNING_DATA_ROLE = "personal_learning";
+const PATHWAY_NODE_WIDTH = 220;
+const PATHWAY_NODE_HEIGHT = 56;
+const PATHWAY_GOAL_WIDTH = 260;
+const PATHWAY_LEARNING_WIDTH = 240;
 
 export type PersonalLearningDisplayTask = {
   id: string;
@@ -151,15 +155,15 @@ function measurePathwayNode(_node: GraphNodeRecord, _depth: number, _childCount:
     normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
     TERMINAL_GOAL_DATA_ROLE
   ) {
-    return { width: 280, height: 64 };
+    return { width: PATHWAY_GOAL_WIDTH, height: PATHWAY_NODE_HEIGHT };
   }
   if (
     normalizeGraphSearchText((_node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
     PERSONAL_LEARNING_DATA_ROLE
   ) {
-    return { width: 250, height: 58 };
+    return { width: PATHWAY_LEARNING_WIDTH, height: PATHWAY_NODE_HEIGHT };
   }
-  return { width: 220, height: 56 };
+  return { width: PATHWAY_NODE_WIDTH, height: PATHWAY_NODE_HEIGHT };
 }
 
 function makeUniqueNodeId(baseId: string, existingIds: Set<string>): string {
@@ -374,6 +378,44 @@ type PathwayNodeFootprint = {
   footprintHeight: number;
 };
 
+function hasAlternateProgressionPath(
+  edges: GraphEdgeRecord[],
+  sourceId: string,
+  targetId: string,
+  skippedEdgeIndex: number,
+): boolean {
+  const outgoing = new Map<string, string[]>();
+  edges.forEach((edge, index) => {
+    if (index === skippedEdgeIndex) {
+      return;
+    }
+    const rows = outgoing.get(edge.source) ?? [];
+    rows.push(edge.target);
+    outgoing.set(edge.source, rows);
+  });
+
+  const visited = new Set<string>();
+  const queue = [...(outgoing.get(sourceId) ?? [])];
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    if (current === targetId) {
+      return true;
+    }
+    if (visited.has(current)) {
+      continue;
+    }
+    visited.add(current);
+    queue.push(...(outgoing.get(current) ?? []));
+  }
+  return false;
+}
+
+function reduceProgressionEdgesForDisplay(edges: GraphEdgeRecord[]): GraphEdgeRecord[] {
+  return edges.filter(
+    (edge, index) => !hasAlternateProgressionPath(edges, edge.source, edge.target, index),
+  );
+}
+
 function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): PathwayEdgeSides {
   const targetRole = normalizeGraphSearchText((target.node.data as Record<string, unknown> | undefined)?.pathway_display_role);
   if (targetRole === TERMINAL_GOAL_DATA_ROLE) {
@@ -406,7 +448,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const progressionTypeIds = new Set(
     bundle.ontology.edge_types.filter((item) => item.role === "progression").map((item) => item.id),
   );
-  const progressionEdges = bundle.edges.filter((edge) => progressionTypeIds.has(edge.type));
+  const progressionEdges = reduceProgressionEdgesForDisplay(bundle.edges.filter((edge) => progressionTypeIds.has(edge.type)));
   const nodeById = new Map(bundle.nodes.map((node) => [node.id, node]));
   const learningNodeIds = bundle.nodes
     .filter(
@@ -468,7 +510,18 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   }
 
   if (goalNodeId) {
-    const goalDepth = depth.get(goalNodeId) ?? 1;
+    const directGoalParentIds = (parents.get(goalNodeId) ?? []).filter((nodeId) => !learningNodeIds.includes(nodeId));
+    const terminalLaneDepth = Math.max(
+      0,
+      ...bundle.nodes
+        .filter((node) => node.id !== goalNodeId && !learningNodeIds.includes(node.id))
+        .map((node) => depth.get(node.id) ?? 0),
+    );
+    directGoalParentIds.forEach((nodeId) => {
+      depth.set(nodeId, terminalLaneDepth);
+    });
+    const goalDepth = terminalLaneDepth + 1;
+    depth.set(goalNodeId, goalDepth);
     learningNodeIds.forEach((nodeId) => {
       depth.set(nodeId, Math.max(0, goalDepth - 1));
     });
@@ -491,8 +544,8 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
   const horizontalGap = 96;
-  const rootRowGap = 68;
-  const laneSiblingGap = 168;
+  const rootRowGap = 48;
+  const laneSiblingGap = 72;
   const lanePaddingBottom = 24;
   const laneStartX = new Map<number, number>();
   let laneCursorX = 120;
@@ -576,22 +629,32 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     });
 
   if (goalNodeId) {
-    const primaryGoalParent = (parents.get(goalNodeId) ?? [])
+    const directGoalParentIds = (parents.get(goalNodeId) ?? [])
       .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
       .sort((leftId, rightId) => {
-        const depthDiff = (depth.get(rightId) ?? 0) - (depth.get(leftId) ?? 0);
-        if (depthDiff !== 0) {
-          return depthDiff;
-        }
         const leftRow = rowByNodeId.get(leftId) ?? 0;
         const rightRow = rowByNodeId.get(rightId) ?? 0;
         if (Math.abs(leftRow - rightRow) > 0.0001) {
           return leftRow - rightRow;
         }
         return compareNodeIds(leftId, rightId);
-      })[0];
-    if (primaryGoalParent) {
-      rowByNodeId.set(goalNodeId, rowByNodeId.get(primaryGoalParent) ?? 0);
+      });
+    const compactStartRow = -(directGoalParentIds.length - 1) / 2;
+    directGoalParentIds.forEach((nodeId, index) => {
+      rowByNodeId.set(nodeId, compactStartRow + index);
+    });
+  }
+
+  if (goalNodeId) {
+    const goalParentRows = (parents.get(goalNodeId) ?? [])
+      .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
+      .map((parentId) => rowByNodeId.get(parentId))
+      .filter((value): value is number => typeof value === "number");
+    if (goalParentRows.length > 0) {
+      rowByNodeId.set(
+        goalNodeId,
+        goalParentRows.reduce((sum, value) => sum + value, 0) / goalParentRows.length,
+      );
     }
   }
 
@@ -887,8 +950,7 @@ export default function PathwayRailCanvas({
         },
       };
     });
-    const edges = bundle.edges
-      .filter((edge) => layout.progressionTypeIds.has(edge.type))
+    const edges = reduceProgressionEdgesForDisplay(bundle.edges.filter((edge) => layout.progressionTypeIds.has(edge.type)))
       .map((edge) => {
         const source = layoutNodeById.get(edge.source);
         const target = layoutNodeById.get(edge.target);
@@ -1034,7 +1096,12 @@ export default function PathwayRailCanvas({
         }
         return { width: NODE_WIDTH, height: NODE_HEIGHT };
       },
-      forceCenteredTargetEntry: (node) => {
+      separateIncomingTargetAnchors: (node) => {
+        const config = node.config as Record<string, unknown> | undefined;
+        return String(config?.sourceKind ?? "").trim() === "pathway"
+          && String(config?.pathwayFamily ?? "").trim() === "goal";
+      },
+      preferNearTargetElbow: (node) => {
         const config = node.config as Record<string, unknown> | undefined;
         return String(config?.sourceKind ?? "").trim() === "pathway"
           && String(config?.pathwayFamily ?? "").trim() === "goal";

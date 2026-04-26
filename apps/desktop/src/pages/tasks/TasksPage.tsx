@@ -116,6 +116,14 @@ type PathwayIntakeState = {
   messages: PathwayIntakeMessage[];
 };
 
+const EMPTY_PATHWAY_INTAKE_STATE: PathwayIntakeState = {
+  phase: "idle",
+  goalId: null,
+  answers: [],
+  messages: [],
+};
+const PATHWAY_INTAKE_STORAGE_KEY = "pathway:intake:v1";
+
 const APPROVAL_PATTERN = /^(ok|okay|yes|y|go|오케이|오케|ㅇㅋ|좋아|좋습니다|진행|시작|생성|해줘|그래|확인|승인)[\s.!?。]*$/i;
 
 function makePathwayMessage(role: PathwayIntakeMessage["role"], content: string): PathwayIntakeMessage {
@@ -128,6 +136,69 @@ function makePathwayMessage(role: PathwayIntakeMessage["role"], content: string)
 
 function isApprovalText(input: string): boolean {
   return APPROVAL_PATTERN.test(input.trim());
+}
+
+function normalizePathwayIntakeState(input: unknown, goalId: string): PathwayIntakeState | null {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+  const candidate = input as Partial<PathwayIntakeState>;
+  if (candidate.goalId !== goalId || !Array.isArray(candidate.messages)) {
+    return null;
+  }
+  const phase: PathwayIntakePhase =
+    candidate.phase === "clarifying" || candidate.phase === "ready" || candidate.phase === "generating"
+      ? candidate.phase
+      : "idle";
+  const messages = candidate.messages
+    .filter((message): message is PathwayIntakeMessage => (
+      Boolean(message)
+      && (message.role === "user" || message.role === "assistant")
+      && typeof message.content === "string"
+      && typeof message.id === "string"
+    ));
+  return {
+    phase: phase === "generating" ? "ready" : phase,
+    goalId,
+    answers: Array.isArray(candidate.answers)
+      ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
+      : [],
+    messages,
+  };
+}
+
+function loadStoredPathwayIntake(goalId: string | null | undefined): PathwayIntakeState | null {
+  const normalizedGoalId = String(goalId ?? "").trim();
+  if (!normalizedGoalId || typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(PATHWAY_INTAKE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return normalizePathwayIntakeState(parsed?.[normalizedGoalId], normalizedGoalId);
+  } catch {
+    return null;
+  }
+}
+
+function storePathwayIntake(state: PathwayIntakeState): void {
+  const goalId = String(state.goalId ?? "").trim();
+  if (!goalId || state.messages.length === 0 || typeof window === "undefined") {
+    return;
+  }
+  try {
+    const raw = window.localStorage.getItem(PATHWAY_INTAKE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    window.localStorage.setItem(
+      PATHWAY_INTAKE_STORAGE_KEY,
+      JSON.stringify({
+        ...parsed,
+        [goalId]: state,
+      }),
+    );
+  } catch {
+    // Non-critical persistence; the in-memory conversation still works.
+  }
 }
 
 function formatPathwayFollowups(analysis: GoalAnalysisRecord): string {
@@ -249,12 +320,9 @@ export default function TasksPage(props: TasksPageProps) {
   const [pathwayIntakePending, setPathwayIntakePending] = useState(false);
   const [pathwayPendingStartedAt, setPathwayPendingStartedAt] = useState<number | null>(null);
   const [pathwayPendingElapsedSeconds, setPathwayPendingElapsedSeconds] = useState(0);
-  const [pathwayIntake, setPathwayIntake] = useState<PathwayIntakeState>({
-    phase: "idle",
-    goalId: null,
-    answers: [],
-    messages: [],
-  });
+  const [pathwayIntake, setPathwayIntake] = useState<PathwayIntakeState>(
+    () => loadStoredPathwayIntake(props.activeGoalId) ?? EMPTY_PATHWAY_INTAKE_STATE,
+  );
   const title = useMemo(() => displayThreadTitle(state.activeThread?.thread.title), [state.activeThread]);
   const headerTitle = state.activeThread ? title : "";
   const selectedModelOption = useMemo(
@@ -333,24 +401,27 @@ export default function TasksPage(props: TasksPageProps) {
     const analysisError = props.pathwayGoalAnalysisError?.goalId === activeGoalId ? props.pathwayGoalAnalysisError.message.trim() : "";
     const hasFollowups = Boolean(analysis?.followup_questions?.length);
     setPathwayIntake((current) => {
-      if (current.goalId === activeGoalId && current.messages.length > 0) {
-        const hasAssistantMessage = current.messages.some((message) => message.role === "assistant");
+      const restored = current.goalId === activeGoalId && current.messages.length > 0
+        ? current
+        : loadStoredPathwayIntake(activeGoalId);
+      if (restored && restored.goalId === activeGoalId && restored.messages.length > 0) {
+        const hasAssistantMessage = restored.messages.some((message) => message.role === "assistant");
         if (hasFollowups && analysis && !hasAssistantMessage) {
           return {
-            ...current,
+            ...restored,
             phase: "clarifying",
-            messages: [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
+            messages: [...restored.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
           };
         }
-        const hasSameError = analysisError && current.messages.some((message) => message.content === analysisError);
+        const hasSameError = analysisError && restored.messages.some((message) => message.content === analysisError);
         if (!hasFollowups && analysisError && !hasSameError) {
           return {
-            ...current,
+            ...restored,
             phase: "idle",
-            messages: [...current.messages, makePathwayMessage("assistant", analysisError)],
+            messages: [...restored.messages, makePathwayMessage("assistant", analysisError)],
           };
         }
-        return current;
+        return restored;
       }
       const goalText = String(props.activeGoalTitle ?? "").trim();
       const messages: PathwayIntakeMessage[] = [];
@@ -378,6 +449,13 @@ export default function TasksPage(props: TasksPageProps) {
     props.pathwayMode,
     pathwayIntakePending,
   ]);
+
+  useEffect(() => {
+    if (!props.pathwayMode) {
+      return;
+    }
+    storePathwayIntake(pathwayIntake);
+  }, [props.pathwayMode, pathwayIntake]);
 
   useEffect(() => {
     if (!state.composerDraft) {

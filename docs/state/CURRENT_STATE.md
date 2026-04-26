@@ -2484,3 +2484,81 @@ The highest-value follow-up options are now:
   - The generated graph currently has narrow external evidence and correctly labels several claims as assumptions.
 - Next recommended task:
   - Run plain `pnpm dev` and retry the same OK flow in the UI; the backend should now start from the desktop runtime path and graph generation has been proven through the same local API.
+
+## Latest micro-update
+
+- Completed work:
+  - Fixed Pathway intake conversation loss when switching away from and back to the Tasks tab.
+  - Added goal-scoped localStorage persistence for Pathway intake phase, answers, and message logs.
+  - Restored cached intake logs before reconstructing active-goal analysis messages, so user answers are not replaced by the initial follow-up checklist.
+  - Normalized stale `generating` state back to `ready` on restore so a tab switch during generation does not leave the composer stuck.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `git diff --stat`
+- Known gaps:
+  - The persistence is local to the desktop/browser profile through localStorage; it is meant to preserve the UI conversation log, not replace persisted goal/map records.
+- Next recommended task:
+  - In `pnpm dev`, answer the intake questions, switch tabs, return to Tasks, and confirm the prior USER/PATHWAY log remains visible.
+
+## Latest micro-update
+
+- Completed work:
+  - Corrected the earlier validation mistake: API-only success is not the same as UI-flow success.
+  - Found that the OK-to-generate path did not call `ensureEngineStarted()` before `updateGoal` and `generatePathway`; added that guard.
+  - Extended frontend fetch retry timing so UI requests do not give up too quickly during local API startup.
+  - Added `GET /goals/{goal_id}/analysis` so active-goal refresh can restore stored analysis without forcing regeneration.
+  - Updated workspace refresh to load existing goal analysis alongside maps, state updates, and current state.
+  - Ran a Playwright UI-flow verification against `pnpm dev` with a known local test token:
+    - open desktop UI on `1420`
+    - use the Pathway composer
+    - submit intake answers
+    - submit `OK`
+    - wait for the UI-triggered `/pathways/generate` response
+    - confirmed `201 Created`
+    - generated map `map_dbd8876dd5854e7592a9fddef6e7c670`
+    - confirmed the body did not contain the local-backend-not-ready error text
+- Changed files:
+  - `apps/api/lifemap_api/api/routes_goals.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm playwright:install`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-ui-test-token VITE_PATHWAY_LOCAL_API_TOKEN=pathway-ui-test-token pnpm dev`
+  - `PLAYWRIGHT_BROWSERS_PATH=/Users/henry/Documents/code/vibe/hybrid/pathway/apps/web/.playwright-browsers pnpm --filter desktop exec node -e '...'`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_health.py apps/api/tests/test_goal_analysis.py apps/api/tests/test_api_crud.py`
+  - `git diff --check`
+- Known gaps:
+  - The automated UI proof used a known local test token so Playwright could authenticate in the browser context; the Tauri app itself uses the generated token through `local_api_auth_token`.
+  - First-time Codex analysis can take close to the 180s backend timeout; the UI now waits, but long generation still needs better progress events.
+- Next recommended task:
+  - Run plain `pnpm dev` in the normal Tauri app and repeat the flow once manually; the same OK-to-generate code path is now guarded and the UI-triggered generate request has been proven.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the context panel node-type summary card that exposed dynamic node IDs as awkward UI text.
+  - Made the terminal GOAL node use the same visual height as ordinary Pathway nodes.
+  - Reworked Pathway graph layout so terminal goal parents gather in the lane before the GOAL node instead of keeping far-apart root rows.
+  - Reduced excessive visible edge complexity by hiding redundant direct progression edges when an alternate multi-step path already connects the same source and target.
+  - Verified the graph view in `pnpm dev` with Chrome against the local desktop UI.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-ui-test-token VITE_PATHWAY_LOCAL_API_TOKEN=pathway-ui-test-token pnpm dev`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm --filter desktop exec node -e '...'`
+- Known gaps:
+  - Browser automation used a known local test token for the browser context; the Tauri app continues to use its generated runtime token.
+  - The generated ontology can still produce too many route nodes for a small goal; the display now hides redundant direct edges, but prompt-level graph synthesis should still be tightened next.
+- Next recommended task:
+  - Improve graph synthesis prompts so small goals produce fewer, clearer route families before the UI layout has to simplify them.

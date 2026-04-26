@@ -32,7 +32,7 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
   }
   const requestInit = { ...init, headers };
   let lastError: unknown = null;
-  for (const delayMs of [0, 250, 750, 1500]) {
+  for (const delayMs of [0, 250, 750, 1500, 2500, 4000]) {
     if (delayMs > 0) {
       await sleep(delayMs);
     }
@@ -114,6 +114,12 @@ export async function analyzeGoal(goalId: string): Promise<GoalAnalysisRecord> {
     await apiFetch(`${API_BASE_URL}/goals/${goalId}/analysis`, {
       method: 'POST'
     })
+  );
+}
+
+export async function fetchGoalAnalysis(goalId: string): Promise<GoalAnalysisRecord | null> {
+  return parseJson<GoalAnalysisRecord | null>(
+    await apiFetch(`${API_BASE_URL}/goals/${goalId}/analysis`)
   );
 }
 

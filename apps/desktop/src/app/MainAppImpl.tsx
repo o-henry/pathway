@@ -12,6 +12,7 @@ import {
   createStateUpdate,
   deleteGoal,
   fetchCurrentState,
+  fetchGoalAnalysis,
   fetchGoalMaps,
   fetchGoals,
   fetchRevisionPreview,
@@ -485,10 +486,11 @@ export default function MainApp() {
     const goal = goals.find((item) => item.id === goalId) ?? (await fetchGoals()).find((item) => item.id === goalId) ?? null;
     setActiveGoal(goal);
 
-    const [rawMaps, nextUpdates, nextCurrentState] = await Promise.all([
+    const [rawMaps, nextUpdates, nextCurrentState, existingAnalysis] = await Promise.all([
       fetchGoalMaps(goalId),
       fetchStateUpdates(goalId),
-      fetchCurrentState(goalId)
+      fetchCurrentState(goalId),
+      fetchGoalAnalysis(goalId),
     ]);
     const nextMaps = [...rawMaps].sort((left, right) => {
       const leftTime = Date.parse(left.updated_at ?? left.created_at ?? '') || 0;
@@ -499,6 +501,12 @@ export default function MainApp() {
     setMaps(nextMaps);
     setStateUpdates(nextUpdates);
     setCurrentState(nextCurrentState);
+    if (existingAnalysis) {
+      setGoalAnalysis(existingAnalysis);
+      setGoalAnalysisError(null);
+    } else if (goalAnalysis?.goal_id === goalId) {
+      setGoalAnalysis(null);
+    }
 
     const chosenMap =
       (preferredMapId ? nextMaps.find((item) => item.id === preferredMapId) : null) ??
@@ -988,6 +996,9 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
       const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
       const goal = goals.find((item) => item.id === goalId) ?? activeGoal;
       if (answerBlock) {
@@ -1023,6 +1034,9 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      }
       const nextMap = await generatePathway(activeGoalId);
       setStatusMessage('새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.');
       await refreshGoalWorkspace(activeGoalId, nextMap.id);
@@ -1405,10 +1419,6 @@ export default function MainApp() {
                       </p>
 
                       <div className="pathway-node-summary-grid" aria-label="선택 노드 요약">
-                        <article className="pathway-node-summary-card">
-                          <span className="pathway-panel-kicker">노드 유형</span>
-                          <strong>{selectedNode.type.replaceAll('_', ' ')}</strong>
-                        </article>
                         <article className="pathway-node-summary-card">
                           <span className="pathway-panel-kicker">연결 근거</span>
                           <strong>{selectedEvidence.length}개</strong>
