@@ -3,6 +3,27 @@
 ## Latest micro-update
 
 - Completed work:
+  - Added academic/paper collection guidance to Pathway goal analysis: arXiv, PubMed/PMC, OpenReview, Semantic Scholar, DOI/publisher pages, systematic reviews, meta-analyses, and empirical studies.
+  - Added an `academic_research` fallback collection target so graph generation can include paper-style evidence when provider output omits a plan.
+  - Added desktop collector seed URLs for arXiv, Semantic Scholar, PubMed, OpenReview, and DOI/publisher hints.
+  - Extended backend tests to assert academic research targets and prompt guidance are present.
+- Changed files:
+  - `apps/api/lifemap_api/application/goal_analysis.py`
+  - `apps/api/tests/test_goal_analysis.py`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `rg -n "arxiv|Semantic Scholar|PubMed|academic_research|논문" apps/api/lifemap_api/application/goal_analysis.py apps/api/tests/test_goal_analysis.py apps/desktop/src/app/researchPlanCollectorJobs.ts`
+- Known gaps:
+  - Desktop package does not currently expose a runnable Vitest command, so frontend seed behavior is covered by typecheck and static search rather than a runnable unit test.
+- Next recommended task:
+  - Add a first-class source discovery layer that can turn paper search intents into concrete paper URLs without relying on static seed search pages.
+
+## Latest micro-update
+
+- Completed work:
   - Restored Pathway stop to actually call `engine_stop` so pressing stop terminates the running local backend/Codex work.
   - Changed cancellation handling so fetch failures caused by a user stop are surfaced as `실행이 중단되었습니다.` instead of the misleading local-backend-not-ready message.
   - Simplified the chat cancellation message to `실행이 중단되었습니다.`

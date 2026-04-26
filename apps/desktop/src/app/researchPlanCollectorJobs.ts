@@ -41,6 +41,26 @@ const SOURCE_HINT_URL_SEEDS: ReadonlyArray<{ patterns: string[]; url: string }> 
     url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0328226',
   },
   {
+    patterns: ['arxiv', 'preprint', 'paper', 'academic paper', '논문', '학술', 'empirical study'],
+    url: 'https://arxiv.org/search/?query=goal+learning+intervention&searchtype=all&source=header',
+  },
+  {
+    patterns: ['semantic scholar', 'citation', 'literature review', 'systematic review', 'meta-analysis', '메타분석'],
+    url: 'https://www.semanticscholar.org/search?q=learning%20intervention%20systematic%20review&sort=relevance',
+  },
+  {
+    patterns: ['pubmed', 'pmc', 'health', 'behavior change', 'habit', 'intervention study'],
+    url: 'https://pubmed.ncbi.nlm.nih.gov/?term=behavior+change+intervention+systematic+review',
+  },
+  {
+    patterns: ['openreview', 'machine learning paper', 'ai research'],
+    url: 'https://openreview.net/search?term=learning%20intervention&group=all&content=all',
+  },
+  {
+    patterns: ['doi', 'publisher', 'journal article'],
+    url: 'https://doi.org/',
+  },
+  {
     patterns: ['language exchange', 'tandem', 'speaking gains'],
     url: 'https://pubmed.ncbi.nlm.nih.gov/37251019/',
   },

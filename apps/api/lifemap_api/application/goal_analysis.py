@@ -36,6 +36,32 @@ def _serialize_profile(profile: Profile | None) -> str:
 def _fallback_research_plan(goal: Goal) -> ResearchPlan:
     collection_targets = [
         ResearchCollectionTarget(
+            id="academic_research",
+            label="논문과 학술 근거",
+            layer="academic_research",
+            search_intent=(
+                "arXiv, PubMed, OpenReview, Semantic Scholar, 학술 출판사 페이지에서 "
+                "목표와 관련된 실증 연구, 리뷰 논문, 메타분석, 이론적 근거를 찾는다."
+            ),
+            example_queries=[
+                f"{goal.title} arxiv paper review study",
+                f"{goal.title} PubMed systematic review intervention study",
+                f"{goal.title} Semantic Scholar research evidence",
+            ],
+            preferred_collectors=["scrapling", "crawl4ai"],
+            source_examples=[
+                "https://arxiv.org/",
+                "https://pubmed.ncbi.nlm.nih.gov/",
+                "https://www.semanticscholar.org/",
+                "https://openreview.net/",
+            ],
+            reason=(
+                "그래프의 관찰과 route tradeoff가 경험담만이 아니라 공개 학술 근거와도 "
+                "대조되도록 논문 계열 자료가 필요합니다."
+            ),
+            max_sources=4,
+        ),
+        ResearchCollectionTarget(
             id="lived_experience_paths",
             label="비슷한 조건의 실제 달성/실패 수기",
             layer="lived_experience",
@@ -130,6 +156,13 @@ def _build_system_prompt() -> str:
         - Prefer 4 to 8 follow-up questions.
         - Include lived experience, formal/structured options, open learning media,
           failure modes, and route-switching evidence when relevant.
+        - Include academic paper sources when relevant: arXiv preprints, PubMed/PMC,
+          OpenReview, Semantic Scholar, DOI/publisher pages, systematic reviews,
+          meta-analyses, and empirical studies. Treat papers as research evidence,
+          not as universal proof; compare them against lived-experience evidence.
+        - For paper sources, prefer public abstract/full-text pages with stable URLs
+          and metadata that collectors can safely fetch. Do not use Sci-Hub,
+          credentialed library links, paywall bypasses, or private PDFs.
         - When live web search is available, use it to discover public candidate URLs
           for the research plan instead of relying only on generic search phrases.
         - Include community, forum, blog, learner diary, review, and public social
@@ -172,6 +205,12 @@ def _build_user_prompt(goal: Goal, profile: Profile | None, schema: dict) -> str
         - Put concrete public candidate URLs in `source_examples` whenever web search
           finds useful sources. Mix official/research sources with lived-experience
           sources such as public forum threads, blogs, reviews, and learner stories.
+        - Include at least one `research_plan.collection_targets` entry for academic
+          papers when the goal could benefit from empirical or theoretical evidence.
+          Good source families include arxiv.org, pubmed.ncbi.nlm.nih.gov,
+          ncbi.nlm.nih.gov/pmc, openreview.net, semanticscholar.org, doi.org,
+          ACM/IEEE/Springer/Nature/ScienceDirect publisher pages, and university
+          repositories. Use stable public URLs in `source_examples` when available.
         - For each lived-experience target, include queries that find stories with
           constraints similar to the user: starting level, budget, time, anxiety,
           tool choice, and failure or route-switching moments.

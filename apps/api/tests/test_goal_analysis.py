@@ -187,8 +187,14 @@ def test_goal_analysis_uses_provider_and_normalizes_missing_plan_details(
     assert payload["goal_id"] == goal_id
     assert payload["followup_questions"][0]["id"] == "speaking_context"
     assert payload["research_plan"]["collection_targets"]
+    assert any(
+        target["layer"] == "academic_research"
+        for target in payload["research_plan"]["collection_targets"]
+    )
     assert payload["research_questions"]
     assert "Analyze this Pathway goal" in provider.calls[0][-1]["content"]
+    assert "arxiv.org" in provider.calls[0][-1]["content"]
+    assert "PubMed" in provider.calls[0][0]["content"]
 
 
 def test_goal_analysis_rejects_deterministic_stub_provider(client: TestClient) -> None:
