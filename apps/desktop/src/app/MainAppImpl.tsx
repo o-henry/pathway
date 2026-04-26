@@ -444,6 +444,8 @@ export default function MainApp() {
   const [codexMultiAgentMode] = useState(() => loadPersistedCodexMultiAgentMode());
   const [usageInfoText, setUsageInfoText] = useState('');
   const [usageResultClosed, setUsageResultClosed] = useState(false);
+  const engineStartedRef = useRef(false);
+  const engineStartPromiseRef = useRef<Promise<void> | null>(null);
   const [collectorDoctorStatuses, setCollectorDoctorStatuses] = useState<CollectorDoctorStatus[]>(
     COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
       ...collector,
@@ -538,18 +540,42 @@ export default function MainApp() {
   }
 
   async function ensureEngineStarted() {
-    try {
-      await invoke('engine_start', { cwd });
+    if (!hasTauriRuntime) {
       await refreshLocalApiTokenFromShell();
-      setEngineStarted(true);
-    } catch (error) {
-      if (isEngineAlreadyStartedError(error)) {
-        setEngineStarted(true);
-        return;
-      }
-      throw error;
+      return;
     }
+    if (engineStartedRef.current) {
+      await refreshLocalApiTokenFromShell();
+      return;
+    }
+    if (engineStartPromiseRef.current) {
+      await engineStartPromiseRef.current;
+      return;
+    }
+    const startPromise = (async () => {
+      try {
+        await invoke('engine_start', { cwd });
+        await refreshLocalApiTokenFromShell();
+        engineStartedRef.current = true;
+        setEngineStarted(true);
+      } catch (error) {
+        if (isEngineAlreadyStartedError(error)) {
+          engineStartedRef.current = true;
+          setEngineStarted(true);
+          return;
+        }
+        throw error;
+      } finally {
+        engineStartPromiseRef.current = null;
+      }
+    })();
+    engineStartPromiseRef.current = startPromise;
+    await startPromise;
   }
+
+  useEffect(() => {
+    engineStartedRef.current = engineStarted;
+  }, [engineStarted]);
 
   function setCollectorDoctorPreviewFallback(message = 'Tauri 앱에서 확인할 수 있습니다.') {
     setCollectorDoctorStatuses(
@@ -1408,6 +1434,8 @@ export default function MainApp() {
     }
     try {
       await invoke('engine_stop');
+      engineStartPromiseRef.current = null;
+      engineStartedRef.current = false;
       setEngineStarted(false);
     } catch {
       // Cancellation has already been reflected in UI state.
@@ -1542,6 +1570,8 @@ export default function MainApp() {
       if (loginCompleted) {
         await invoke('logout_codex');
         await invoke('engine_stop');
+        engineStartPromiseRef.current = null;
+        engineStartedRef.current = false;
         setEngineStarted(false);
         setLoginCompleted(false);
         setAuthMode('unknown');

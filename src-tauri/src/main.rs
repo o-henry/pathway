@@ -1305,69 +1305,80 @@ fn wait_for_api() -> bool {
 }
 
 #[tauri::command]
-fn engine_start(
+async fn engine_start(
     app: AppHandle,
-    api_process: tauri::State<'_, ApiProcess>,
     local_api_token: tauri::State<'_, LocalApiToken>,
     _cwd: Option<String>,
 ) -> Result<EngineLifecycleResult, String> {
-    if api_is_live() {
-        return Ok(EngineLifecycleResult {
-            state: "started".to_string(),
-        });
-    }
+    let local_api_token = local_api_token.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if api_is_live() {
+            return Ok(EngineLifecycleResult {
+                state: "started".to_string(),
+            });
+        }
 
-    {
-        let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+        {
+            let api_process = app.state::<ApiProcess>();
+            let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+
+        match start_api_if_needed(&app, &local_api_token)? {
+            Some(child) => {
+                let api_process = app.state::<ApiProcess>();
+                let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+                *guard = Some(child);
+            }
+            None => {
+                if !api_is_live() {
+                    return Err(
+                        "Pathway local backend is not running and could not be started automatically."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+
+        Ok(EngineLifecycleResult {
+            state: "started".to_string(),
+        })
+    })
+    .await
+    .map_err(|error| format!("Pathway local backend start task failed: {error}"))?
+}
+
+#[tauri::command]
+async fn engine_stop(app: AppHandle) -> EngineLifecycleResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        let api_child = {
+            let api_process = app.state::<ApiProcess>();
+            let mut guard = api_process.0.lock().expect("api process mutex poisoned");
+            guard.take()
+        };
+
+        if let Some(mut child) = api_child {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+
+        let login_state = app.state::<CodexLoginProcess>();
+        let mut guard = login_state.0.lock().expect("codex login mutex poisoned");
         if let Some(mut child) = guard.take() {
             let _ = child.kill();
             let _ = child.wait();
         }
-    }
-
-    match start_api_if_needed(&app, &local_api_token.0)? {
-        Some(child) => {
-            let mut guard = api_process.0.lock().expect("api process mutex poisoned");
-            *guard = Some(child);
+        EngineLifecycleResult {
+            state: "stopped".to_string(),
         }
-        None => {
-            if !api_is_live() {
-                return Err(
-                    "Pathway local backend is not running and could not be started automatically."
-                        .to_string(),
-                );
-            }
-        }
-    }
-
-    Ok(EngineLifecycleResult {
-        state: "started".to_string(),
     })
-}
-
-#[tauri::command]
-fn engine_stop(
-    api_process: tauri::State<'_, ApiProcess>,
-    login_state: tauri::State<'_, CodexLoginProcess>,
-) -> EngineLifecycleResult {
-    let api_child = {
-        let mut guard = api_process.0.lock().expect("api process mutex poisoned");
-        guard.take()
-    };
-
-    if let Some(mut child) = api_child {
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-
-    let mut guard = login_state.0.lock().expect("codex login mutex poisoned");
-    if let Some(mut child) = guard.take() {
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-    EngineLifecycleResult {
+    .await
+    .unwrap_or_else(|_| EngineLifecycleResult {
         state: "stopped".to_string(),
-    }
+    })
 }
 
 #[tauri::command]
@@ -1493,27 +1504,35 @@ fn local_api_auth_token(token: tauri::State<'_, LocalApiToken>) -> String {
 }
 
 #[tauri::command]
-fn dashboard_crawl_provider_health(
+async fn dashboard_crawl_provider_health(
     app: AppHandle,
     cwd: Option<String>,
     provider: String,
 ) -> Result<CollectorHealthResult, String> {
-    let root = collector_root(&app, cwd);
-    inspect_collector_provider(&root, provider.trim())
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = collector_root(&app, cwd);
+        inspect_collector_provider(&root, provider.trim())
+    })
+    .await
+    .map_err(|error| format!("Collector health task failed: {error}"))?
 }
 
 #[tauri::command]
-fn dashboard_crawl_provider_install(
+async fn dashboard_crawl_provider_install(
     app: AppHandle,
     cwd: Option<String>,
     provider: String,
 ) -> Result<CollectorInstallResult, String> {
-    let root = collector_root(&app, cwd);
-    install_collector_provider(&root, provider.trim())
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = collector_root(&app, cwd);
+        install_collector_provider(&root, provider.trim())
+    })
+    .await
+    .map_err(|error| format!("Collector install task failed: {error}"))?
 }
 
 #[tauri::command]
-fn dashboard_crawl_provider_fetch_url(
+async fn dashboard_crawl_provider_fetch_url(
     app: AppHandle,
     local_api_token: tauri::State<'_, LocalApiToken>,
     cwd: Option<String>,
@@ -1521,17 +1540,22 @@ fn dashboard_crawl_provider_fetch_url(
     url: String,
     topic: Option<String>,
 ) -> Result<CollectorFetchResult, String> {
-    let root = collector_root(&app, cwd);
-    let provider = provider.trim();
-    collector_definition(provider)
-        .ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
-    fetch_url_with_collector(
-        &root,
-        provider,
-        url.trim(),
-        topic.as_deref().unwrap_or("pathway_research"),
-        &local_api_token.0,
-    )
+    let local_api_token = local_api_token.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = collector_root(&app, cwd);
+        let provider = provider.trim().to_string();
+        collector_definition(&provider)
+            .ok_or_else(|| format!("Unknown collector provider: {provider}"))?;
+        fetch_url_with_collector(
+            &root,
+            &provider,
+            url.trim(),
+            topic.as_deref().unwrap_or("pathway_research"),
+            &local_api_token,
+        )
+    })
+    .await
+    .map_err(|error| format!("Collector fetch task failed: {error}"))?
 }
 
 fn main() {

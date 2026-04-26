@@ -3,6 +3,28 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the OK-to-generate freeze path by moving blocking Tauri lifecycle and collector work off the command event path.
+  - Changed `engine_start` to run API start/readiness waiting through `tauri::async_runtime::spawn_blocking` instead of blocking the UI-facing command handler.
+  - Changed `engine_stop` to kill/wait for child processes in a blocking worker instead of the UI-facing command handler.
+  - Changed collector health/install/fetch Tauri commands to run provider checks and `uv`/collector subprocesses in blocking workers.
+  - Added frontend engine-start de-duplication so OK/generate paths do not invoke `engine_start` again while the engine is already known started or a start is already in flight.
+  - Reset the engine-start refs when cancellation/logout stops the engine.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `src-tauri/src/main.rs`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm typecheck`
+- Known gaps:
+  - GUI/browser automation was not used, per the user's request. Verification was limited to compile/type checks and code-path inspection.
+  - A local API process was already listening on port 8000 during this pass; it was not killed because it may belong to the user's running app.
+- Next recommended task:
+  - Add a non-GUI integration test or mocked Tauri invoke test proving `OK` enters pending/generating state without blocking the elapsed timer while collector promises are unresolved.
+
+## Previous micro-update
+
+- Completed work:
   - Changed the selected-node context metric cards from a 2x2 grid to a 1x3 grid on normal sidebar widths.
   - Added a `따라 할 설명` section for selected graph nodes that derives guidance from actionable node data, evidence state, assumptions, and the node summary.
   - Updated graph generation prompts so future nodes may include compact actionable fields such as `next_action`, `practice_step`, `checkpoint`, `switch_condition`, and `verification_step`.
