@@ -2894,6 +2894,30 @@ The highest-value follow-up options are now:
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the new-goal intake path where `onStartPathwayIntake` returned `{ analysis: null }` and the conversation showed only the USER message, making the app look stopped.
+  - Added a non-domain pending assistant message while GPT-5.5 goal analysis runs in the background; when the real `GoalAnalysisRecord` arrives, that message is replaced by the model-generated checklist.
+  - Changed restored active-goal intake state to show either the actual analysis result, the real non-transient error, or the same pending analysis message instead of an empty timeline.
+  - Increased the Tauri local API readiness wait from 12s to 45s because `pnpm dev` can start the API after the previous timeout, causing false "backend not ready" status.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `src-tauri/src/main.rs`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm typecheck`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `LIFEMAP_LOCAL_API_TOKEN=codex-pathway-local-test VITE_PATHWAY_LOCAL_API_TOKEN=codex-pathway-local-test pnpm dev`
+  - `curl -sS -H 'Authorization: Bearer codex-pathway-local-test' http://127.0.0.1:8000/goals`
+  - `curl -sS -m 180 -X POST -H 'Authorization: Bearer codex-pathway-local-test' http://127.0.0.1:8000/goals/<goal_id>/analysis`
+- Known gaps:
+  - GUI automation was stopped at the user's request. No further mouse/screen control should be used for this task.
+  - The browser-side verification used a known local test token; normal Tauri runtime still gets its token from `local_api_auth_token`.
+  - The actual GPT-5.5 analysis endpoint was proven to return a checklist when called directly, but the UI background replacement path should be rechecked manually in the Tauri app after this commit.
+- Next recommended task:
+  - Add a terminal/browser-free integration test around `TasksPage` intake state so the USER-only regression is caught without driving the user's desktop UI.
+
+## Previous micro-update
+
+- Completed work:
   - Removed the workflow context-panel "자료 수집 계획" UI and the manual collection button.
   - Changed graph generation from intake and manual workflow generation to require automatic research-plan collection before calling graph generation.
   - Changed reality-update revision previews to require automatic research-plan collection before creating the revision preview.

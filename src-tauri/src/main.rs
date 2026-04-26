@@ -1294,7 +1294,7 @@ fn spawn_dev_api(
 fn wait_for_api() -> bool {
     let started = Instant::now();
 
-    while started.elapsed() < Duration::from_secs(12) {
+    while started.elapsed() < Duration::from_secs(45) {
         if api_is_live() {
             return true;
         }

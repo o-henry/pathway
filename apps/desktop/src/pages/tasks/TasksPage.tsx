@@ -223,6 +223,10 @@ function formatPathwayFollowups(analysis: GoalAnalysisRecord): string {
   ].join("\n");
 }
 
+function formatPathwayAnalysisPendingMessage(): string {
+  return "목표를 저장했습니다. GPT-5.5가 이 목표를 분석해 체크리스트 질문을 만드는 중입니다.";
+}
+
 function formatPathwayReadyMessage(answer: string): string {
   const answerLines = answer
     .split("\n")
@@ -401,21 +405,20 @@ export default function TasksPage(props: TasksPageProps) {
     }
     const analysis = props.pathwayGoalAnalysis?.goal_id === activeGoalId ? props.pathwayGoalAnalysis : null;
     const analysisError = props.pathwayGoalAnalysisError?.goalId === activeGoalId ? props.pathwayGoalAnalysisError.message.trim() : "";
-    const hasFollowups = Boolean(analysis?.followup_questions?.length);
     setPathwayIntake((current) => {
       const restored = current.goalId === activeGoalId && current.messages.length > 0
         ? current
         : loadStoredPathwayIntake(activeGoalId);
       if (restored && restored.goalId === activeGoalId && restored.messages.length > 0) {
         const hasAssistantMessage = restored.messages.some((message) => message.role === "assistant");
-        if (hasFollowups && analysis && !hasAssistantMessage) {
+        if (analysis && !hasAssistantMessage) {
           return {
             ...restored,
             phase: "clarifying",
             messages: [...restored.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
           };
         }
-        if (hasFollowups && analysis && hasAssistantMessage) {
+        if (analysis && hasAssistantMessage) {
           const nextFollowups = formatPathwayFollowups(analysis);
           const assistantIndex = restored.messages.findIndex((message) => message.role === "assistant");
           if (assistantIndex >= 0 && restored.messages[assistantIndex]?.content !== nextFollowups) {
@@ -429,7 +432,7 @@ export default function TasksPage(props: TasksPageProps) {
           }
         }
         const hasSameError = analysisError && restored.messages.some((message) => message.content === analysisError);
-        if (!hasFollowups && analysisError && !hasSameError && !isTransientBackendMessage(analysisError)) {
+        if (!analysis && analysisError && !hasSameError && !isTransientBackendMessage(analysisError)) {
           return {
             ...restored,
             phase: "idle",
@@ -443,14 +446,17 @@ export default function TasksPage(props: TasksPageProps) {
       if (goalText) {
         messages.push(makePathwayMessage("user", goalText));
       }
-      if (hasFollowups && analysis) {
+      if (analysis) {
         messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
       }
-      if (!hasFollowups && analysisError && !isTransientBackendMessage(analysisError)) {
+      if (!analysis && analysisError && !isTransientBackendMessage(analysisError)) {
         messages.push(makePathwayMessage("assistant", analysisError));
       }
+      if (!analysis && (!analysisError || isTransientBackendMessage(analysisError))) {
+        messages.push(makePathwayMessage("assistant", formatPathwayAnalysisPendingMessage()));
+      }
       return {
-        phase: hasFollowups ? "clarifying" : "analyzing",
+        phase: analysis ? "clarifying" : "analyzing",
         goalId: activeGoalId,
         answers: [],
         messages,
@@ -606,7 +612,7 @@ export default function TasksPage(props: TasksPageProps) {
           answers: [],
           messages: result.analysis
             ? [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(result.analysis))]
-            : current.messages,
+            : [...current.messages, makePathwayMessage("assistant", formatPathwayAnalysisPendingMessage())],
         }));
       } catch (error) {
         if (pathwayRunRef.current.cancelled) {
@@ -630,7 +636,7 @@ export default function TasksPage(props: TasksPageProps) {
         ...current,
         messages: [
           ...current.messages,
-          makePathwayMessage("assistant", "GPT-5.5가 목표를 분석해 체크리스트 질문을 만드는 중입니다. 질문이 도착하면 그때 답변을 이어갈 수 있습니다."),
+          makePathwayMessage("assistant", formatPathwayAnalysisPendingMessage()),
         ],
       }));
       return;
