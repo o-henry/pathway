@@ -359,46 +359,6 @@ function buildIntakeSuccessCriteria(input: string): string {
   return normalized.length > 160 ? `${normalized.slice(0, 160).trim()}...` : normalized;
 }
 
-function buildImmediateGoalAnalysis(goalId: string, goalText: string): GoalAnalysisRecord {
-  const normalizedGoal = goalText.replace(/\s+/g, ' ').trim() || '새 목표';
-  return {
-    goal_id: goalId,
-    analysis_summary: '목표를 먼저 저장했습니다. 자세한 자원 축과 조사 계획은 백그라운드 분석이 끝나면 갱신됩니다.',
-    resource_dimensions: [],
-    research_questions: [],
-    followup_questions: [
-      {
-        id: 'current_level',
-        label: '현재 수준',
-        question: `지금 "${normalizedGoal}"에서 가장 막히는 지점은 무엇인가요?`,
-        why_needed: '현재 상태를 알아야 그래프의 출발점과 병목을 분리할 수 있습니다.',
-        answer_type: 'short_text',
-        required: true,
-        maps_to: ['current_state', 'constraint'],
-      },
-      {
-        id: 'available_resource',
-        label: '투입 자원',
-        question: '현실적으로 매일 또는 매주 어느 정도 시간/돈/에너지를 쓸 수 있나요?',
-        why_needed: '가능한 경로와 과부하 경로를 구분하기 위해 필요합니다.',
-        answer_type: 'short_text',
-        required: true,
-        maps_to: ['resource', 'route'],
-      },
-      {
-        id: 'preferred_route',
-        label: '선호 경로',
-        question: '혼자 진행, 커뮤니티, 튜터/코치, AI 도구 중 선호하거나 피하고 싶은 방식이 있나요?',
-        why_needed: '경로 선택 조건과 전환 조건을 그래프에 반영하기 위해 필요합니다.',
-        answer_type: 'short_text',
-        required: false,
-        maps_to: ['route', 'tradeoff'],
-      },
-    ],
-    research_plan: null,
-  };
-}
-
 function isTauriUnavailableError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '');
   return /tauri runtime unavailable|__tauri|tauri|ipc|invoke/i.test(message);
@@ -1108,8 +1068,8 @@ export default function MainApp() {
     };
   }
 
-  async function collectResearchPlanTargetsForGraph(triggerLabel: string) {
-    if (researchPlanCollectorJobs.length === 0) {
+  async function collectResearchPlanTargetsForGraph(triggerLabel: string, jobs = researchPlanCollectorJobs) {
+    if (jobs.length === 0) {
       const message = '조사할 수집 타깃이 아직 없습니다. 그래프를 만들기 전에 목표 분석의 research plan부터 다시 생성해야 합니다.';
       setResearchPlanCollectionStatus(message);
       throw new Error(message);
@@ -1125,22 +1085,22 @@ export default function MainApp() {
       const results: CollectorJobAttemptResult[] = [];
       let nextJobIndex = 0;
       let completedCount = 0;
-      const workerCount = Math.min(RESEARCH_COLLECTION_PARALLELISM, researchPlanCollectorJobs.length);
+      const workerCount = Math.min(RESEARCH_COLLECTION_PARALLELISM, jobs.length);
 
       const runWorker = async () => {
-        while (nextJobIndex < researchPlanCollectorJobs.length) {
+        while (nextJobIndex < jobs.length) {
           const index = nextJobIndex;
           nextJobIndex += 1;
-          const job = researchPlanCollectorJobs[index]!;
+          const job = jobs[index]!;
           const providers = job.providerCandidates.length > 0 ? job.providerCandidates : [job.provider];
           setResearchPlanCollectionStatus(
-            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 시작 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel} · ${providers.join(' → ')}`,
+            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 시작 ${index + 1}/${jobs.length} · ${job.targetLabel} · ${providers.join(' → ')}`,
           );
           const result = await runResearchPlanCollectorJobWithFallbacks(job);
           results[index] = result;
           completedCount += 1;
           setResearchPlanCollectionStatus(
-            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 완료 ${completedCount}/${researchPlanCollectorJobs.length} · 최근 완료: ${job.targetLabel}`,
+            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 완료 ${completedCount}/${jobs.length} · 최근 완료: ${job.targetLabel}`,
           );
         }
       };
@@ -1264,12 +1224,11 @@ export default function MainApp() {
       setStateUpdates([]);
       setRouteSelection(null);
       setRevisionPreview(null);
-      const immediateAnalysis = buildImmediateGoalAnalysis(goal.id, normalizedGoal);
-      setGoalAnalysis(immediateAnalysis);
+      setGoalAnalysis(null);
       setGoalAnalysisError(null);
       setStatusMessage('목표를 만들었습니다. 무거운 목표 분석은 백그라운드에서 이어갑니다.');
       void analyzeGoalInBackground(goal.id);
-      return { goal, analysis: immediateAnalysis };
+      return { goal, analysis: null };
     } catch (error) {
       const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
       setErrorMessage(message);
@@ -1315,7 +1274,16 @@ export default function MainApp() {
         setActiveGoalId(updatedGoal.id);
         setActiveGoal(updatedGoal);
       }
-      await collectResearchPlanTargetsForGraph('그래프 생성');
+      const analysisForCollection =
+        goalAnalysis?.goal_id === goalId && goalAnalysis.research_plan
+          ? goalAnalysis
+          : await analyzeGoal(goalId);
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
+      setGoalAnalysis(analysisForCollection);
+      setGoalAnalysisError(null);
+      await collectResearchPlanTargetsForGraph('그래프 생성', buildResearchPlanCollectorJobs(analysisForCollection));
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }

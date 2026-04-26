@@ -3,6 +3,25 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the hardcoded `buildImmediateGoalAnalysis` fallback questions from Pathway intake.
+  - New goal creation now returns `analysis: null` until real backend/Codex analysis is available.
+  - The intake UI no longer invents generic follow-up questions; it only renders questions from actual `GoalAnalysisRecord` results.
+  - If graph generation starts before background analysis completes, Pathway now runs real `analyzeGoal(goalId)` at that point and builds collector jobs from that returned research plan.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "buildImmediateGoalAnalysis|현재 수준|투입 자원|선호 경로|가장 막히는 지점|시간/돈/에너지|혼자 진행, 커뮤니티" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - There is still no dedicated visual marker for "background analysis running"; the UI simply waits for real analysis before showing follow-up questions.
+- Next recommended task:
+  - Add a non-blocking analysis state indicator without generating placeholder domain questions.
+
+## Latest micro-update
+
+- Completed work:
   - Decoupled new Pathway goal creation from heavyweight Codex goal analysis.
   - New goal intake now waits only for goal creation, returns an immediate lightweight clarification packet, and lets Codex analysis run in the background.
   - When background analysis finishes, the first PATHWAY follow-up block is replaced with the richer analysis questions instead of keeping the UI in a long pending/loading state.
