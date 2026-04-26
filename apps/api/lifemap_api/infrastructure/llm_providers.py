@@ -142,6 +142,223 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
             ],
         }
 
+    if schema.get("title") == "GraphBundle":
+        empty_object = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {},
+            "required": [],
+        }
+        nullable_string = {"type": ["string", "null"]}
+        nullable_number = {"type": ["number", "null"]}
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "schema_version": {"type": "string"},
+                "bundle_id": {"type": "string"},
+                "map": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "goal_id": {"type": "string"},
+                        "summary": {"type": "string"},
+                    },
+                    "required": ["title", "goal_id", "summary"],
+                },
+                "ontology": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "node_types": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "label": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "default_style": {
+                                        "type": ["object", "null"],
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "tone": nullable_string,
+                                            "shape": nullable_string,
+                                            "accent": nullable_string,
+                                        },
+                                        "required": ["tone", "shape", "accent"],
+                                    },
+                                    "fields": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "key": {"type": "string"},
+                                                "label": {"type": "string"},
+                                                "value_type": {"type": "string"},
+                                                "required": {"type": "boolean"},
+                                            },
+                                            "required": ["key", "label", "value_type", "required"],
+                                        },
+                                    },
+                                },
+                                "required": ["id", "label", "description", "default_style", "fields"],
+                            },
+                        },
+                        "edge_types": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "label": {"type": "string"},
+                                    "role": {"type": "string", "enum": ["progression", "reference"]},
+                                    "default_style": {
+                                        "type": ["object", "null"],
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "line": nullable_string,
+                                            "accent": nullable_string,
+                                        },
+                                        "required": ["line", "accent"],
+                                    },
+                                },
+                                "required": ["id", "label", "role", "default_style"],
+                            },
+                        },
+                    },
+                    "required": ["node_types", "edge_types"],
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "type": {"type": "string"},
+                            "label": {"type": "string"},
+                            "summary": {"type": "string"},
+                            "data": empty_object,
+                            "scores": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "time_load": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "money_load": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "energy_load": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "uncertainty": {"type": "number", "minimum": 0, "maximum": 1},
+                                },
+                                "required": ["time_load", "money_load", "energy_load", "uncertainty"],
+                            },
+                            "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                            "assumption_refs": {"type": "array", "items": {"type": "string"}},
+                            "position": {
+                                "type": ["object", "null"],
+                                "additionalProperties": False,
+                                "properties": {
+                                    "x": {"type": "number"},
+                                    "y": {"type": "number"},
+                                },
+                                "required": ["x", "y"],
+                            },
+                            "style_overrides": empty_object,
+                            "status": nullable_string,
+                            "created_from": nullable_string,
+                            "revision_meta": empty_object,
+                        },
+                        "required": [
+                            "id",
+                            "type",
+                            "label",
+                            "summary",
+                            "data",
+                            "scores",
+                            "evidence_refs",
+                            "assumption_refs",
+                            "position",
+                            "style_overrides",
+                            "status",
+                            "created_from",
+                            "revision_meta",
+                        ],
+                    },
+                },
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "type": {"type": "string"},
+                            "source": {"type": "string"},
+                            "target": {"type": "string"},
+                            "label": nullable_string,
+                            "condition": nullable_string,
+                            "weight": nullable_number,
+                            "style_overrides": empty_object,
+                        },
+                        "required": [
+                            "id",
+                            "type",
+                            "source",
+                            "target",
+                            "label",
+                            "condition",
+                            "weight",
+                            "style_overrides",
+                        ],
+                    },
+                },
+                "evidence": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "source_id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "quote_or_summary": {"type": "string"},
+                            "url": nullable_string,
+                            "reliability": {"type": "string"},
+                        },
+                        "required": ["id", "source_id", "title", "quote_or_summary", "url", "reliability"],
+                    },
+                },
+                "assumptions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "id": {"type": "string"},
+                            "text": {"type": "string"},
+                            "risk_if_false": {"type": "string"},
+                        },
+                        "required": ["id", "text", "risk_if_false"],
+                    },
+                },
+                "warnings": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": [
+                "schema_version",
+                "bundle_id",
+                "map",
+                "ontology",
+                "nodes",
+                "edges",
+                "evidence",
+                "assumptions",
+                "warnings",
+            ],
+        }
+
     def convert(value: Any) -> Any:
         if isinstance(value, list):
             return [convert(item) for item in value]
@@ -156,7 +373,8 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
         properties = converted.get("properties")
         if isinstance(properties, dict):
             converted["required"] = list(properties.keys())
-            converted.setdefault("additionalProperties", False)
+        if converted.get("type") == "object" or isinstance(properties, dict):
+            converted["additionalProperties"] = False
         return converted
 
     converted_schema = convert(schema)

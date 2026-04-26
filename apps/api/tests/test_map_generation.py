@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 from lifemap_api.api.dependencies import get_embedding_provider, get_llm_provider
 from lifemap_api.config import get_settings
 from lifemap_api.infrastructure.db import build_engine
-from lifemap_api.infrastructure.llm_providers import StubPathwayProvider
+from lifemap_api.domain.graph_bundle import GraphBundle
+from lifemap_api.infrastructure.llm_providers import StubPathwayProvider, _to_codex_output_schema
 from lifemap_api.main import create_app
 
 from .fake_embeddings import FakeEmbeddingProvider
@@ -34,6 +35,26 @@ class FakeLLMProvider:
         if len(self._responses) == 1:
             return self._responses[0]
         return self._responses.pop(0)
+
+
+def _assert_strict_objects(schema: object) -> None:
+    if isinstance(schema, dict):
+        if schema.get("type") == "object" or "properties" in schema:
+            assert schema.get("additionalProperties") is False
+        for value in schema.values():
+            _assert_strict_objects(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            _assert_strict_objects(value)
+
+
+def test_codex_graph_bundle_schema_is_strict_for_nested_objects() -> None:
+    schema = _to_codex_output_schema(GraphBundle.model_json_schema())
+
+    _assert_strict_objects(schema)
+    node_schema = schema["properties"]["nodes"]["items"]
+    assert node_schema["properties"]["style_overrides"]["additionalProperties"] is False
+    assert node_schema["properties"]["data"]["additionalProperties"] is False
 
 
 @pytest.fixture()

@@ -73,6 +73,10 @@ def _build_system_prompt() -> str:
           but never jokey enough to reduce clarity.
         - Keep field values compact and readable for a graph-first UI.
         - Include only the evidence items actually referenced by at least one node.
+        - For this structured-output path, keep `ontology.node_types[].fields`,
+          `node.data`, `node.style_overrides`, `edge.style_overrides`, and
+          `node.revision_meta` as empty objects/arrays unless a repair prompt
+          explicitly asks otherwise.
         """
     ).strip()
 
@@ -114,6 +118,8 @@ def _build_user_prompt(
           instead of collapsing everything into one default path.
         - Use node summaries that explain tradeoffs, not just labels.
         - Keep scores within 0 and 1.
+        - Every node must include `scores` with `time_load`, `money_load`,
+          `energy_load`, and `uncertainty`.
         """
     ).strip()
 

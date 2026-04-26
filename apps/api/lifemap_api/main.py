@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -46,8 +47,27 @@ def create_app() -> FastAPI:
         ],
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_headers=["Accept", "Authorization", "Content-Type"],
     )
+
+    @app.middleware("http")
+    async def require_local_api_token(request: Request, call_next):
+        token = (settings.local_api_token or "").strip()
+        if (
+            not token
+            or request.method == "OPTIONS"
+            or request.url.path == "/health"
+        ):
+            return await call_next(request)
+
+        authorization = request.headers.get("authorization", "")
+        expected = f"Bearer {token}"
+        if authorization != expected:
+            return JSONResponse(
+                {"detail": "Pathway local API authorization is required."},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+        return await call_next(request)
 
     @app.get("/health")
     def health() -> dict[str, str]:

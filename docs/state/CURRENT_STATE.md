@@ -2378,3 +2378,46 @@ The highest-value follow-up options are now:
   - The installed app still requires the bundled resource copy prepared by `pnpm install:intel-mac`; it is not yet a Python-free native sidecar.
 - Next recommended task:
   - Run `pnpm install:intel-mac`, open `~/Applications/PATHWAY.app` directly, and confirm the backend starts through the corrected Tauri `engine_start` path.
+
+## Latest micro-update
+
+- Completed work:
+  - Hardened the Pathway local runtime so desktop-launched API calls can require a generated bearer token instead of exposing an unauthenticated loopback service.
+  - Sanitized Codex CLI auth/status command responses so raw account/status output is not passed through to the UI.
+  - Added SSRF-style URL safety checks for manual source fetching, including DNS/IP blocking and final redirect validation.
+  - Tightened Tauri CSP script policy to `script-src 'self'`.
+  - Fixed Codex structured GraphBundle generation by emitting a strict schema where object fields, including `style_overrides`, declare `additionalProperties: false`.
+  - Updated the Pathway intake conversation UI: situation reflection now wraps to the next line, pending dots animate, elapsed time is displayed, assistant/user bubbles are visually distinct, and short user messages no longer span the full row.
+- Changed files:
+  - `.env.example`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/application/source_pipeline.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/lifemap_api/main.py`
+  - `apps/api/tests/test_health.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `scripts/dev-reset.mjs`
+  - `src-tauri/src/main.rs`
+  - `src-tauri/tauri.conf.json`
+  - `docs/state/EXECPLAN_SECURITY_AND_INTAKE_UI_HARDENING.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_map_generation.py apps/api/tests/test_source_library.py apps/api/tests/test_health.py`
+  - `pnpm secret-scan`
+  - `git diff --check`
+  - `git diff --stat`
+  - `git status --short`
+- Known gaps:
+  - A running `pnpm dev` process must be restarted to pick up the new Tauri commands, CSP, local API token wiring, and UI changes.
+  - `style-src 'unsafe-inline'` remains for current Tauri/React inline-style compatibility; script execution is now restricted to self only.
+  - Standalone web clients outside the desktop dev launcher only send the local API bearer token when `VITE_PATHWAY_LOCAL_API_TOKEN` is provided.
+- Next recommended task:
+  - Restart `pnpm dev` and retry the same intake flow; the structured generation failure and the conversation bubble issues should be gone.

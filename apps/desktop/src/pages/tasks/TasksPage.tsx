@@ -153,10 +153,21 @@ function formatPathwayFollowups(analysis: GoalAnalysisRecord): string {
 }
 
 function formatPathwayReadyMessage(answer: string): string {
+  const answerLines = answer
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const normalizedAnswerLines = answerLines.length > 0 ? answerLines : [answer.trim()];
   return [
     "받았어요. 지금 기준으로는 이렇게 진행할 수 있습니다.",
     "",
-    `- [x] 사용자 상황 반영: ${answer}`,
+    "- [x] 사용자 상황 반영:",
+    ...normalizedAnswerLines.map((line, index) => {
+      if (/^\d+[\).]\s+/.test(line)) {
+        return line;
+      }
+      return `${index + 1}. ${line}`;
+    }),
     "- [ ] 목표 분석 결과와 답변을 합쳐 조사 질문으로 정리",
     "- [ ] 근거/가정/리스크가 구분되는 Pathway 그래프 생성",
     "",
@@ -195,7 +206,8 @@ function renderPathwayMessageContent(content: string) {
       output.push(<span aria-hidden="true" className="pathway-intake-break" key={`break-${index}`} />);
       return;
     }
-    output.push(<p key={`line-${index}`}>{line}</p>);
+    const answerLine = /^\d+[\).]\s+/.test(line.trim());
+    output.push(<p className={answerLine ? "pathway-intake-answer-line" : undefined} key={`line-${index}`}>{line}</p>);
   });
   flushList();
   return output;
@@ -228,6 +240,8 @@ export default function TasksPage(props: TasksPageProps) {
   const [isReviewPaneOpen, setIsReviewPaneOpen] = useState(false);
   const [pathwayIntakeDraft, setPathwayIntakeDraft] = useState("");
   const [pathwayIntakePending, setPathwayIntakePending] = useState(false);
+  const [pathwayPendingStartedAt, setPathwayPendingStartedAt] = useState<number | null>(null);
+  const [pathwayPendingElapsedSeconds, setPathwayPendingElapsedSeconds] = useState(0);
   const [pathwayIntake, setPathwayIntake] = useState<PathwayIntakeState>({
     phase: "idle",
     goalId: null,
@@ -585,6 +599,26 @@ export default function TasksPage(props: TasksPageProps) {
   const autoSelectedComposerRoleIds = useMemo(() => [], []);
   const autoSelectedProviderModel = null;
   const hasPathwayGoal = Boolean(props.activeGoalId || String(props.activeGoalTitle ?? "").trim());
+  const pathwayPendingElapsedLabel = useMemo(() => {
+    const minutes = Math.floor(pathwayPendingElapsedSeconds / 60);
+    const seconds = pathwayPendingElapsedSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }, [pathwayPendingElapsedSeconds]);
+
+  useEffect(() => {
+    if (!pathwayIntakePending) {
+      setPathwayPendingStartedAt(null);
+      setPathwayPendingElapsedSeconds(0);
+      return;
+    }
+    const startedAt = Date.now();
+    setPathwayPendingStartedAt(startedAt);
+    setPathwayPendingElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setPathwayPendingElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [pathwayIntakePending]);
 
   useEffect(() => {
     setMentionIndex(0);
@@ -848,8 +882,18 @@ export default function TasksPage(props: TasksPageProps) {
                   <article className="tasks-thread-message-row is-assistant pathway-intake-message is-pending">
                     <span className="tasks-thread-message-label">PATHWAY</span>
                     <div className="tasks-thread-log-line pathway-intake-message-body">
-                      <p>생각하는 중입니다...</p>
+                      <p className="pathway-intake-thinking">
+                        <span>생각하는 중입니다</span>
+                        <span aria-hidden="true" className="pathway-loading-dots">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      </p>
                     </div>
+                    {pathwayPendingStartedAt ? (
+                      <small className="pathway-intake-elapsed">{pathwayPendingElapsedLabel}</small>
+                    ) : null}
                   </article>
                 ) : null}
               </section>

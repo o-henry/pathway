@@ -11,9 +11,14 @@ import type {
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const RETRYABLE_FETCH_ERROR_PATTERN = /failed to fetch|networkerror|load failed/i;
+let localApiToken = String(import.meta.env.VITE_PATHWAY_LOCAL_API_TOKEN ?? '').trim();
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
+}
+
+export function setLocalApiToken(token: string | null | undefined): void {
+  localApiToken = String(token ?? '').trim();
 }
 
 function sleep(ms: number): Promise<void> {
@@ -21,13 +26,18 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (localApiToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${localApiToken}`);
+  }
+  const requestInit = { ...init, headers };
   let lastError: unknown = null;
   for (const delayMs of [0, 250, 750, 1500]) {
     if (delayMs > 0) {
       await sleep(delayMs);
     }
     try {
-      return await fetch(input, init);
+      return await fetch(input, requestInit);
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error ?? '');

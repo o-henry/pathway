@@ -89,6 +89,10 @@ def _build_revision_system_prompt() -> str:
           keyword-triggered branching.
         - Prefer appending, annotating, weakening, or superseding prior graph
           material over deleting it.
+        - For this structured-output path, keep `ontology.node_types[].fields`,
+          `node.data`, `node.style_overrides`, `edge.style_overrides`, and
+          `node.revision_meta` as empty objects/arrays unless a repair prompt
+          explicitly asks otherwise.
         """
     ).strip()
 

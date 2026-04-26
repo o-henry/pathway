@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import re
+import socket
 from datetime import UTC, datetime
 from textwrap import shorten
 from urllib import robotparser
@@ -123,6 +124,83 @@ def _robots_url(url: str) -> str | None:
     return f"{parsed.scheme}://{parsed.netloc}/robots.txt"
 
 
+def _blocked_host_reason(hostname: str) -> str | None:
+    lowered_hostname = hostname.lower()
+    if lowered_hostname in {"localhost", "127.0.0.1", "::1"}:
+        return "Localhost URLs are blocked from source ingestion."
+
+    candidate_ips: set[str] = set()
+    try:
+        candidate_ips.add(str(ipaddress.ip_address(lowered_hostname)))
+    except ValueError:
+        try:
+            for family, _, _, _, sockaddr in socket.getaddrinfo(lowered_hostname, None):
+                if family in {socket.AF_INET, socket.AF_INET6} and sockaddr:
+                    candidate_ips.add(str(sockaddr[0]))
+        except socket.gaierror:
+            return "The URL hostname could not be resolved safely."
+
+    for candidate in candidate_ips:
+        ip = ipaddress.ip_address(candidate)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return "Private-network URLs are blocked from source ingestion."
+    return None
+
+
+def _validate_public_http_url(url: str) -> SourceUrlPreview:
+    normalized = url.strip()
+    parsed = urlparse(normalized)
+
+    if parsed.scheme not in {"http", "https"}:
+        return SourceUrlPreview(
+            url=url,
+            normalized_url=None,
+            policy_state="blocked_by_policy",
+            reason="Only http and https URLs are allowed for source preview.",
+            fetch_allowed=False,
+            metadata_only=False,
+            domain=None,
+        )
+
+    hostname = parsed.hostname
+    if not hostname:
+        return SourceUrlPreview(
+            url=url,
+            normalized_url=None,
+            policy_state="blocked_by_policy",
+            reason="The URL is missing a valid hostname.",
+            fetch_allowed=False,
+            metadata_only=False,
+            domain=None,
+        )
+
+    lowered_hostname = hostname.lower()
+    blocked_reason = _blocked_host_reason(lowered_hostname)
+    if blocked_reason:
+        return SourceUrlPreview(
+            url=url,
+            normalized_url=None,
+            policy_state="blocked_by_policy",
+            reason=blocked_reason,
+            fetch_allowed=False,
+            metadata_only=False,
+            domain=lowered_hostname,
+        )
+
+    normalized_url = urlunparse(parsed._replace(fragment=""))
+    return SourceUrlPreview(
+        url=url,
+        normalized_url=normalized_url,
+        policy_state="public_url_metadata",
+        reason=(
+            "URL preview is allowed, but content fetch remains disabled until the crawling phase."
+        ),
+        fetch_allowed=False,
+        metadata_only=True,
+        domain=lowered_hostname,
+    )
+
+
 def check_robots_permission(url: str) -> tuple[bool, str]:
     robots_url = _robots_url(url)
     if not robots_url:
@@ -212,6 +290,9 @@ def fetch_url_as_source(
         raise ProviderInvocationError(f"URL fetch failed: {exc}") from exc
 
     final_url = str(response.url)
+    final_preview = _validate_public_http_url(final_url)
+    if final_preview.policy_state == "blocked_by_policy":
+        raise ValueError(f"Redirect target blocked: {final_preview.reason}")
     content_type = response.headers.get("content-type", "").lower()
     collector_used = (collector_preference or "trafilatura").strip().lower()
 
@@ -257,68 +338,4 @@ def fetch_url_as_source(
 
 
 def preview_source_url(url: str) -> SourceUrlPreview:
-    normalized = url.strip()
-    parsed = urlparse(normalized)
-
-    if parsed.scheme not in {"http", "https"}:
-        return SourceUrlPreview(
-            url=url,
-            normalized_url=None,
-            policy_state="blocked_by_policy",
-            reason="Only http and https URLs are allowed for source preview.",
-            fetch_allowed=False,
-            metadata_only=False,
-            domain=None,
-        )
-
-    hostname = parsed.hostname
-    if not hostname:
-        return SourceUrlPreview(
-            url=url,
-            normalized_url=None,
-            policy_state="blocked_by_policy",
-            reason="The URL is missing a valid hostname.",
-            fetch_allowed=False,
-            metadata_only=False,
-            domain=None,
-        )
-
-    lowered_hostname = hostname.lower()
-    if lowered_hostname in {"localhost", "127.0.0.1", "::1"}:
-        return SourceUrlPreview(
-            url=url,
-            normalized_url=None,
-            policy_state="blocked_by_policy",
-            reason="Localhost URLs are blocked from source ingestion.",
-            fetch_allowed=False,
-            metadata_only=False,
-            domain=lowered_hostname,
-        )
-
-    try:
-        ip = ipaddress.ip_address(lowered_hostname)
-        if ip.is_private or ip.is_loopback or ip.is_link_local:
-            return SourceUrlPreview(
-                url=url,
-                normalized_url=None,
-                policy_state="blocked_by_policy",
-                reason="Private-network URLs are blocked from source ingestion.",
-                fetch_allowed=False,
-                metadata_only=False,
-                domain=lowered_hostname,
-            )
-    except ValueError:
-        pass
-
-    normalized_url = urlunparse(parsed._replace(fragment=""))
-    return SourceUrlPreview(
-        url=url,
-        normalized_url=normalized_url,
-        policy_state="public_url_metadata",
-        reason=(
-            "URL preview is allowed, but content fetch remains disabled until the crawling phase."
-        ),
-        fetch_allowed=False,
-        metadata_only=True,
-        domain=lowered_hostname,
-    )
+    return _validate_public_http_url(url)

@@ -1,4 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 
 const MODES = {
   web: {
@@ -36,6 +37,7 @@ const KILL_WAIT_MS = 1500;
 
 const requestedMode = process.argv[2] ?? 'web';
 const mode = MODES[requestedMode];
+const localApiToken = requestedMode === 'desktop' ? `pathway-dev-${randomBytes(24).toString('hex')}` : '';
 
 if (!mode) {
   console.error(`Unknown dev-reset mode: ${requestedMode}`);
@@ -137,7 +139,15 @@ child = spawn(
   ['exec', 'concurrently', '-n', mode.label, '-c', mode.colors, ...mode.commands],
   {
     stdio: 'inherit',
-    env: process.env,
+    env: {
+      ...process.env,
+      ...(localApiToken
+        ? {
+            LIFEMAP_LOCAL_API_TOKEN: localApiToken,
+            VITE_PATHWAY_LOCAL_API_TOKEN: localApiToken,
+          }
+        : {}),
+    },
   },
 );
 

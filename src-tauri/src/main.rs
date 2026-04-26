@@ -5,7 +5,7 @@ use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
@@ -50,6 +50,7 @@ fn apply_dev_app_icon(_app: &AppHandle) {}
 
 struct ApiProcess(Mutex<Option<Child>>);
 struct CodexLoginProcess(Mutex<Option<Child>>);
+struct LocalApiToken(String);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -327,8 +328,33 @@ fn parse_codex_auth_state(raw: &str) -> (String, String) {
     ("unknown".to_string(), "unknown".to_string())
 }
 
-fn raw_text_value(raw: &str) -> serde_json::Value {
-    serde_json::json!({ "text": raw })
+fn sanitized_codex_status_value(state: &str, auth_mode: &str) -> serde_json::Value {
+    serde_json::json!({
+        "state": state,
+        "authMode": auth_mode,
+    })
+}
+
+fn sanitized_codex_login_value(auth_url: &str, device_code: Option<&str>) -> serde_json::Value {
+    serde_json::json!({
+        "authUrlPresent": !auth_url.trim().is_empty(),
+        "deviceCodePresent": device_code.is_some_and(|value| !value.trim().is_empty()),
+    })
+}
+
+fn build_local_api_token() -> String {
+    if let Ok(token) = std::env::var("LIFEMAP_LOCAL_API_TOKEN") {
+        let trimmed = token.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    format!("pathway-local-{}-{nanos}", std::process::id())
 }
 
 fn parse_codex_device_login(raw: &str) -> (Option<String>, Option<String>) {
@@ -428,9 +454,9 @@ fn start_codex_device_login(
     *guard = Some(child);
 
     Ok(LoginChatgptResult {
+        raw: sanitized_codex_login_value(&auth_url, device_code.as_deref()),
         auth_url,
         device_code,
-        raw: raw_text_value(&clean_raw),
     })
 }
 
@@ -896,8 +922,13 @@ def upsert_source(provider, topic, url, title, content, robots_status):
         "robots_status": robots_status,
         "ingested_by": "dashboard_crawl_provider_fetch_url",
     }
+    headers = {}
+    local_api_token = os.environ.get("LIFEMAP_LOCAL_API_TOKEN", "").strip()
+    if local_api_token:
+        headers["Authorization"] = f"Bearer {local_api_token}"
     response = httpx.post(
         f"{API_BASE_URL}/sources/manual",
+        headers=headers,
         json={
             "title": title[:200] or urlparse(url).netloc,
             "content_text": content,
@@ -929,6 +960,7 @@ def main():
                 robots_status = f"{robots_status}; provider fallback: {provider_error}"
             else:
                 raise
+        validate_url(final_url)
         if not content:
             raise ValueError("Fetched page did not yield readable content.")
         source_payload = {}
@@ -975,6 +1007,7 @@ fn fetch_url_with_collector(
     provider: &str,
     url: &str,
     topic: &str,
+    local_api_token: &str,
 ) -> Result<CollectorFetchResult, String> {
     let Some(uv_path) = resolve_command_path("uv") else {
         return Err("uv is required to run local collector fetches".into());
@@ -984,6 +1017,7 @@ fn fetch_url_with_collector(
         .current_dir(root)
         .env("PATH", augmented_path_env())
         .env("UV_CACHE_DIR", root.join(".uv-cache"))
+        .env("LIFEMAP_LOCAL_API_TOKEN", local_api_token)
         .arg("run")
         .arg("python3")
         .arg("-c")
@@ -1024,7 +1058,11 @@ fn api_is_live() -> bool {
     TcpStream::connect((API_HOST, API_PORT)).is_ok()
 }
 
-fn spawn_dev_api(root: &Path, data_root: Option<&Path>) -> Result<Child, String> {
+fn spawn_dev_api(
+    root: &Path,
+    data_root: Option<&Path>,
+    local_api_token: &str,
+) -> Result<Child, String> {
     let app_path = api_entry(root);
     let uv_path = resolve_command_path("uv")
         .ok_or_else(|| "uv is required to launch the local Pathway API".to_string())?;
@@ -1033,7 +1071,8 @@ fn spawn_dev_api(root: &Path, data_root: Option<&Path>) -> Result<Child, String>
     command
         .current_dir(root)
         .env("PATH", augmented_path_env())
-        .env("UV_CACHE_DIR", root.join(".uv-cache"));
+        .env("UV_CACHE_DIR", root.join(".uv-cache"))
+        .env("LIFEMAP_LOCAL_API_TOKEN", local_api_token);
 
     if let Some(data_root) = data_root {
         let data_dir = data_root.join("data");
@@ -1078,6 +1117,7 @@ fn wait_for_api() -> bool {
 fn engine_start(
     app: AppHandle,
     api_process: tauri::State<'_, ApiProcess>,
+    local_api_token: tauri::State<'_, LocalApiToken>,
     _cwd: Option<String>,
 ) -> Result<EngineLifecycleResult, String> {
     if api_is_live() {
@@ -1094,7 +1134,7 @@ fn engine_start(
         }
     }
 
-    match start_api_if_needed(&app)? {
+    match start_api_if_needed(&app, &local_api_token.0)? {
         Some(child) => {
             let mut guard = api_process.0.lock().expect("api process mutex poisoned");
             *guard = Some(child);
@@ -1144,11 +1184,11 @@ fn auth_probe() -> Result<AuthProbeResult, String> {
     let (_success, raw) = run_codex_command(&["login", "status"], None)?;
     let (state, auth_mode) = parse_codex_auth_state(&raw);
     Ok(AuthProbeResult {
+        raw: sanitized_codex_status_value(&state, &auth_mode),
         state,
         source_method: "codex login status".to_string(),
         auth_mode,
-        raw: raw_text_value(&raw),
-        detail: Some(raw),
+        detail: None,
     })
 }
 
@@ -1174,12 +1214,13 @@ fn logout_codex(
     }
 
     let (_success, raw) = run_codex_command(&["logout"], None)?;
+    let (state, auth_mode) = parse_codex_auth_state(&raw);
     Ok(AuthProbeResult {
+        raw: sanitized_codex_status_value(&state, &auth_mode),
         state: "login_required".to_string(),
         source_method: "codex logout".to_string(),
-        auth_mode: "unknown".to_string(),
-        raw: raw_text_value(&raw),
-        detail: Some(raw),
+        auth_mode,
+        detail: None,
     })
 }
 
@@ -1189,13 +1230,14 @@ fn usage_check() -> Result<UsageCheckResult, String> {
     if !success {
         return Err(raw);
     }
+    let (state, auth_mode) = parse_codex_auth_state(&raw);
     Ok(UsageCheckResult {
         source_method: "codex login status".to_string(),
-        raw: raw_text_value(&raw),
+        raw: sanitized_codex_status_value(&state, &auth_mode),
     })
 }
 
-fn start_api_if_needed(app: &AppHandle) -> Result<Option<Child>, String> {
+fn start_api_if_needed(app: &AppHandle, local_api_token: &str) -> Result<Option<Child>, String> {
     if api_is_live() {
         return Ok(None);
     }
@@ -1220,12 +1262,17 @@ fn start_api_if_needed(app: &AppHandle) -> Result<Option<Child>, String> {
             None
         };
 
-    let child = spawn_dev_api(&root, app_data_dir.as_deref())?;
+    let child = spawn_dev_api(&root, app_data_dir.as_deref(), local_api_token)?;
     if wait_for_api() {
         Ok(Some(child))
     } else {
         Err("Pathway desktop launched, but the local API did not become ready on http://127.0.0.1:8000.".into())
     }
+}
+
+#[tauri::command]
+fn local_api_auth_token(token: tauri::State<'_, LocalApiToken>) -> String {
+    token.0.clone()
 }
 
 #[tauri::command]
@@ -1251,6 +1298,7 @@ fn dashboard_crawl_provider_install(
 #[tauri::command]
 fn dashboard_crawl_provider_fetch_url(
     app: AppHandle,
+    local_api_token: tauri::State<'_, LocalApiToken>,
     cwd: Option<String>,
     provider: String,
     url: String,
@@ -1265,13 +1313,16 @@ fn dashboard_crawl_provider_fetch_url(
         provider,
         url.trim(),
         topic.as_deref().unwrap_or("pathway_research"),
+        &local_api_token.0,
     )
 }
 
 fn main() {
+    let local_api_token = build_local_api_token();
     tauri::Builder::default()
         .manage(ApiProcess(Mutex::new(None)))
         .manage(CodexLoginProcess(Mutex::new(None)))
+        .manage(LocalApiToken(local_api_token))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             engine_start,
@@ -1280,6 +1331,7 @@ fn main() {
             login_chatgpt,
             logout_codex,
             usage_check,
+            local_api_auth_token,
             dashboard_crawl_provider_health,
             dashboard_crawl_provider_install,
             dashboard_crawl_provider_fetch_url
@@ -1287,7 +1339,8 @@ fn main() {
         .setup(|app| {
             apply_dev_app_icon(app.handle());
 
-            match start_api_if_needed(app.handle()) {
+            let local_api_token = app.state::<LocalApiToken>();
+            match start_api_if_needed(app.handle(), &local_api_token.0) {
                 Ok(Some(child)) => {
                     let api_process = app.state::<ApiProcess>();
                     *api_process.0.lock().expect("api process mutex poisoned") = Some(child);

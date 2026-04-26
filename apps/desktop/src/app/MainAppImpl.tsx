@@ -21,6 +21,7 @@ import {
   getAssumptionsForNode,
   getEvidenceForNode,
   rejectRevisionPreview,
+  setLocalApiToken,
   updateGoal,
   updateRouteSelection
 } from '../lib/api';
@@ -363,6 +364,7 @@ export default function MainApp() {
   async function ensureEngineStarted() {
     try {
       await invoke('engine_start', { cwd });
+      await refreshLocalApiTokenFromShell();
       setEngineStarted(true);
     } catch (error) {
       if (isEngineAlreadyStartedError(error)) {
@@ -384,6 +386,21 @@ export default function MainApp() {
         configured: false,
       })),
     );
+  }
+
+  async function refreshLocalApiTokenFromShell() {
+    if (!hasTauriRuntime) {
+      return;
+    }
+    if (String(import.meta.env.VITE_PATHWAY_LOCAL_API_TOKEN ?? '').trim()) {
+      return;
+    }
+    try {
+      const token = await invoke<string>('local_api_auth_token');
+      setLocalApiToken(token);
+    } catch {
+      // Older dev shells may not expose the token command; unauthenticated dev API still works.
+    }
   }
 
   async function refreshAuthStateFromEngine(showStatus = false): Promise<AuthProbeResult | null> {
@@ -416,6 +433,7 @@ export default function MainApp() {
   }
 
   async function refreshGoals(preserveSelection = true) {
+    await refreshLocalApiTokenFromShell();
     const nextGoals = await fetchGoals();
     setGoals(nextGoals);
     if (nextGoals.length === 0) {
