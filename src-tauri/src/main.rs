@@ -749,7 +749,7 @@ import subprocess
 import sys
 import urllib.request
 from urllib import robotparser
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 USER_AGENT = "PathwayBot/0.1 (+local-first research workspace)"
 API_BASE_URL = "http://127.0.0.1:8000"
@@ -871,6 +871,66 @@ def fetch_with_httpx(url):
     return content, title, final_url
 
 
+def is_duckduckgo_search_probe(url):
+    parsed = urlparse(url)
+    return parsed.netloc.lower().endswith("duckduckgo.com") and parsed.path.startswith("/html")
+
+
+def extract_duckduckgo_result_urls(search_url):
+    import httpx
+    from bs4 import BeautifulSoup
+
+    response = httpx.get(
+        search_url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+        },
+        follow_redirects=True,
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    urls = []
+    seen = set()
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+        parsed = urlparse(href)
+        candidate = None
+        if parsed.netloc.lower().endswith("duckduckgo.com") and parsed.path.startswith("/l/"):
+            uddg = parse_qs(parsed.query).get("uddg", [""])[0]
+            candidate = unquote(uddg)
+        elif href.startswith("/l/"):
+            uddg = parse_qs(urlparse(f"https://duckduckgo.com{href}").query).get("uddg", [""])[0]
+            candidate = unquote(uddg)
+        elif parsed.scheme in {"http", "https"} and not parsed.netloc.lower().endswith("duckduckgo.com"):
+            candidate = href
+        if not candidate or candidate in seen:
+            continue
+        try:
+            validate_url(candidate)
+        except Exception:
+            continue
+        seen.add(candidate)
+        urls.append(candidate)
+    return urls
+
+
+def fetch_search_probe_with_provider(provider, search_url):
+    candidates = extract_duckduckgo_result_urls(search_url)
+    if not candidates:
+        raise ValueError("Search probe returned no safe result URLs.")
+    errors = []
+    for candidate_url in candidates[:5]:
+        try:
+            robots_status = check_robots(candidate_url)
+            content, title, final_url = fetch_with_provider(provider, candidate_url)
+            return content, title, final_url, f"search probe resolved via {candidate_url}; {robots_status}"
+        except Exception as error:
+            errors.append(f"{candidate_url}: {error}")
+    raise ValueError("Search probe result fetch failed: " + " | ".join(errors[:3]))
+
+
 async def fetch_with_crawl4ai(url):
     from crawl4ai import AsyncWebCrawler
     try:
@@ -980,10 +1040,13 @@ def main():
         validate_url(url)
         robots_status = check_robots(url)
         try:
-            content, title, final_url = fetch_with_provider(provider, url)
+            if is_duckduckgo_search_probe(url):
+                content, title, final_url, robots_status = fetch_search_probe_with_provider(provider, url)
+            else:
+                content, title, final_url = fetch_with_provider(provider, url)
             provider_used = provider
         except Exception as provider_error:
-            if provider in {"crawl4ai", "scrapling", "lightpanda_experimental"}:
+            if provider in {"crawl4ai", "scrapling", "lightpanda_experimental"} and not is_duckduckgo_search_probe(url):
                 content, title, final_url = fetch_with_httpx(url)
                 provider_used = f"{provider}:httpx_fallback"
                 robots_status = f"{robots_status}; provider fallback: {provider_error}"

@@ -71,6 +71,9 @@ Expected results:
   - Repaired automatic graph-gating collection so each research-plan URL tries multiple supported local collectors before failing.
   - Added automatic install/prepare attempts for installable collectors before falling through to the next provider.
   - Preserved and surfaced per-target/provider failure reasons instead of collapsing all failures into an opaque count.
+  - Converted automatic collection execution to bounded parallel workers with shared provider-readiness caching.
+  - Removed blocked DuckDuckGo search-result jobs from automatic collection and added direct authoritative URL seeds for the current English-speaking research targets.
+  - Verified parallel collector ingestion and graph generation with real local API calls.
 - Tests run:
   - `cargo fmt --manifest-path src-tauri/Cargo.toml`
   - `cargo check --manifest-path src-tauri/Cargo.toml`
@@ -81,3 +84,4 @@ Expected results:
 - Known gaps:
   - Broad source discovery and result-page expansion remain the next phase.
   - If every safe collector/provider path rejects a URL, graph generation still stops as intended, but the UI now reports the concrete provider errors.
+  - Generic query-to-URL discovery still needs a dedicated safe discovery provider; Pathway should not depend on scraping blocked search pages.

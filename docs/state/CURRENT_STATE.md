@@ -3,6 +3,40 @@
 ## Latest micro-update
 
 - Completed work:
+  - Changed automatic research collection from sequential execution to bounded parallel execution with 4 workers.
+  - Added provider-readiness promise caching so parallel jobs do not all try to install/prepare the same collector at once.
+  - Stopped creating DuckDuckGo search-result collection jobs; those URLs are blocked by robots.txt and caused `성공 0건 / 실패 12건`.
+  - Added a small source URL seed resolver for authoritative public English-learning research targets so analysis hints can produce direct, collectable URLs.
+  - Verified collector ingestion directly against the local API: parallel collection of Cambridge English, British Council, PubMed, and ACTFL URLs all returned `status: ok` with `sourceId`.
+  - Verified graph generation after collection: generated `map_f0d91eb1c030464285bf15bc842b0f9c` with British Council and PubMed evidence attached.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `src-tauri/src/main.rs`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `node --input-type=module -e "...extract COLLECTOR_FETCH_SCRIPT..."`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run fastapi run apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run python3 /tmp/pathway_collector_fetch_script.py scrapling https://example.com pathway:test`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run python3 /tmp/pathway_collector_fetch_script.py crawl4ai https://example.com pathway:test`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token UV_CACHE_DIR=.uv-cache uv run python3 /tmp/pathway_collector_fetch_script.py scrapling 'https://duckduckgo.com/html/?q=CEFR%20spoken%20interaction%20B1%20B2%20C1%20descriptors%20conversation' pathway:search_probe_test` (confirmed robots.txt disallow)
+  - `node --input-type=module -e "...parallel collector validation..."`
+  - `curl -sS -X POST -H 'Authorization: Bearer pathway-dev-test-token' http://127.0.0.1:8000/goals/goal_7377ed40b2604870a23e9d1bdbcec04f/pathways/generate`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-dev-test-token pnpm dev`
+  - `git diff --check`
+  - `env PRE_COMMIT_HOME=.pre-commit-cache UV_CACHE_DIR=.uv-cache uv run pre-commit run gitleaks --all-files`
+- Known gaps:
+  - The source URL seed resolver is a first safe bridge, not a full source-discovery engine.
+  - A general search/discovery layer still needs a provider that returns permitted result URLs without scraping blocked search pages.
+- Next recommended task:
+  - Add a first-class source discovery service that expands research-plan queries into vetted direct URLs, stores the discovery trace, and then feeds those URLs through the parallel collector.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed the automatic research collection failure path that previously swallowed every per-job exception and only showed `성공 0건 / 실패 N건`.
   - Added per-job collector fallback order so research-plan collection tries supported local collectors (`scrapling`, `crawl4ai`, `lightpanda_experimental`) instead of failing after one provider.
   - Added automatic install/prepare attempts for installable collectors during auto collection, so graph generation no longer depends on a separate manual collector setup click.

@@ -59,6 +59,7 @@ const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'settings'
 const SETTINGS_AUTH_REFRESH_COOLDOWN_MS = 60_000;
 const SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS = 5 * 60_000;
 const SETTINGS_DEFERRED_REFRESH_DELAY_MS = 120;
+const RESEARCH_COLLECTION_PARALLELISM = 4;
 type PathwayAuthMode = 'chatgpt' | 'apikey' | 'unknown';
 
 type CollectorDoctorState = 'checking' | 'ready' | 'error';
@@ -105,8 +106,8 @@ type CollectorFetchResult = {
 };
 
 type CollectorJobAttemptResult =
-  | { ok: true; provider: string }
-  | { ok: false; error: string };
+  | { ok: true; provider: string; targetLabel: string }
+  | { ok: false; error: string; targetLabel: string };
 
 const COLLECTOR_DOCTOR_DEFINITIONS: ReadonlyArray<{
   id: string;
@@ -391,6 +392,7 @@ export default function MainApp() {
   const authStateLastCheckedAtRef = useRef(0);
   const collectorDoctorLastCheckedAtRef = useRef(0);
   const collectorDoctorInFlightRef = useRef(false);
+  const collectorReadyPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
   const [, setResearchPlanCollecting] = useState(false);
   const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
 
@@ -953,7 +955,7 @@ export default function MainApp() {
     }
   }
 
-  async function ensureCollectorReadyForJob(providerId: string): Promise<void> {
+  async function prepareCollectorForJob(providerId: string): Promise<void> {
     const health = await invoke<CollectorHealthResult>('dashboard_crawl_provider_health', {
       cwd,
       provider: providerId,
@@ -985,6 +987,20 @@ export default function MainApp() {
     throw new Error(`${providerId}: ${message}`);
   }
 
+  async function ensureCollectorReadyForJob(providerId: string): Promise<void> {
+    const cached = collectorReadyPromisesRef.current.get(providerId);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = prepareCollectorForJob(providerId).catch((error) => {
+      collectorReadyPromisesRef.current.delete(providerId);
+      throw error;
+    });
+    collectorReadyPromisesRef.current.set(providerId, promise);
+    return promise;
+  }
+
   async function runResearchPlanCollectorJob(job: ResearchPlanCollectorJob, provider: string): Promise<CollectorFetchResult> {
     await ensureCollectorReadyForJob(provider);
     return invoke<CollectorFetchResult>('dashboard_crawl_provider_fetch_url', {
@@ -1005,7 +1021,7 @@ export default function MainApp() {
         const ok = String(result?.status ?? '').toLowerCase() === 'ok';
         const sourceError = cleanCollectorMessage(result?.source_meta?.source_library_error);
         if (ok && !sourceError) {
-          return { ok: true, provider };
+          return { ok: true, provider, targetLabel: job.targetLabel };
         }
         const resultError = cleanCollectorMessage(result?.error || sourceError || result?.status || 'fetch failed');
         errors.push(`${provider}: ${resultError}`);
@@ -1016,6 +1032,7 @@ export default function MainApp() {
 
     return {
       ok: false,
+      targetLabel: job.targetLabel,
       error: truncateCollectorMessage(errors.join(' / '), 360),
     };
   }
@@ -1034,18 +1051,40 @@ export default function MainApp() {
     const failureReasons: string[] = [];
     try {
       await ensureEngineStarted();
-      for (let index = 0; index < researchPlanCollectorJobs.length; index += 1) {
-        const job = researchPlanCollectorJobs[index]!;
-        const providers = job.providerCandidates.length > 0 ? job.providerCandidates : [job.provider];
-        setResearchPlanCollectionStatus(
-          `${triggerLabel} 전 자동 수집 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel} · ${providers.join(' → ')}`,
-        );
-        const result = await runResearchPlanCollectorJobWithFallbacks(job);
+      const results: CollectorJobAttemptResult[] = [];
+      let nextJobIndex = 0;
+      let completedCount = 0;
+      const workerCount = Math.min(RESEARCH_COLLECTION_PARALLELISM, researchPlanCollectorJobs.length);
+
+      const runWorker = async () => {
+        while (nextJobIndex < researchPlanCollectorJobs.length) {
+          const index = nextJobIndex;
+          nextJobIndex += 1;
+          const job = researchPlanCollectorJobs[index]!;
+          const providers = job.providerCandidates.length > 0 ? job.providerCandidates : [job.provider];
+          setResearchPlanCollectionStatus(
+            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 시작 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel} · ${providers.join(' → ')}`,
+          );
+          const result = await runResearchPlanCollectorJobWithFallbacks(job);
+          results[index] = result;
+          completedCount += 1;
+          setResearchPlanCollectionStatus(
+            `${triggerLabel} 전 자동 수집 병렬 실행 중 · 완료 ${completedCount}/${researchPlanCollectorJobs.length} · 최근 완료: ${job.targetLabel}`,
+          );
+        }
+      };
+
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+
+      for (const result of results) {
+        if (!result) {
+          continue;
+        }
         if (result.ok) {
           successCount += 1;
         } else {
           failureCount += 1;
-          failureReasons.push(`${job.targetLabel}: ${result.error}`);
+          failureReasons.push(`${result.targetLabel}: ${result.error}`);
         }
       }
       setResearchPlanCollectionStatus(

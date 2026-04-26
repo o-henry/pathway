@@ -13,13 +13,42 @@ export type ResearchPlanCollectorJob = {
 
 const URL_PATTERN = /https?:\/\/[^\s<>()"'`]+/gi;
 const MAX_TOTAL_RESEARCH_PLAN_JOBS = 12;
-const MAX_SEARCH_PROBES_PER_TARGET = 2;
 const DEFAULT_COLLECTOR_ORDER = ['scrapling', 'crawl4ai', 'lightpanda_experimental'];
 const SUPPORTED_FETCH_COLLECTORS = new Set([
   'crawl4ai',
   'scrapling',
   'lightpanda_experimental',
 ]);
+const SOURCE_HINT_URL_SEEDS: ReadonlyArray<{ patterns: string[]; url: string }> = [
+  {
+    patterns: ['cefr', 'council of europe', 'common european framework'],
+    url: 'https://www.coe.int/en/web/common-european-framework-reference-languages/table-1-cefr-3.3-common-reference-levels-global-scale',
+  },
+  {
+    patterns: ['actfl', 'proficiency guidelines'],
+    url: 'https://www.actfl.org/educator-resources/actfl-proficiency-guidelines',
+  },
+  {
+    patterns: ['cambridge', 'b2 first'],
+    url: 'https://www.cambridgeenglish.org/exams-and-tests/qualifications/first/',
+  },
+  {
+    patterns: ['british council'],
+    url: 'https://learnenglish.britishcouncil.org/level/improve-your-english-level/how-improve-your-english-speaking',
+  },
+  {
+    patterns: ['plos', 'willingness to communicate'],
+    url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0328226',
+  },
+  {
+    patterns: ['language exchange', 'tandem', 'speaking gains'],
+    url: 'https://pubmed.ncbi.nlm.nih.gov/37251019/',
+  },
+  {
+    patterns: ['task repetition', 'oral performance'],
+    url: 'https://www.sciencedirect.com/science/article/pii/S0346251X25002787',
+  },
+];
 
 function cleanLine(value: unknown): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -39,17 +68,18 @@ function extractUrls(values: string[]): string[] {
   );
 }
 
-function containsUrl(value: string): boolean {
-  return extractUrls([value]).length > 0;
-}
-
-function searchProbeUrl(query: string): string {
-  return `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-}
-
 function resolveProviderCandidates(preferredCollectors: string[]): string[] {
   const preferred = preferredCollectors.map(cleanLine).filter((collector) => SUPPORTED_FETCH_COLLECTORS.has(collector));
   return uniqueStrings([...preferred, ...DEFAULT_COLLECTOR_ORDER]);
+}
+
+function sourceSeedUrlsForHints(values: string[]): string[] {
+  const normalizedHints = values.map((value) => cleanLine(value).toLowerCase()).filter(Boolean);
+  return SOURCE_HINT_URL_SEEDS
+    .filter((seed) =>
+      normalizedHints.some((hint) => seed.patterns.some((pattern) => hint.includes(pattern))),
+    )
+    .map((seed) => seed.url);
 }
 
 export function buildResearchPlanCollectorJobs(
@@ -72,7 +102,10 @@ export function buildResearchPlanCollectorJobs(
       ...target.source_examples,
       ...target.example_queries,
     ];
-    const explicitUrls = extractUrls(rawHints).slice(0, targetBudget);
+    const explicitUrls = uniqueStrings([
+      ...extractUrls(rawHints),
+      ...sourceSeedUrlsForHints(rawHints),
+    ]).slice(0, targetBudget);
     const topic = `pathway:${analysis?.goal_id ?? 'goal'}:${safeToken(target.id)}:${safeToken(target.layer)}`;
 
     explicitUrls.forEach((url, index) => {
@@ -85,27 +118,6 @@ export function buildResearchPlanCollectorJobs(
         url,
         topic,
         kind: 'explicit_url',
-      });
-    });
-
-    const remainingBudget = targetBudget - explicitUrls.length;
-    if (remainingBudget <= 0 || jobs.length >= MAX_TOTAL_RESEARCH_PLAN_JOBS) {
-      continue;
-    }
-
-    const searchQueries = uniqueStrings(target.example_queries)
-      .filter((query) => !containsUrl(query))
-      .slice(0, Math.min(remainingBudget, MAX_SEARCH_PROBES_PER_TARGET));
-    searchQueries.forEach((query, index) => {
-      jobs.push({
-        id: `${target.id}:search:${index}`,
-        targetId: target.id,
-        targetLabel: target.label,
-        provider,
-        providerCandidates,
-        url: searchProbeUrl(query),
-        topic,
-        kind: 'search_probe',
       });
     });
   }
