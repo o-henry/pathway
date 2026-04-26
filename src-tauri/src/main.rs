@@ -165,10 +165,8 @@ const COLLECTOR_DEFINITIONS: [CollectorDefinition; 7] = [
 ];
 
 fn repo_root(app: &AppHandle) -> PathBuf {
-    if let Ok(current_dir) = std::env::current_dir() {
-        if current_dir.join("apps/api/lifemap_api/main.py").exists() {
-            return current_dir;
-        }
+    if let Some(root) = repo_root_from_runtime_paths() {
+        return root;
     }
 
     app.path()
@@ -178,6 +176,37 @@ fn repo_root(app: &AppHandle) -> PathBuf {
 
 fn api_entry(root: &Path) -> PathBuf {
     root.join("apps/api/lifemap_api/main.py")
+}
+
+fn find_repo_root_from(start: &Path) -> Option<PathBuf> {
+    for candidate in start.ancestors() {
+        if api_entry(candidate).exists() {
+            return Some(candidate.to_path_buf());
+        }
+    }
+    None
+}
+
+fn repo_root_from_runtime_paths() -> Option<PathBuf> {
+    if let Ok(current_dir) = std::env::current_dir() {
+        if let Some(root) = find_repo_root_from(&current_dir) {
+            return Some(root);
+        }
+    }
+
+    let current_exe = std::env::current_exe().ok()?;
+    if let Some(root) = find_repo_root_from(&current_exe) {
+        return Some(root);
+    }
+
+    let macos_dir = current_exe.parent()?;
+    let contents_dir = macos_dir.parent()?;
+    let resources_dir = contents_dir.join("Resources");
+    if api_entry(&resources_dir).exists() {
+        return Some(resources_dir);
+    }
+
+    None
 }
 
 fn collector_definition(provider: &str) -> Option<&'static CollectorDefinition> {
@@ -1244,7 +1273,10 @@ fn start_api_if_needed(app: &AppHandle, local_api_token: &str) -> Result<Option<
 
     let root = repo_root(app);
     if !can_spawn_local_api(&root) {
-        return Ok(None);
+        return Err(format!(
+            "Pathway local API entry was not found under {}.",
+            root.display()
+        ));
     }
 
     let bundled_root = app
@@ -1263,6 +1295,29 @@ fn start_api_if_needed(app: &AppHandle, local_api_token: &str) -> Result<Option<
         };
 
     let child = spawn_dev_api(&root, app_data_dir.as_deref(), local_api_token)?;
+    if wait_for_api() {
+        Ok(Some(child))
+    } else {
+        Err("Pathway desktop launched, but the local API did not become ready on http://127.0.0.1:8000.".into())
+    }
+}
+
+fn start_api_from_runtime_root(local_api_token: &str) -> Result<Option<Child>, String> {
+    if api_is_live() {
+        return Ok(None);
+    }
+
+    let root = repo_root_from_runtime_paths().ok_or_else(|| {
+        "Pathway local API entry was not found from the current runtime paths.".to_string()
+    })?;
+    if !can_spawn_local_api(&root) {
+        return Err(format!(
+            "Pathway local API entry was not found under {}.",
+            root.display()
+        ));
+    }
+
+    let child = spawn_dev_api(&root, None, local_api_token)?;
     if wait_for_api() {
         Ok(Some(child))
     } else {
@@ -1319,8 +1374,15 @@ fn dashboard_crawl_provider_fetch_url(
 
 fn main() {
     let local_api_token = build_local_api_token();
+    let initial_api_child = match start_api_from_runtime_root(&local_api_token) {
+        Ok(child) => child,
+        Err(message) => {
+            eprintln!("Pathway desktop startup: {message}");
+            None
+        }
+    };
     tauri::Builder::default()
-        .manage(ApiProcess(Mutex::new(None)))
+        .manage(ApiProcess(Mutex::new(initial_api_child)))
         .manage(CodexLoginProcess(Mutex::new(None)))
         .manage(LocalApiToken(local_api_token))
         .plugin(tauri_plugin_opener::init())
@@ -1340,14 +1402,22 @@ fn main() {
             apply_dev_app_icon(app.handle());
 
             let local_api_token = app.state::<LocalApiToken>();
+            let root = repo_root(app.handle());
+            eprintln!(
+                "Pathway desktop setup: starting local API from {}",
+                root.display()
+            );
             match start_api_if_needed(app.handle(), &local_api_token.0) {
                 Ok(Some(child)) => {
                     let api_process = app.state::<ApiProcess>();
                     *api_process.0.lock().expect("api process mutex poisoned") = Some(child);
+                    eprintln!("Pathway desktop setup: local API started on http://127.0.0.1:8000");
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    eprintln!("Pathway desktop setup: local API already running");
+                }
                 Err(message) => {
-                    eprintln!("{message}");
+                    eprintln!("Pathway desktop setup: {message}");
                 }
             }
 

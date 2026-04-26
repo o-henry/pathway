@@ -236,6 +236,9 @@ function getVisibleNodeFields(node: GraphNodeRecord): Array<[string, unknown]> {
 
 function formatUiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
+  if (/authorization is required|unauthorized|401/i.test(message)) {
+    return 'Pathway 로컬 API 인증 토큰이 맞지 않습니다. pnpm dev를 재시작하면 desktop shell이 API를 같은 토큰으로 다시 띄웁니다.';
+  }
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return 'Pathway 로컬 백엔드가 아직 준비되지 않았습니다. 잠시 후 자동 재시도하거나 pnpm dev의 api 서비스를 확인하세요.';
   }
@@ -433,7 +436,14 @@ export default function MainApp() {
   }
 
   async function refreshGoals(preserveSelection = true) {
-    await refreshLocalApiTokenFromShell();
+    try {
+      await ensureEngineStarted();
+    } catch (error) {
+      if (!isTauriUnavailableError(error)) {
+        throw error;
+      }
+      await refreshLocalApiTokenFromShell();
+    }
     const nextGoals = await fetchGoals();
     setGoals(nextGoals);
     if (nextGoals.length === 0) {

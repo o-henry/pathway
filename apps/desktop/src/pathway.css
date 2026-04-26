@@ -958,8 +958,18 @@
   background: #edf3f0;
 }
 
+.pathway-intake-message .pathway-intake-message-body.is-multiline {
+  padding: 16px 18px;
+}
+
 .pathway-intake-message.is-assistant {
   justify-items: start;
+}
+
+.pathway-intake-message-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tasks-thread-message-row.pathway-intake-message.is-user .tasks-thread-log-line.pathway-intake-message-body {
@@ -967,6 +977,10 @@
   max-width: min(640px, 100%);
   border-color: rgba(116, 124, 138, 0.12);
   background: #f8f8f7;
+}
+
+.tasks-thread-message-row.pathway-intake-message.is-user .tasks-thread-log-line.pathway-intake-message-body.is-multiline {
+  padding: 16px 18px;
 }
 
 .pathway-intake-message-body p {
@@ -977,6 +991,10 @@
 .pathway-intake-answer-line {
   margin-left: 22px !important;
   color: #536071;
+}
+
+.tasks-thread-message-row.pathway-intake-message.is-user .pathway-intake-answer-line {
+  margin-left: 0 !important;
 }
 
 .pathway-intake-thinking {
@@ -1009,11 +1027,10 @@
 }
 
 .pathway-intake-elapsed {
-  margin-top: -4px;
-  margin-left: 12px;
   color: #7b8491;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 @keyframes pathway-dot-pulse {

@@ -1,5 +1,4 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 
 const MODES = {
   web: {
@@ -16,8 +15,8 @@ const MODES = {
     commands: ['pnpm dev:web', 'pnpm dev:api'],
   },
   desktop: {
-    label: 'desktop,api',
-    colors: 'magenta,cyan',
+    label: 'desktop',
+    colors: 'magenta',
     ports: [1420, 8000],
     cleanupPatterns: [
       'pnpm dev:desktop-ui',
@@ -28,7 +27,7 @@ const MODES = {
       'fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000',
       'concurrently -n desktop,api',
     ],
-    commands: ['pnpm dev:desktop-ui', 'pnpm dev:api'],
+    commands: ['pnpm dev:desktop-ui'],
   },
 };
 
@@ -37,7 +36,6 @@ const KILL_WAIT_MS = 1500;
 
 const requestedMode = process.argv[2] ?? 'web';
 const mode = MODES[requestedMode];
-const localApiToken = requestedMode === 'desktop' ? `pathway-dev-${randomBytes(24).toString('hex')}` : '';
 
 if (!mode) {
   console.error(`Unknown dev-reset mode: ${requestedMode}`);
@@ -141,12 +139,6 @@ child = spawn(
     stdio: 'inherit',
     env: {
       ...process.env,
-      ...(localApiToken
-        ? {
-            LIFEMAP_LOCAL_API_TOKEN: localApiToken,
-            VITE_PATHWAY_LOCAL_API_TOKEN: localApiToken,
-          }
-        : {}),
     },
   },
 );

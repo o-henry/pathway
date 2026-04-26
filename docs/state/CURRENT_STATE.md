@@ -2421,3 +2421,66 @@ The highest-value follow-up options are now:
   - Standalone web clients outside the desktop dev launcher only send the local API bearer token when `VITE_PATHWAY_LOCAL_API_TOKEN` is provided.
 - Next recommended task:
   - Restart `pnpm dev` and retry the same intake flow; the structured generation failure and the conversation bubble issues should be gone.
+
+## Latest micro-update
+
+- Completed work:
+  - Diagnosed the OK-after-intake failure as a `401 Unauthorized` from the protected local API, not as a dead backend.
+  - Removed the desktop dev API launch from `scripts/dev-reset.mjs` so Tauri owns starting the token-protected API and the frontend/Tauri/API token source cannot split.
+  - Kept desktop dev reset clearing stale listeners on both `1420` and `8000` before Tauri starts the API.
+  - Updated the user-facing unauthorized error copy so token mismatch is no longer mislabeled as backend readiness.
+  - Adjusted Pathway intake bubble spacing so multiline user and assistant logs have more comfortable padding while single-line logs stay compact.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `scripts/dev-reset.mjs`
+  - `README.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `lsof -iTCP:8000 -sTCP:LISTEN`
+  - `curl -sS -i http://127.0.0.1:8000/health`
+  - `curl -sS -i http://127.0.0.1:8000/goals`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `node --check scripts/dev-reset.mjs`
+  - `git diff --check`
+- Known gaps:
+  - The currently running `pnpm dev` process still has the old split-token process layout; it must be stopped and restarted once to pick up this fix.
+- Next recommended task:
+  - Stop the current `pnpm dev`, start it again, and retry OK; the Tauri shell should now start the API with the same token the frontend uses.
+
+## Latest micro-update
+
+- Completed work:
+  - Verified the user's intended launch shape: `pnpm dev` only, with no separately started API server.
+  - Found that Tauri dev starts from `src-tauri`, so the local API root lookup could miss `apps/api/lifemap_api/main.py`.
+  - Updated runtime root discovery to walk current-directory and executable ancestors, with an installed-app fallback to `.app/Contents/Resources`.
+  - Moved local API startup into Rust `main()` before the Tauri window/setup timing, while keeping setup as a second confirmation path.
+  - Verified `pnpm dev` starts the local API on `127.0.0.1:8000`.
+  - Verified protected API access using a known test token injected into the same `pnpm dev` command.
+  - Verified the existing English conversation goal analysis endpoint returns `200 OK`.
+  - Verified graph generation returns `201 Created` and persisted map `map_48ae31b98e284484b67e74d49895013f`.
+- Changed files:
+  - `src-tauri/src/main.rs`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `scripts/dev-reset.mjs`
+  - `README.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm dev`
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-test-token pnpm dev`
+  - `curl -sS -i http://127.0.0.1:8000/health`
+  - `curl -sS -i -H 'Authorization: Bearer pathway-test-token' http://127.0.0.1:8000/goals`
+  - `curl -sS -i -X POST -H 'Authorization: Bearer pathway-test-token' http://127.0.0.1:8000/goals/goal_d5ba64b4abe0476d9ff0aec9edcb88f9/analysis`
+  - `curl -sS -i -X POST -H 'Authorization: Bearer pathway-test-token' http://127.0.0.1:8000/goals/goal_d5ba64b4abe0476d9ff0aec9edcb88f9/pathways/generate`
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - The automated end-to-end proof used a known `LIFEMAP_LOCAL_API_TOKEN` so curl could authenticate to the Tauri-started API; normal `pnpm dev` uses a generated token that the desktop frontend obtains through Tauri.
+  - The generated graph currently has narrow external evidence and correctly labels several claims as assumptions.
+- Next recommended task:
+  - Run plain `pnpm dev` and retry the same OK flow in the UI; the backend should now start from the desktop runtime path and graph generation has been proven through the same local API.

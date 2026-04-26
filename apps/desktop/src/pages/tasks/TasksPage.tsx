@@ -213,6 +213,13 @@ function renderPathwayMessageContent(content: string) {
   return output;
 }
 
+function isMultilinePathwayMessage(content: string): boolean {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean).length > 1;
+}
+
 const EMPTY_LIVE_EVENTS: never[] = [];
 
 export default function TasksPage(props: TasksPageProps) {
@@ -867,20 +874,30 @@ export default function TasksPage(props: TasksPageProps) {
               </section>
             ) : (
               <section aria-label="Pathway 상담 타임라인" className="tasks-thread-timeline pathway-intake-timeline" role="log">
-                {pathwayIntake.messages.map((message) => (
-                  <article
-                    className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
-                    key={message.id}
-                  >
-                    <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
-                    <div className="tasks-thread-log-line pathway-intake-message-body">
-                      {renderPathwayMessageContent(message.content)}
-                    </div>
-                  </article>
-                ))}
+                {pathwayIntake.messages.map((message) => {
+                  const bodyClassName = `tasks-thread-log-line pathway-intake-message-body${
+                    isMultilinePathwayMessage(message.content) ? " is-multiline" : ""
+                  }`;
+                  return (
+                    <article
+                      className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
+                      key={message.id}
+                    >
+                      <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
+                      <div className={bodyClassName}>
+                        {renderPathwayMessageContent(message.content)}
+                      </div>
+                    </article>
+                  );
+                })}
                 {pathwayIntakePending ? (
                   <article className="tasks-thread-message-row is-assistant pathway-intake-message is-pending">
-                    <span className="tasks-thread-message-label">PATHWAY</span>
+                    <div className="pathway-intake-message-header">
+                      <span className="tasks-thread-message-label">PATHWAY</span>
+                      {pathwayPendingStartedAt ? (
+                        <small className="pathway-intake-elapsed">{pathwayPendingElapsedLabel}</small>
+                      ) : null}
+                    </div>
                     <div className="tasks-thread-log-line pathway-intake-message-body">
                       <p className="pathway-intake-thinking">
                         <span>생각하는 중입니다</span>
@@ -891,9 +908,6 @@ export default function TasksPage(props: TasksPageProps) {
                         </span>
                       </p>
                     </div>
-                    {pathwayPendingStartedAt ? (
-                      <small className="pathway-intake-elapsed">{pathwayPendingElapsedLabel}</small>
-                    ) : null}
                   </article>
                 ) : null}
               </section>
