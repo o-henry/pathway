@@ -63,6 +63,7 @@ const SETTINGS_AUTH_REFRESH_COOLDOWN_MS = 60_000;
 const SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS = 5 * 60_000;
 const SETTINGS_DEFERRED_REFRESH_DELAY_MS = 120;
 const RESEARCH_COLLECTION_PARALLELISM = 4;
+const GOAL_ANALYSIS_RETRY_DELAYS_MS = [0, 1000, 2500, 5000] as const;
 type PathwayAuthMode = 'chatgpt' | 'apikey' | 'unknown';
 
 type CollectorDoctorState = 'checking' | 'ready' | 'error';
@@ -371,6 +372,10 @@ function sortStateUpdatesNewestFirst(updates: StateUpdateRecord[]): StateUpdateR
   });
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function formatUiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
   if (/authorization is required|unauthorized|401/i.test(message)) {
@@ -446,6 +451,7 @@ export default function MainApp() {
   const [usageResultClosed, setUsageResultClosed] = useState(false);
   const engineStartedRef = useRef(false);
   const engineStartPromiseRef = useRef<Promise<void> | null>(null);
+  const goalAnalysisPromiseRef = useRef<Map<string, Promise<GoalAnalysisRecord>>>(new Map());
   const [collectorDoctorStatuses, setCollectorDoctorStatuses] = useState<CollectorDoctorStatus[]>(
     COLLECTOR_DOCTOR_DEFINITIONS.map((collector) => ({
       ...collector,
@@ -605,6 +611,65 @@ export default function MainApp() {
     }
   }
 
+  async function analyzeGoalWithRetry(goalId: string, statusLabel = '목표 분석'): Promise<GoalAnalysisRecord> {
+    const existing = goalAnalysisPromiseRef.current.get(goalId);
+    if (existing) {
+      return existing;
+    }
+
+    const promise = (async () => {
+      let lastError: unknown = null;
+      for (let attemptIndex = 0; attemptIndex < GOAL_ANALYSIS_RETRY_DELAYS_MS.length; attemptIndex += 1) {
+        const delayMs = GOAL_ANALYSIS_RETRY_DELAYS_MS[attemptIndex] ?? 0;
+        if (delayMs > 0) {
+          await delay(delayMs);
+        }
+        try {
+          if (hasTauriRuntime) {
+            await ensureEngineStarted();
+          }
+          return await analyzeGoal(goalId);
+        } catch (error) {
+          lastError = error;
+          const isLastAttempt = attemptIndex >= GOAL_ANALYSIS_RETRY_DELAYS_MS.length - 1;
+          if (!isLocalApiTransientError(error) || isLastAttempt) {
+            throw error;
+          }
+          setStatusMessage(`${statusLabel} 중 로컬 API 준비를 기다리고 있습니다. 재시도 ${attemptIndex + 1}/${GOAL_ANALYSIS_RETRY_DELAYS_MS.length - 1}`);
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error(`${statusLabel}에 실패했습니다.`);
+    })();
+
+    goalAnalysisPromiseRef.current.set(goalId, promise);
+    try {
+      return await promise;
+    } finally {
+      if (goalAnalysisPromiseRef.current.get(goalId) === promise) {
+        goalAnalysisPromiseRef.current.delete(goalId);
+      }
+    }
+  }
+
+  async function analyzeGoalInBackground(goalId: string, statusLabel = '목표 분석') {
+    try {
+      const analysis = await analyzeGoalWithRetry(goalId, statusLabel);
+      if (pathwayWorkCancelledRef.current) {
+        return;
+      }
+      setGoalAnalysis(analysis);
+      setGoalAnalysisError(null);
+      setStatusMessage(`${statusLabel}이 완료되었습니다.`);
+    } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        return;
+      }
+      const message = formatUiError(error, `${statusLabel}에 실패했습니다.`);
+      setGoalAnalysisError({ goalId, message });
+      setStatusMessage(message);
+    }
+  }
+
   async function refreshAuthStateFromEngine(showStatus = false): Promise<AuthProbeResult | null> {
     try {
       await ensureEngineStarted();
@@ -708,8 +773,13 @@ export default function MainApp() {
     if (existingAnalysis) {
       setGoalAnalysis(existingAnalysis);
       setGoalAnalysisError(null);
-    } else if (goalAnalysis?.goal_id === goalId) {
-      setGoalAnalysis(null);
+    } else {
+      if (goalAnalysis?.goal_id === goalId) {
+        setGoalAnalysis(null);
+      }
+      if (!goalAnalysisError || goalAnalysisError.goalId !== goalId) {
+        void analyzeGoalInBackground(goalId, '목표 체크리스트 분석');
+      }
     }
 
     const chosenMap =
@@ -756,10 +826,7 @@ export default function MainApp() {
     await refreshGoalWorkspace(goalId);
     try {
       setIsBusy(true);
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
-      const analysis = await analyzeGoal(goalId);
+      const analysis = await analyzeGoalWithRetry(goalId, '선택한 목표 체크리스트 분석');
       setGoalAnalysis(analysis);
       setGoalAnalysisError(null);
       setStatusMessage('선택한 목표의 확인 질문을 갱신했습니다.');
@@ -1231,7 +1298,7 @@ export default function MainApp() {
       if (hasTauriRuntime) {
         await ensureEngineStarted();
       }
-      const analysis = await analyzeGoal(activeGoalId);
+      const analysis = await analyzeGoalWithRetry(activeGoalId);
       setGoalAnalysis(analysis);
       setStatusMessage('목표 분석이 갱신되었습니다. 필요한 자원 축과 조사 입력이 업데이트되었습니다.');
     } catch (error) {
@@ -1240,32 +1307,6 @@ export default function MainApp() {
       setGoalAnalysisError({ goalId: activeGoalId, message });
     } finally {
       setIsBusy(false);
-    }
-  }
-
-  async function analyzeGoalInBackground(goalId: string) {
-    try {
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
-      const analysis = await analyzeGoal(goalId);
-      if (pathwayWorkCancelledRef.current) {
-        return;
-      }
-      setGoalAnalysis(analysis);
-      setGoalAnalysisError(null);
-      setStatusMessage('목표 분석이 백그라운드에서 갱신되었습니다.');
-    } catch (error) {
-      if (pathwayWorkCancelledRef.current) {
-        return;
-      }
-      if (isLocalApiTransientError(error)) {
-        setStatusMessage('목표 분석은 백그라운드에서 대기 중입니다. 로컬 API가 준비되면 다시 이어집니다.');
-        return;
-      }
-      const message = formatUiError(error, '백그라운드 목표 분석에 실패했습니다.');
-      setGoalAnalysisError({ goalId, message });
-      setStatusMessage(message);
     }
   }
 
@@ -1306,9 +1347,15 @@ export default function MainApp() {
       setRevisionPreview(null);
       setGoalAnalysis(null);
       setGoalAnalysisError(null);
-      setStatusMessage('목표를 만들었습니다. 무거운 목표 분석은 백그라운드에서 이어갑니다.');
-      void analyzeGoalInBackground(goal.id);
-      return { goal, analysis: null };
+      setStatusMessage('목표를 저장했습니다. 체크리스트 질문을 생성하는 중입니다.');
+      const analysis = await analyzeGoalWithRetry(goal.id, '목표 체크리스트 분석');
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
+      setGoalAnalysis(analysis);
+      setGoalAnalysisError(null);
+      setStatusMessage('체크리스트 질문을 생성했습니다.');
+      return { goal, analysis };
     } catch (error) {
       if (pathwayWorkCancelledRef.current) {
         setStatusMessage('실행이 중단되었습니다.');
@@ -1361,7 +1408,7 @@ export default function MainApp() {
       const analysisForCollection =
         goalAnalysis?.goal_id === goalId && goalAnalysis.research_plan
           ? goalAnalysis
-          : await analyzeGoal(goalId);
+          : await analyzeGoalWithRetry(goalId, '그래프 생성 전 목표 분석');
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }

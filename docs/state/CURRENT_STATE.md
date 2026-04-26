@@ -3,6 +3,27 @@
 ## Latest micro-update
 
 - Completed work:
+  - Re-established the Pathway intake contract: a new goal request no longer returns `{ analysis: null }` as a successful path.
+  - `handleStartPathwayIntake` now creates the goal, then awaits GPT goal analysis in the same async request and returns `{ goal, analysis }` only after checklist questions are ready.
+  - `TasksPage` now treats `onStartPathwayIntake` analysis as required and moves directly into `clarifying` with the generated checklist instead of parking on a static pending message.
+  - Added de-duplicated goal-analysis promises so active-goal refresh, selection, and intake do not race duplicate analysis calls for the same goal.
+  - Added short retry delays for transient local API readiness failures during goal analysis instead of silently returning and leaving the UI stuck.
+  - Existing goals without persisted analysis now trigger background checklist analysis on workspace refresh and surface either generated questions or a real error.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm typecheck`
+- Known gaps:
+  - No GUI/browser automation was used, per the user's request. This pass verifies the type-level contract and code path only.
+  - Live GPT latency can still be long, but it now remains a pending async operation rather than a successful `analysis: null` terminal state.
+- Next recommended task:
+  - Add a non-GUI unit/integration test for the intake contract: `onStartPathwayIntake` must resolve with analysis or reject with an error; it must never resolve successfully with `analysis: null`.
+
+## Previous micro-update
+
+- Completed work:
   - Fixed the OK-to-generate freeze path by moving blocking Tauri lifecycle and collector work off the command event path.
   - Changed `engine_start` to run API start/readiness waiting through `tauri::async_runtime::spawn_blocking` instead of blocking the UI-facing command handler.
   - Changed `engine_stop` to kill/wait for child processes in a blocking worker instead of the UI-facing command handler.

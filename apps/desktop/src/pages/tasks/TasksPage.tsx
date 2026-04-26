@@ -41,7 +41,7 @@ type TasksPageProps = {
   onSelectGoal?: (goalId: string | null) => void;
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
-  onStartPathwayIntake?: (goalText: string) => Promise<{ goal: GoalRecord; analysis: GoalAnalysisRecord | null }>;
+  onStartPathwayIntake?: (goalText: string) => Promise<{ goal: GoalRecord; analysis: GoalAnalysisRecord }>;
   onGeneratePathwayFromIntake?: (goalId: string, answers: string[]) => Promise<void>;
   onCancelPathwayWork?: () => Promise<void> | void;
   cwd: string;
@@ -607,12 +607,10 @@ export default function TasksPage(props: TasksPageProps) {
         }
         setPathwayIntake((current) => ({
           ...current,
-          phase: result.analysis ? "clarifying" : "analyzing",
+          phase: "clarifying",
           goalId: result.goal.id,
           answers: [],
-          messages: result.analysis
-            ? [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(result.analysis))]
-            : [...current.messages, makePathwayMessage("assistant", formatPathwayAnalysisPendingMessage())],
+          messages: [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(result.analysis))],
         }));
       } catch (error) {
         if (pathwayRunRef.current.cancelled) {
