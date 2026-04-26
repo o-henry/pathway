@@ -39,7 +39,6 @@ import {
 } from './mainAppUtils';
 import {
   buildResearchPlanCollectorJobs,
-  summarizeResearchPlanJobBudget,
   type ResearchPlanCollectorJob,
 } from './researchPlanCollectorJobs';
 import type {
@@ -235,6 +234,68 @@ function getVisibleNodeFields(node: GraphNodeRecord): Array<[string, unknown]> {
   return Object.entries(node.data).filter(([key]) => !key.startsWith('__'));
 }
 
+function normalizeProgressMatchText(value: unknown): string {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeProgressText(value: string): string[] {
+  return [...new Set(normalizeProgressMatchText(value).split(' ').filter((token) => token.length >= 2))];
+}
+
+function buildNodeSearchText(node: GraphNodeRecord): string {
+  return normalizeProgressMatchText([
+    node.label,
+    node.summary,
+    ...Object.values(node.data ?? {}).map((value) => {
+      if (value == null) {
+        return '';
+      }
+      if (typeof value === 'object') {
+        return JSON.stringify(value);
+      }
+      return String(value);
+    })
+  ].join(' '));
+}
+
+function stateUpdateMatchesNode(update: StateUpdateRecord, node: GraphNodeRecord): boolean {
+  if (normalizeProgressMatchText((node.data as Record<string, unknown>)?.pathway_display_role) === 'terminal_goal') {
+    return false;
+  }
+  const updateText = normalizeProgressMatchText([
+    update.progress_summary,
+    update.blockers,
+    update.next_adjustment,
+    update.mood
+  ].join(' '));
+  if (!updateText) {
+    return false;
+  }
+  const nodeText = buildNodeSearchText(node);
+  const labelText = normalizeProgressMatchText(node.label);
+  if (labelText && (updateText.includes(labelText) || labelText.includes(updateText))) {
+    return true;
+  }
+  const updateTokens = tokenizeProgressText(updateText);
+  if (updateTokens.length === 0) {
+    return false;
+  }
+  const matchedTokenCount = updateTokens.filter((token) => nodeText.includes(token)).length;
+  return matchedTokenCount >= Math.min(2, updateTokens.length);
+}
+
+function sortStateUpdatesNewestFirst(updates: StateUpdateRecord[]): StateUpdateRecord[] {
+  return [...updates].sort((left, right) => {
+    const leftTime = Date.parse(left.created_at ?? left.update_date) || Date.parse(left.update_date) || 0;
+    const rightTime = Date.parse(right.created_at ?? right.update_date) || Date.parse(right.update_date) || 0;
+    return rightTime - leftTime;
+  });
+}
+
 function formatUiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : fallback;
   if (/authorization is required|unauthorized|401/i.test(message)) {
@@ -314,7 +375,7 @@ export default function MainApp() {
   const authStateLastCheckedAtRef = useRef(0);
   const collectorDoctorLastCheckedAtRef = useRef(0);
   const collectorDoctorInFlightRef = useRef(false);
-  const [researchPlanCollecting, setResearchPlanCollecting] = useState(false);
+  const [, setResearchPlanCollecting] = useState(false);
   const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
 
   const [stateForm, setStateForm] = useState({
@@ -342,19 +403,42 @@ export default function MainApp() {
     () => buildResearchPlanCollectorJobs(goalAnalysis),
     [goalAnalysis],
   );
-  const researchPlanJobBudget = useMemo(
-    () => summarizeResearchPlanJobBudget(goalAnalysis),
-    [goalAnalysis],
-  );
   const effectiveSelectedNodeId =
     selectedNodeId ?? (activeBundle ? routeSelection?.selected_node_id ?? null : null);
   const selectedNode = displayBundle ? findSelectedNode(displayBundle, effectiveSelectedNodeId) : null;
+  const selectedNodeVisibleFields = selectedNode ? getVisibleNodeFields(selectedNode) : [];
   const selectedEvidence = selectedNode && displayBundle ? getEvidenceForNode(displayBundle, selectedNode.id) : [];
   const selectedAssumptions = selectedNode && displayBundle ? getAssumptionsForNode(displayBundle, selectedNode.id) : [];
   const selectedNodePreviewChange =
     selectedNode && revisionPreview
       ? revisionPreview.diff.node_changes.find((item) => item.node_id === selectedNode.id) ?? null
       : null;
+  const persistedProgressUpdates = useMemo(
+    () => sortStateUpdatesNewestFirst(stateUpdates),
+    [stateUpdates],
+  );
+  const latestProgressUpdate = persistedProgressUpdates[0] ?? null;
+  const activeProgressNodeIds = useMemo(() => {
+    if (!displayBundle || !latestProgressUpdate) {
+      return new Set<string>();
+    }
+    return new Set(
+      displayBundle.nodes
+        .filter((node) => stateUpdateMatchesNode(latestProgressUpdate, node))
+        .map((node) => node.id),
+    );
+  }, [displayBundle, latestProgressUpdate]);
+  const progressUpdateSummaries = useMemo(
+    () =>
+      persistedProgressUpdates.slice(0, 8).map((update) => {
+        const matchedNodes = displayBundle?.nodes.filter((node) => stateUpdateMatchesNode(update, node)) ?? [];
+        return {
+          update,
+          matchedNodes: matchedNodes.slice(0, 3),
+        };
+      }),
+    [displayBundle, persistedProgressUpdates],
+  );
   function authModeLabel(mode: PathwayAuthMode): string {
     if (mode === 'chatgpt') {
       return 'ChatGPT';
@@ -875,10 +959,11 @@ export default function MainApp() {
     });
   }
 
-  async function handleCollectResearchPlanTargets() {
+  async function collectResearchPlanTargetsForGraph(triggerLabel: string) {
     if (researchPlanCollectorJobs.length === 0) {
-      setResearchPlanCollectionStatus('실행 가능한 URL/검색 타깃이 아직 없습니다. 다음 단계의 source discovery가 필요합니다.');
-      return;
+      const message = '조사할 수집 타깃이 아직 없습니다. 그래프를 만들기 전에 목표 분석의 research plan부터 다시 생성해야 합니다.';
+      setResearchPlanCollectionStatus(message);
+      throw new Error(message);
     }
 
     setResearchPlanCollecting(true);
@@ -890,7 +975,7 @@ export default function MainApp() {
       for (let index = 0; index < researchPlanCollectorJobs.length; index += 1) {
         const job = researchPlanCollectorJobs[index]!;
         setResearchPlanCollectionStatus(
-          `${index + 1}/${researchPlanCollectorJobs.length} 수집 중 · ${job.targetLabel}`,
+          `${triggerLabel} 전 자동 수집 ${index + 1}/${researchPlanCollectorJobs.length} · ${job.targetLabel}`,
         );
         try {
           const result = await runResearchPlanCollectorJob(job);
@@ -906,15 +991,19 @@ export default function MainApp() {
         }
       }
       setResearchPlanCollectionStatus(
-        `자료 수집 job 완료 · source library 적재 성공 ${successCount}건 / 실패 ${failureCount}건`,
+        `자동 수집 완료 · source library 적재 성공 ${successCount}건 / 실패 ${failureCount}건`,
       );
-      setStatusMessage('자료 수집 결과가 로컬 source library와 수집 artifact에 반영되었습니다.');
+      if (successCount === 0) {
+        throw new Error(`자동 수집이 완료되지 않아 ${triggerLabel}을 중단했습니다. 성공 0건 / 실패 ${failureCount}건`);
+      }
+      setStatusMessage(`자동 수집을 완료했습니다. 수집된 자료를 바탕으로 ${triggerLabel}을 계속합니다.`);
     } catch (error) {
       if (isTauriUnavailableError(error)) {
-        setResearchPlanCollectionStatus('자료 수집은 Tauri 앱에서만 실행할 수 있습니다.');
+        setResearchPlanCollectionStatus('자동 수집은 Tauri 앱에서만 실행할 수 있습니다.');
       } else {
-        setResearchPlanCollectionStatus(formatUiError(error, '자료 수집 준비 실패'));
+        setResearchPlanCollectionStatus(formatUiError(error, '자동 수집 준비 실패'));
       }
+      throw error;
     } finally {
       setResearchPlanCollecting(false);
     }
@@ -1014,6 +1103,7 @@ export default function MainApp() {
         setGoals((current) => current.map((item) => (item.id === updatedGoal.id ? updatedGoal : item)));
         setActiveGoal(updatedGoal);
       }
+      await collectResearchPlanTargetsForGraph('그래프 생성');
       const nextMap = await generatePathway(goalId);
       setStatusMessage('상담 내용을 반영해 새 경로 그래프를 생성했습니다.');
       await refreshGoalWorkspace(goalId, nextMap.id);
@@ -1037,6 +1127,7 @@ export default function MainApp() {
       if (hasTauriRuntime) {
         await ensureEngineStarted();
       }
+      await collectResearchPlanTargetsForGraph('그래프 생성');
       const nextMap = await generatePathway(activeGoalId);
       setStatusMessage('새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.');
       await refreshGoalWorkspace(activeGoalId, nextMap.id);
@@ -1082,6 +1173,7 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
+      await collectResearchPlanTargetsForGraph('리비전 미리보기');
       const stateUpdate = await createStateUpdate(activeGoalId, {
         update_date: new Date().toISOString().slice(0, 10),
         actual_time_spent: stateForm.actual_time_spent ? Number(stateForm.actual_time_spent) : null,
@@ -1095,6 +1187,12 @@ export default function MainApp() {
         source_refs: [],
         pathway_id: activeMap.id
       });
+      setStateUpdates((current) =>
+        sortStateUpdatesNewestFirst([
+          stateUpdate,
+          ...current.filter((update) => update.id !== stateUpdate.id),
+        ]),
+      );
       const preview = await createRevisionPreview(activeMap.id, {
         checkin_id: stateUpdate.id
       });
@@ -1341,6 +1439,7 @@ export default function MainApp() {
                     revisionPreview={revisionPreview}
                     selectedNodeId={effectiveSelectedNodeId}
                     selectedRouteId={routeSelection?.selected_node_id ?? null}
+                    activeProgressNodeIds={activeProgressNodeIds}
                     onSelectNode={handleSelectNode}
                   />
                   {displayBundle ? (
@@ -1410,6 +1509,41 @@ export default function MainApp() {
                 </header>
 
                 <div className="pathway-workflow-sidebar-body">
+                  {progressUpdateSummaries.length > 0 ? (
+                    <section className="pathway-workflow-sidebar-card pathway-progress-history-card">
+                      <div>
+                        <span className="pathway-panel-kicker">진행 기록</span>
+                        <strong>최근 업데이트 {progressUpdateSummaries.length}개</strong>
+                      </div>
+                      <ul className="pathway-progress-history-list">
+                        {progressUpdateSummaries.map(({ update, matchedNodes }, index) => (
+                          <li className={index === 0 ? 'is-current' : undefined} key={update.id}>
+                            <div className="pathway-progress-history-row">
+                              <span>{update.update_date}</span>
+                              {index === 0 ? <em>현재 위치</em> : null}
+                            </div>
+                            <p>{update.progress_summary}</p>
+                            {matchedNodes.length > 0 ? (
+                              <div className="pathway-progress-history-tags" aria-label="연결된 그래프 노드">
+                                {matchedNodes.map((node) => (
+                                  <button
+                                    key={`${update.id}:${node.id}`}
+                                    onClick={() => void handleSelectNode(node.id)}
+                                    type="button"
+                                  >
+                                    {node.label}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="pathway-progress-history-empty">아직 직접 연결된 노드는 없습니다</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+
                   {selectedNode ? (
                     <section className="pathway-workflow-sidebar-card pathway-workflow-sidebar-card-featured">
                       <span className="pathway-panel-kicker">현재 보고 있는 루트</span>
@@ -1444,17 +1578,19 @@ export default function MainApp() {
                         </section>
                       ) : null}
 
-                      <section className="pathway-inspector-section">
-                        <span className="pathway-panel-kicker">구조화된 노드 정보</span>
-                        <ul className="pathway-fact-list">
-                          {getVisibleNodeFields(selectedNode).map(([key, value]) => (
-                            <li key={key}>
-                              <span>{key.replaceAll('_', ' ')}</span>
-                              <strong>{formatFieldValue(value)}</strong>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
+                      {selectedNodeVisibleFields.length > 0 ? (
+                        <section className="pathway-inspector-section">
+                          <span className="pathway-panel-kicker">구조화된 노드 정보</span>
+                          <ul className="pathway-fact-list">
+                            {selectedNodeVisibleFields.map(([key, value]) => (
+                              <li key={key}>
+                                <span>{key.replaceAll('_', ' ')}</span>
+                                <strong>{formatFieldValue(value)}</strong>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ) : null}
 
                       <section className="pathway-inspector-section">
                         <span className="pathway-panel-kicker">이 판단을 받치는 근거</span>
@@ -1513,46 +1649,12 @@ export default function MainApp() {
                     </section>
                   ) : null}
 
-                  {goalAnalysis?.research_plan ? (
+                  {researchPlanCollectionStatus ? (
                     <section className="pathway-workflow-sidebar-card">
-                      <div className="pathway-panel-head">
-                        <div>
-                          <span className="pathway-panel-kicker">자료 수집 계획</span>
-                          <strong>{researchPlanJobBudget.plannedMaxSources}개 후보 예산</strong>
-                        </div>
-                        <button
-                          className="mini-action-button"
-                          disabled={researchPlanCollecting || researchPlanCollectorJobs.length === 0}
-                          onClick={handleCollectResearchPlanTargets}
-                          type="button"
-                        >
-                          <span className="mini-action-button-label">수집</span>
-                        </button>
-                      </div>
-                      <p className="pathway-panel-copy">
-                        {goalAnalysis.research_plan.summary}
-                        {researchPlanCollectorJobs.length > 0
-                          ? ` 실행 가능한 job ${researchPlanCollectorJobs.length}개가 준비되었습니다.`
-                          : ' 아직 실행 가능한 URL 타깃은 없어 다음 source discovery 단계가 필요합니다.'}
+                      <span className="pathway-panel-kicker">자동 수집 상태</span>
+                      <p className="pathway-panel-copy pathway-collector-status">
+                        {researchPlanCollectionStatus}
                       </p>
-                      {researchPlanCollectionStatus ? (
-                        <p className="pathway-panel-copy pathway-collector-status">
-                          {researchPlanCollectionStatus}
-                        </p>
-                      ) : null}
-                      <ul className="pathway-detail-list">
-                        {goalAnalysis.research_plan.collection_targets.slice(0, 4).map((target) => (
-                          <li key={target.id}>
-                            <strong>{target.label}</strong>
-                            <span>{target.search_intent}</span>
-                            <p>
-                              {target.preferred_collectors.join(' / ') || target.layer}
-                              {' · '}
-                              최대 {target.max_sources}개
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
                     </section>
                   ) : null}
 

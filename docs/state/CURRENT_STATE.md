@@ -2562,3 +2562,49 @@ The highest-value follow-up options are now:
   - The generated ontology can still produce too many route nodes for a small goal; the display now hides redundant direct edges, but prompt-level graph synthesis should still be tightened next.
 - Next recommended task:
   - Improve graph synthesis prompts so small goals produce fewer, clearer route families before the UI layout has to simplify them.
+
+## Latest micro-update
+
+- Completed work:
+  - Added a current-progress overlay for Pathway graph nodes: when the latest saved reality update matches an existing node label/summary/data, that node gets a yellow dot and yellow outline so the user's current process is visible on the graph.
+  - Made reality updates immediately append to the local `stateUpdates` list after preview creation, instead of waiting for a later refresh.
+  - Added a persistent "진행 기록" card in the workflow context panel showing recent saved updates and any graph nodes they match; clicking a matched node jumps to that node.
+  - Kept progress history goal-scoped rather than current-map-only so accepted revisions do not make prior updates disappear.
+  - Tuned the update floater title/copy sizing, the research collect button background, and the context-panel close button border.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowCanvasNodesLayer.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - Node matching is currently a local semantic-text heuristic over saved update text and node label/summary/data; deeper matching should eventually come from backend revision analysis.
+- Next recommended task:
+  - Add backend-supported state-update-to-node attribution so progress markers are grounded in the revision provider output, not only UI-side matching.
+
+## Latest micro-update
+
+- Completed work:
+  - Removed the workflow context-panel "자료 수집 계획" UI and the manual collection button.
+  - Changed graph generation from intake and manual workflow generation to require automatic research-plan collection before calling graph generation.
+  - Changed reality-update revision previews to require automatic research-plan collection before creating the revision preview.
+  - If no runnable research targets exist, or collection succeeds zero times, graph generation/revision now stops instead of silently creating an uncollected graph.
+  - Adjusted GOAL-target edge routing so incoming goal edges use the centered target entry again instead of separate goal-side entry points.
+  - Tightened graph layout spacing and context-panel structure, including hiding empty structured-node sections.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowCanvasNodesLayer.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `rg -n "자료 수집 계획|pathway-collect-button|handleCollectResearchPlanTargets|수집</span>|수집\\)" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src/pathway.css`
+- Known gaps:
+  - Automatic collection currently depends on the analysis-generated research plan producing runnable URL/search-probe jobs; deeper source discovery should become a first-class backend step.
+- Next recommended task:
+  - Move first-pass source discovery and collection orchestration into the backend so graph generation can prove which collected sources informed each node.

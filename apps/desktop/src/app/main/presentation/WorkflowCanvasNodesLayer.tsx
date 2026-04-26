@@ -171,6 +171,7 @@ export default function WorkflowCanvasNodesLayer({
         const pathwayVisualHeight = Number((node.config as Record<string, unknown>)?.pathwayVisualHeight ?? 36);
         const pathwayPreviewChange = String((node.config as Record<string, unknown>)?.pathwayPreviewChange ?? "").trim().toLowerCase();
         const pathwayPreviewStatus = String((node.config as Record<string, unknown>)?.pathwayPreviewStatus ?? "").trim().toLowerCase();
+        const pathwayProgressActive = Boolean((node.config as Record<string, unknown>)?.pathwayProgressActive);
         const isPathwayBranchCollapsed = collapsedPathwayNodeIds.has(node.id);
         const canTogglePathwayBranch = isPathwayNode && pathwayChildCount > 0;
         return (
@@ -186,6 +187,7 @@ export default function WorkflowCanvasNodesLayer({
             data-pathway-collapsed={canTogglePathwayBranch ? String(isPathwayBranchCollapsed) : undefined}
             data-pathway-preview-change={pathwayPreviewChange || undefined}
             data-pathway-preview-status={pathwayPreviewStatus || undefined}
+            data-pathway-progress={isPathwayNode && pathwayProgressActive ? "active" : undefined}
             key={node.id}
             onClick={(event) => {
               if (event.shiftKey) {

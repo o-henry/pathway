@@ -526,6 +526,9 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
       depth.set(nodeId, Math.max(0, goalDepth - 1));
     });
   }
+  const directGoalParentIdSet = new Set(
+    goalNodeId ? (parents.get(goalNodeId) ?? []).filter((nodeId) => !learningNodeIds.includes(nodeId)) : [],
+  );
 
   const nodeFootprintById = new Map<string, PathwayNodeFootprint>();
   bundle.nodes.forEach((node) => {
@@ -534,7 +537,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     nodeFootprintById.set(node.id, {
       ...measured,
       childCount,
-      footprintWidth: measured.width + 132,
+      footprintWidth: measured.width + 72,
       footprintHeight: measured.height + 44,
     });
   });
@@ -543,7 +546,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   const positionedY = new Map<string, number>();
   const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
-  const horizontalGap = 96;
+  const horizontalGap = 56;
   const rootRowGap = 48;
   const laneSiblingGap = 72;
   const lanePaddingBottom = 24;
@@ -632,17 +635,31 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     const directGoalParentIds = (parents.get(goalNodeId) ?? [])
       .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
       .sort((leftId, rightId) => {
-        const leftRow = rowByNodeId.get(leftId) ?? 0;
-        const rightRow = rowByNodeId.get(rightId) ?? 0;
-        if (Math.abs(leftRow - rightRow) > 0.0001) {
-          return leftRow - rightRow;
+        const leftHasParent = (parents.get(leftId) ?? []).some((parentId) => parentId !== goalNodeId);
+        const rightHasParent = (parents.get(rightId) ?? []).some((parentId) => parentId !== goalNodeId);
+        if (leftHasParent !== rightHasParent) {
+          return leftHasParent ? -1 : 1;
+        }
+        const depthDiff = (depth.get(rightId) ?? 0) - (depth.get(leftId) ?? 0);
+        if (depthDiff !== 0) {
+          return depthDiff;
         }
         return compareNodeIds(leftId, rightId);
       });
-    const compactStartRow = -(directGoalParentIds.length - 1) / 2;
-    directGoalParentIds.forEach((nodeId, index) => {
-      rowByNodeId.set(nodeId, compactStartRow + index);
-    });
+    const primaryGoalParentId = directGoalParentIds[0];
+    if (primaryGoalParentId) {
+      const primaryParentRows = (parents.get(primaryGoalParentId) ?? [])
+        .filter((parentId) => parentId !== goalNodeId)
+        .map((parentId) => rowByNodeId.get(parentId))
+        .filter((value): value is number => typeof value === "number");
+      const primaryRow =
+        primaryParentRows.length > 0
+          ? primaryParentRows.reduce((sum, value) => sum + value, 0) / primaryParentRows.length
+          : rowByNodeId.get(primaryGoalParentId) ?? 0;
+      directGoalParentIds.forEach((nodeId, index) => {
+        rowByNodeId.set(nodeId, primaryRow + index);
+      });
+    }
   }
 
   if (goalNodeId) {
@@ -696,7 +713,7 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
       const width = footprint?.width ?? NODE_WIDTH;
       const height = footprint?.height ?? NODE_HEIGHT;
       const hasParent = (parents.get(node.id)?.length ?? 0) > 0;
-      const nodeX = hasParent || laneDepth === 0
+      const nodeX = hasParent || laneDepth === 0 || directGoalParentIdSet.has(node.id)
         ? Math.round(laneX)
         : Math.round(laneX + Math.max(0, (laneFootprintWidth - width) / 2));
       positioned.push({
@@ -763,6 +780,7 @@ type PathwayRailCanvasProps = {
   revisionPreview?: RevisionProposalRecord | null;
   selectedNodeId: string | null;
   selectedRouteId: string | null;
+  activeProgressNodeIds?: Set<string>;
   onSelectNode: (nodeId: string) => void;
 };
 
@@ -834,13 +852,14 @@ function buildPreviewEdgeMap(
 const EMPTY_NODE_STATES: Record<string, NodeRunState> = {};
 const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_DIRECT_INPUTS: Set<string> = new Set();
+const EMPTY_PROGRESS_NODE_IDS: Set<string> = new Set();
 const EMPTY_ANCHORS: readonly NodeAnchorSide[] = [];
 const PATHWAY_STAGE_INSET_X = 16;
 const PATHWAY_STAGE_INSET_Y = 20;
 const PATHWAY_STAGE_INSET_BOTTOM = 132;
 
 function clampZoom(value: number): number {
-  return Math.max(0.5, Math.min(1.8, Number(value.toFixed(2))));
+  return Math.max(0.72, Math.min(1.8, Number(value.toFixed(2))));
 }
 
 function buildCollapsedDescendantSet(bundle: GraphBundle, collapsedNodeIds: Set<string>): Set<string> {
@@ -889,6 +908,7 @@ export default function PathwayRailCanvas({
   revisionPreview = null,
   selectedNodeId,
   selectedRouteId,
+  activeProgressNodeIds = EMPTY_PROGRESS_NODE_IDS,
   onSelectNode,
 }: PathwayRailCanvasProps) {
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -947,6 +967,7 @@ export default function PathwayRailCanvas({
           pathwayPreviewChange: previewVisual?.changeType ?? "",
           pathwayPreviewStatus: previewVisual?.nextStatus ?? "",
           pathwayPreviewReason: previewVisual?.reason ?? "",
+          pathwayProgressActive: activeProgressNodeIds.has(node.id),
         },
       };
     });
@@ -980,7 +1001,7 @@ export default function PathwayRailCanvas({
       height: layout.height,
       bounds: layout.bounds,
     };
-  }, [bundle, previewNodeMap]);
+  }, [activeProgressNodeIds, bundle, previewNodeMap]);
 
   const [graphData, setGraphData] = useState<GraphData>(adapted.graph);
 
@@ -1096,12 +1117,12 @@ export default function PathwayRailCanvas({
         }
         return { width: NODE_WIDTH, height: NODE_HEIGHT };
       },
-      separateIncomingTargetAnchors: (node) => {
+      preferNearTargetElbow: (node) => {
         const config = node.config as Record<string, unknown> | undefined;
         return String(config?.sourceKind ?? "").trim() === "pathway"
           && String(config?.pathwayFamily ?? "").trim() === "goal";
       },
-      preferNearTargetElbow: (node) => {
+      forceCenteredTargetEntry: (node) => {
         const config = node.config as Record<string, unknown> | undefined;
         return String(config?.sourceKind ?? "").trim() === "pathway"
           && String(config?.pathwayFamily ?? "").trim() === "goal";
