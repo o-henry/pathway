@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the remaining hardcoded fallback checklist questions from `formatPathwayFollowups`.
+  - Added an explicit `analyzing` intake phase so a newly created goal does not enter `clarifying` until GPT-5.5-generated follow-up questions arrive.
+  - Kept the interim message generic and non-domain-specific; Pathway no longer invents checklist questions in frontend code.
+  - Verified the previous hardcoded question strings are no longer present in `apps/desktop/src`.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `rg -n "지금 가장 크게|성공했다고 판단|절대 피하고|현재 수준|투입 자원|선호 경로|가장 막히는 지점|시간/돈/에너지|혼자 진행, 커뮤니티|buildImmediateGoalAnalysis" apps/desktop/src`
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - Extra user text entered during the `analyzing` phase is currently logged in the conversation but not yet merged into the in-flight backend analysis request.
+- Next recommended task:
+  - Let users add extra context while analysis is running by appending it to the goal description and restarting/debouncing analysis, without hardcoded questions.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the hardcoded `buildImmediateGoalAnalysis` fallback questions from Pathway intake.
   - New goal creation now returns `analysis: null` until real backend/Codex analysis is available.
   - The intake UI no longer invents generic follow-up questions; it only renders questions from actual `GoalAnalysisRecord` results.

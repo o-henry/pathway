@@ -102,7 +102,7 @@ const EMPTY_THREAD_MESSAGES: never[] = [];
 const EMPTY_APPROVALS: never[] = [];
 const EMPTY_RUNTIME_SESSIONS: never[] = [];
 
-type PathwayIntakePhase = "idle" | "clarifying" | "ready" | "generating";
+type PathwayIntakePhase = "idle" | "analyzing" | "clarifying" | "ready" | "generating";
 
 type PathwayIntakeMessage = {
   id: string;
@@ -148,7 +148,7 @@ function normalizePathwayIntakeState(input: unknown, goalId: string): PathwayInt
     return null;
   }
   const phase: PathwayIntakePhase =
-    candidate.phase === "clarifying" || candidate.phase === "ready" || candidate.phase === "generating"
+    candidate.phase === "analyzing" || candidate.phase === "clarifying" || candidate.phase === "ready" || candidate.phase === "generating"
       ? candidate.phase
       : "idle";
   const messages = candidate.messages
@@ -206,13 +206,8 @@ function formatPathwayFollowups(analysis: GoalAnalysisRecord): string {
   const questions = analysis.followup_questions.slice(0, 8);
   if (questions.length === 0) {
     return [
-      "좋아요. 그래프를 만들기 전에 상황을 한 번만 맞춰볼게요.",
-      "",
-      "- [ ] 지금 가장 크게 제한하는 자원은 시간, 돈, 에너지, 정보 중 무엇인가요?",
-      "- [ ] 성공했다고 판단할 수 있는 구체적인 장면은 무엇인가요?",
-      "- [ ] 절대 피하고 싶은 비용이나 리스크가 있나요?",
-      "",
-      "답을 적어주면 제가 요약해서 조사와 그래프 생성을 시작해도 되는지 확인할게요.",
+      "목표 분석은 끝났지만 추가 체크리스트 질문은 생성되지 않았습니다.",
+      "바로 진행하려면 OK라고 답하거나, 보완할 내용을 자연어로 더 적어주세요.",
     ].join("\n");
   }
   return [
@@ -422,7 +417,7 @@ export default function TasksPage(props: TasksPageProps) {
           if (assistantIndex >= 0 && restored.messages[assistantIndex]?.content !== nextFollowups) {
             return {
               ...restored,
-              phase: restored.phase === "idle" ? "clarifying" : restored.phase,
+              phase: restored.phase === "idle" || restored.phase === "analyzing" ? "clarifying" : restored.phase,
               messages: restored.messages.map((message, index) => (
                 index === assistantIndex ? { ...message, content: nextFollowups } : message
               )),
@@ -451,7 +446,7 @@ export default function TasksPage(props: TasksPageProps) {
         messages.push(makePathwayMessage("assistant", analysisError));
       }
       return {
-        phase: hasFollowups ? "clarifying" : "idle",
+        phase: hasFollowups ? "clarifying" : "analyzing",
         goalId: activeGoalId,
         answers: [],
         messages,
@@ -602,7 +597,7 @@ export default function TasksPage(props: TasksPageProps) {
         }
         setPathwayIntake((current) => ({
           ...current,
-          phase: "clarifying",
+          phase: result.analysis ? "clarifying" : "analyzing",
           goalId: result.goal.id,
           answers: [],
           messages: result.analysis
@@ -623,6 +618,17 @@ export default function TasksPage(props: TasksPageProps) {
           setPathwayIntakePending(false);
         }
       }
+      return;
+    }
+
+    if (pathwayIntake.phase === "analyzing") {
+      setPathwayIntake((current) => ({
+        ...current,
+        messages: [
+          ...current.messages,
+          makePathwayMessage("assistant", "GPT-5.5가 목표를 분석해 체크리스트 질문을 만드는 중입니다. 질문이 도착하면 그때 답변을 이어갈 수 있습니다."),
+        ],
+      }));
       return;
     }
 
