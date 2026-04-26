@@ -164,6 +164,8 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
   const mentionOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const canSubmit = canSubmitTasksComposer(props.composerDraft);
   const composerDisabled = false;
+  const attachIconSrc = props.pathwayMode ? "/pathway-composer-plus.svg" : "/plus-large-svgrepo-com.svg";
+  const stopIconSrc = props.pathwayMode ? "/pathway-composer-stop.svg" : "/canvas-stop.svg";
   const composerPlaceholder = props.pathwayMode
     ? "현재 목표, 제약, 막힌 지점, 조사할 포인트, 그래프에 반영할 변화를 입력하세요."
     : t("tasks.composer.placeholder");
@@ -390,7 +392,7 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
             onClick={props.onOpenAttachmentPicker}
             type="button"
           >
-            <img alt="" aria-hidden="true" src="/plus-large-svgrepo-com.svg" />
+            <img alt="" aria-hidden="true" src={attachIconSrc} />
           </button>
         </div>
 
@@ -405,7 +407,7 @@ export function TasksThreadComposer(props: TasksThreadComposerProps) {
               title={props.stoppingComposerRun ? t("common.loading") : t("tasks.actions.stop")}
               type="button"
             >
-              <img alt="" aria-hidden="true" src="/canvas-stop.svg" />
+              <img alt="" aria-hidden="true" src={stopIconSrc} />
             </button>
           ) : (
             <button
