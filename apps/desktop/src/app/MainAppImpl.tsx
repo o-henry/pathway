@@ -359,6 +359,46 @@ function buildIntakeSuccessCriteria(input: string): string {
   return normalized.length > 160 ? `${normalized.slice(0, 160).trim()}...` : normalized;
 }
 
+function buildImmediateGoalAnalysis(goalId: string, goalText: string): GoalAnalysisRecord {
+  const normalizedGoal = goalText.replace(/\s+/g, ' ').trim() || '새 목표';
+  return {
+    goal_id: goalId,
+    analysis_summary: '목표를 먼저 저장했습니다. 자세한 자원 축과 조사 계획은 백그라운드 분석이 끝나면 갱신됩니다.',
+    resource_dimensions: [],
+    research_questions: [],
+    followup_questions: [
+      {
+        id: 'current_level',
+        label: '현재 수준',
+        question: `지금 "${normalizedGoal}"에서 가장 막히는 지점은 무엇인가요?`,
+        why_needed: '현재 상태를 알아야 그래프의 출발점과 병목을 분리할 수 있습니다.',
+        answer_type: 'short_text',
+        required: true,
+        maps_to: ['current_state', 'constraint'],
+      },
+      {
+        id: 'available_resource',
+        label: '투입 자원',
+        question: '현실적으로 매일 또는 매주 어느 정도 시간/돈/에너지를 쓸 수 있나요?',
+        why_needed: '가능한 경로와 과부하 경로를 구분하기 위해 필요합니다.',
+        answer_type: 'short_text',
+        required: true,
+        maps_to: ['resource', 'route'],
+      },
+      {
+        id: 'preferred_route',
+        label: '선호 경로',
+        question: '혼자 진행, 커뮤니티, 튜터/코치, AI 도구 중 선호하거나 피하고 싶은 방식이 있나요?',
+        why_needed: '경로 선택 조건과 전환 조건을 그래프에 반영하기 위해 필요합니다.',
+        answer_type: 'short_text',
+        required: false,
+        maps_to: ['route', 'tradeoff'],
+      },
+    ],
+    research_plan: null,
+  };
+}
+
 function isTauriUnavailableError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '');
   return /tauri runtime unavailable|__tauri|tauri|ipc|invoke/i.test(message);
@@ -1170,6 +1210,25 @@ export default function MainApp() {
     }
   }
 
+  async function analyzeGoalInBackground(goalId: string) {
+    try {
+      const analysis = await analyzeGoal(goalId);
+      if (pathwayWorkCancelledRef.current) {
+        return;
+      }
+      setGoalAnalysis(analysis);
+      setGoalAnalysisError(null);
+      setStatusMessage('목표 분석이 백그라운드에서 갱신되었습니다.');
+    } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        return;
+      }
+      const message = formatUiError(error, '백그라운드 목표 분석에 실패했습니다.');
+      setGoalAnalysisError({ goalId, message });
+      setStatusMessage(message);
+    }
+  }
+
   async function handleStartPathwayIntake(goalText: string) {
     const normalizedGoal = goalText.trim();
     if (!normalizedGoal) {
@@ -1205,14 +1264,12 @@ export default function MainApp() {
       setStateUpdates([]);
       setRouteSelection(null);
       setRevisionPreview(null);
-      const analysis = await analyzeGoal(goal.id);
-      if (pathwayWorkCancelledRef.current) {
-        throw new Error('Pathway 작업이 중단되었습니다.');
-      }
-      setGoalAnalysis(analysis);
+      const immediateAnalysis = buildImmediateGoalAnalysis(goal.id, normalizedGoal);
+      setGoalAnalysis(immediateAnalysis);
       setGoalAnalysisError(null);
-      setStatusMessage('목표를 만들고 에이전트가 필요한 확인 질문을 정리했습니다.');
-      return { goal, analysis };
+      setStatusMessage('목표를 만들었습니다. 무거운 목표 분석은 백그라운드에서 이어갑니다.');
+      void analyzeGoalInBackground(goal.id);
+      return { goal, analysis: immediateAnalysis };
     } catch (error) {
       const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
       setErrorMessage(message);

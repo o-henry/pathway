@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Decoupled new Pathway goal creation from heavyweight Codex goal analysis.
+  - New goal intake now waits only for goal creation, returns an immediate lightweight clarification packet, and lets Codex analysis run in the background.
+  - When background analysis finishes, the first PATHWAY follow-up block is replaced with the richer analysis questions instead of keeping the UI in a long pending/loading state.
+  - This addresses the frozen-feeling `생각하는 중입니다` state where the elapsed timer and composer felt stuck while Codex analysis was still running.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - Background analysis still uses the existing backend/Codex path; it is decoupled from the intake UI but not yet shown with a dedicated small progress indicator.
+- Next recommended task:
+  - Add a small non-blocking “분석 갱신 중” marker near the current goal card so users can tell background analysis is still running without blocking input.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed the remaining new-goal isolation bug where focus/tab refresh could reselect an existing goal while the user was composing a new Pathway goal.
   - Added a dedicated new-goal mode so auto refresh preserves the blank new-goal state instead of falling back to the first existing goal.
   - Added a Pathway stop action in the bottom composer during pending intake/generation; stopping marks the current run as cancelled, ignores late async responses, clears busy/collection state, and asks the local engine to stop when running in Tauri.

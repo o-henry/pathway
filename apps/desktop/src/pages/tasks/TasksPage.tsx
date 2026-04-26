@@ -416,6 +416,19 @@ export default function TasksPage(props: TasksPageProps) {
             messages: [...restored.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
           };
         }
+        if (hasFollowups && analysis && hasAssistantMessage) {
+          const nextFollowups = formatPathwayFollowups(analysis);
+          const assistantIndex = restored.messages.findIndex((message) => message.role === "assistant");
+          if (assistantIndex >= 0 && restored.messages[assistantIndex]?.content !== nextFollowups) {
+            return {
+              ...restored,
+              phase: restored.phase === "idle" ? "clarifying" : restored.phase,
+              messages: restored.messages.map((message, index) => (
+                index === assistantIndex ? { ...message, content: nextFollowups } : message
+              )),
+            };
+          }
+        }
         const hasSameError = analysisError && restored.messages.some((message) => message.content === analysisError);
         if (!hasFollowups && analysisError && !hasSameError) {
           return {
