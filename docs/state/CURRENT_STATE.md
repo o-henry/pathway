@@ -3,6 +3,38 @@
 ## Latest micro-update
 
 - Completed work:
+  - Responded to the thin generated-graph problem by changing map generation from a compact-plan contract to a route-atlas contract.
+  - Replaced the old `4 to 9 nodes` prompt with a richer first-map expectation: 12 to 24 nodes, multiple route families, representative variants, checkpoints, failure modes, switch/fallback conditions, and opportunity-cost nodes.
+  - Added a generation-only shape quality gate so schema-valid but sparse graph bundles fail before persistence and enter the existing repair loop with explicit expansion instructions.
+  - Changed grounding query planning to reserve default query slots for goal-analysis research-plan queries instead of letting generic base queries consume the whole limit.
+  - Included grounding warnings in the serialized evidence packet sent to generation.
+  - Expanded the deterministic stub provider so fallback language and generic maps produce richer route topology instead of 6-node templates.
+  - Passed current-state context into revision grounding packet construction.
+- Changed files:
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_generation_grounding.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `docs/state/EXECPLAN_PATHWAY_GRAPH_BREADTH_QUALITY_GATE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_revisions.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py`
+  - `UV_CACHE_DIR=.uv-cache uv run python -m py_compile apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py`
+  - `pnpm secret-scan`
+  - `git diff --check`
+- Known gaps:
+  - The first render now forces a route atlas, but it still represents huge option spaces as route families and representative variants rather than dumping hundreds of nodes at once.
+  - Real lived-experience diversity still depends on the collector/source library having varied sources to retrieve.
+- Next recommended task:
+  - Add an explicit graph-expansion interaction so the user can select a route family and ask Pathway to fan it out into dozens of concrete sub-routes without overwhelming the first canvas.
+
+## Latest micro-update
+
+- Completed work:
   - Identified why the first Pathway checklist could sit on "thinking" for minutes: `pathway_goal_analysis` was invoking Codex with web search enabled and asking for concrete source discovery during intake.
   - Changed `CodexCliProvider` so `schema_name="pathway_goal_analysis"` does not pass `--search` to Codex CLI, while other structured generation still honors the global web-search setting.
   - Reworded the goal-analysis prompt so intake does not perform live source discovery; it now asks for questions and source families/known stable examples, with scout collection deferred until after user approval.

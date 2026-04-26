@@ -31,8 +31,8 @@ from lifemap_api.domain.ports import (
     LifeMapRepository,
     LLMProvider,
     ProfileRepository,
-    RouteSelectionRepository,
     RevisionProposalRepository,
+    RouteSelectionRepository,
     SourceSearchIndex,
     StateUpdateRepository,
 )
@@ -162,8 +162,9 @@ def _build_revision_repair_prompt(
     goal_id: str,
     allowed_evidence_ids: list[str],
 ) -> str:
-    return dedent(
-        f"""
+    return (
+        dedent(
+            f"""
         Repair the revised graph JSON so it validates.
 
         Validation errors:
@@ -176,7 +177,9 @@ def _build_revision_repair_prompt(
           {", ".join(allowed_evidence_ids) or "(none)"}
         - Preserve valid structure wherever possible.
         """
-    ).strip() + f"\n\nPrevious JSON:\n{raw_output}"
+        ).strip()
+        + f"\n\nPrevious JSON:\n{raw_output}"
+    )
 
 
 def _validate_revised_bundle(
@@ -217,6 +220,7 @@ def _attempt_revision_generation(
     grounding_packet = build_grounding_packet(
         goal=goal,
         profile=profile,
+        current_state=current_state,
         embedding_provider=embedding_provider,
         search_index=search_index,
         query_limit=query_limit,

@@ -117,6 +117,31 @@ def test_plan_retrieval_queries_expands_into_experience_and_switching_families()
     assert "switching_conditions" in labels
 
 
+def test_plan_retrieval_queries_reserves_slots_for_analysis_queries() -> None:
+    queries = plan_retrieval_queries(
+        goal=_goal(),
+        profile=_profile(),
+        current_state=_current_state(),
+        limit=6,
+        extra_query_texts=(
+            "language exchange route failure stories",
+            "one on one tutor conversation cost comparison",
+            "language learner diary switching from self study",
+        ),
+    )
+
+    labels = [query.label for query in queries]
+    texts = [query.text for query in queries]
+
+    assert len(queries) == 6
+    assert "goal_core" in labels
+    assert "route_patterns" in labels
+    assert "analysis_1" in labels
+    assert "analysis_2" in labels
+    assert any("language exchange route failure stories" in text for text in texts)
+    assert any("one on one tutor conversation cost comparison" in text for text in texts)
+
+
 def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
     search_index = StaticSearchIndex(
         [
@@ -183,6 +208,5 @@ def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
     assert len(packet.evidence_items) == 4
     assert all(item.id.startswith("ev_rag_") for item in packet.evidence_items)
     assert not any(
-        "does not yet include lived-experience" in warning
-        for warning in packet.warnings
+        "does not yet include lived-experience" in warning for warning in packet.warnings
     )

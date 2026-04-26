@@ -26,6 +26,59 @@ from lifemap_api.domain.ports import (
 )
 
 SCHEMA_NAME = "life_map_graph_bundle"
+MIN_ROUTE_ATLAS_NODES = 12
+MIN_ROUTE_ATLAS_EDGES = 10
+MIN_ROUTE_ATLAS_OPTIONS = 5
+MIN_ROUTE_ATLAS_SUPPORT_NODES = 4
+MIN_ROUTE_ATLAS_BRANCHING_FACTOR = 3
+
+ROUTE_SEMANTIC_MARKERS = (
+    "route",
+    "path",
+    "option",
+    "branch",
+    "choice",
+    "strategy",
+    "fallback",
+    "alternative",
+    "track",
+    "lane",
+    "루트",
+    "경로",
+    "선택",
+    "전략",
+    "대안",
+    "우회",
+    "분기",
+)
+
+SUPPORT_SEMANTIC_MARKERS = (
+    "risk",
+    "checkpoint",
+    "constraint",
+    "cost",
+    "evidence",
+    "assumption",
+    "switch",
+    "failure",
+    "milestone",
+    "pressure",
+    "tradeoff",
+    "opportunity",
+    "리스크",
+    "위험",
+    "체크",
+    "제약",
+    "비용",
+    "근거",
+    "가정",
+    "전환",
+    "실패",
+    "마일스톤",
+    "압력",
+    "기회",
+    "손실",
+)
 
 
 def _serialize_profile(profile: Profile | None) -> str:
@@ -69,7 +122,15 @@ def _build_system_prompt() -> str:
           official guidance, failure cases, or alternative routes,
           reflect that breadth in the graph.
         - Do not use generic filler nodes or empty placeholder text.
-        - Prefer 4 to 9 nodes and 3 to 12 edges for this phase.
+        - Build a route atlas, not a two-line plan. Prefer 12 to 24 nodes and
+          14 to 32 edges for the first generated map.
+        - Include at least 5 distinct route or option nodes across at least
+          3 route families. These can represent many concrete possibilities
+          as families and variants instead of exhaustively listing hundreds
+          of tiny nodes.
+        - Include support nodes for checkpoints, failure modes, constraints,
+          trade-offs, opportunity costs, fallback/switch conditions, and
+          missed options when they affect the user's route choice.
         - At least one assumption is required whenever profile information is missing or uncertain.
         - Every progression path must remain acyclic.
         - Make the copy human, crisp, and slightly witty when appropriate,
@@ -125,6 +186,12 @@ def _build_user_prompt(
           unsupported page claims from it.
         - Prefer route families that show tradeoffs and switching conditions
           instead of collapsing everything into one default path.
+        - Make the graph broad enough that the user can see multiple viable,
+          risky, cheap, fast, slow, social, solo, direct, fallback, and
+          opportunity-cost routes where relevant.
+        - Do not stop at one happy path. If many possible routes exist,
+          group them into route-family nodes and attach representative variants,
+          checkpoints, risks, and switch conditions.
         - Use node summaries that explain tradeoffs, not just labels.
         - Make each node actionable enough for a context panel: if the user clicks
           it, the node summary and `node.data` should explain what to do, what to
@@ -157,11 +224,122 @@ def _build_repair_prompt(
         - You may only use evidence ids from this packet:
           {", ".join(item.id for item in grounding_packet.evidence_items) or "(none)"}
         - Unsupported claims must move into assumptions, not invented evidence.
+        - If validation says the route atlas is too sparse, expand the graph
+          with more route families, representative route variants, checkpoints,
+          failure modes, fallback/switch nodes, and opportunity-cost nodes.
 
         Previous JSON:
         {raw_output}
         """
     ).strip()
+
+
+def _semantic_text_for_node_types(bundle: GraphBundle) -> dict[str, str]:
+    return {
+        node_type.id: " ".join(
+            [
+                node_type.id,
+                node_type.label,
+                node_type.description,
+            ]
+        ).casefold()
+        for node_type in bundle.ontology.node_types
+    }
+
+
+def _node_matches_any_marker(
+    *,
+    bundle: GraphBundle,
+    node_index: dict[str, str],
+    node_id: str,
+    markers: tuple[str, ...],
+) -> bool:
+    node = next((candidate for candidate in bundle.nodes if candidate.id == node_id), None)
+    if node is None:
+        return False
+    semantic_text = " ".join(
+        [
+            node.type,
+            node.label,
+            node.summary,
+            node_index.get(node.type, ""),
+        ]
+    ).casefold()
+    return any(marker in semantic_text for marker in markers)
+
+
+def _pathway_shape_errors(bundle: GraphBundle) -> list[str]:
+    node_type_text = _semantic_text_for_node_types(bundle)
+    node_ids = [node.id for node in bundle.nodes]
+    route_like_node_ids = [
+        node.id
+        for node in bundle.nodes
+        if _node_matches_any_marker(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+            markers=ROUTE_SEMANTIC_MARKERS,
+        )
+    ]
+    support_node_ids = [
+        node.id
+        for node in bundle.nodes
+        if _node_matches_any_marker(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+            markers=SUPPORT_SEMANTIC_MARKERS,
+        )
+    ]
+    progression_type_ids = {
+        edge_type.id for edge_type in bundle.ontology.edge_types if edge_type.role == "progression"
+    }
+    progression_outdegree = dict.fromkeys(node_ids, 0)
+    progression_edge_count = 0
+    for edge in bundle.edges:
+        if edge.type not in progression_type_ids:
+            continue
+        progression_edge_count += 1
+        progression_outdegree[edge.source] = progression_outdegree.get(edge.source, 0) + 1
+
+    errors: list[str] = []
+    if len(bundle.nodes) < MIN_ROUTE_ATLAS_NODES:
+        errors.append(
+            f"route atlas is too sparse: has {len(bundle.nodes)} nodes, "
+            f"needs at least {MIN_ROUTE_ATLAS_NODES}"
+        )
+    if len(bundle.edges) < MIN_ROUTE_ATLAS_EDGES:
+        errors.append(
+            f"route atlas has too few edges: has {len(bundle.edges)}, "
+            f"needs at least {MIN_ROUTE_ATLAS_EDGES}"
+        )
+    if len(route_like_node_ids) < MIN_ROUTE_ATLAS_OPTIONS:
+        errors.append(
+            "route atlas needs more concrete route options: "
+            f"found {len(route_like_node_ids)}, needs at least {MIN_ROUTE_ATLAS_OPTIONS}"
+        )
+    if len(support_node_ids) < MIN_ROUTE_ATLAS_SUPPORT_NODES:
+        errors.append(
+            "route atlas needs more decision-support nodes for risks, checkpoints, "
+            "constraints, switches, or opportunity costs: "
+            f"found {len(support_node_ids)}, needs at least {MIN_ROUTE_ATLAS_SUPPORT_NODES}"
+        )
+    if (
+        progression_edge_count
+        and max(progression_outdegree.values(), default=0) < MIN_ROUTE_ATLAS_BRANCHING_FACTOR
+    ):
+        errors.append(
+            "route atlas needs a visible branching point with at least "
+            f"{MIN_ROUTE_ATLAS_BRANCHING_FACTOR} progression branches"
+        )
+    return errors
+
+
+def _enforce_pathway_shape(bundle: GraphBundle) -> GraphBundle:
+    errors = _pathway_shape_errors(bundle)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return bundle
 
 
 def _analysis_query_texts(analysis) -> tuple[str, ...]:
@@ -191,7 +369,8 @@ def _validate_candidate(
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = _normalize_bundle(candidate, goal)
     validated = validate_graph_bundle(normalized)
-    return validate_bundle_grounding(validated, grounding_packet)
+    grounded = validate_bundle_grounding(validated, grounding_packet)
+    return _enforce_pathway_shape(grounded)
 
 
 def _attempt_generation(

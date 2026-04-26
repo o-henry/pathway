@@ -45,9 +45,7 @@ def _profile_fragments(profile: Profile | None) -> list[str]:
         fragments.append(f"주당 가능 시간 {profile.weekly_free_hours}시간")
     if profile.monthly_budget_amount is not None:
         currency = profile.monthly_budget_currency or ""
-        fragments.append(
-            f"월 예산 {profile.monthly_budget_amount:g} {currency}".strip()
-        )
+        fragments.append(f"월 예산 {profile.monthly_budget_amount:g} {currency}".strip())
     if profile.energy_level:
         fragments.append(f"에너지 수준 {profile.energy_level}")
     if profile.preference_tags:
@@ -86,9 +84,7 @@ def _current_state_fragments(current_state: CurrentStateSnapshot | None) -> list
 
 
 def _goal_focus_fragments(goal: Goal) -> list[str]:
-    lowered = " ".join(
-        [goal.title, goal.description, goal.category, goal.success_criteria]
-    ).lower()
+    lowered = " ".join([goal.title, goal.description, goal.category, goal.success_criteria]).lower()
     if goal.category == "language" or any(
         token in lowered
         for token in ["일본어", "영어", "회화", "원어민", "fluency", "conversation", "speaking"]
@@ -132,6 +128,9 @@ def plan_retrieval_queries(
     profile_context = _profile_fragments(profile)
     state_context = _current_state_fragments(current_state)
     focus_context = _goal_focus_fragments(goal)
+    cleaned_extra_queries = tuple(
+        dict.fromkeys(compact for query in extra_query_texts if (compact := _clean_fragment(query)))
+    )
     candidates = [
         (
             "goal_core",
@@ -210,24 +209,36 @@ def plan_retrieval_queries(
     queries: list[RetrievalQuery] = []
     seen_texts: set[str] = set()
 
-    for label, fragments in candidates:
-        cleaned = [_clean_fragment(fragment) for fragment in fragments]
-        compact = " | ".join(fragment for fragment in cleaned if fragment)
+    def append_query(label: str, fragments: list[object] | tuple[object, ...] | str) -> None:
+        if isinstance(fragments, str):
+            compact = _clean_fragment(fragments)
+        else:
+            cleaned = [_clean_fragment(fragment) for fragment in fragments]
+            compact = " | ".join(fragment for fragment in cleaned if fragment)
         if not compact or compact in seen_texts:
-            continue
+            return
         seen_texts.add(compact)
         queries.append(RetrievalQuery(label=label, text=compact))
-        if len(queries) >= limit:
-            break
 
-    for index, extra_query in enumerate(extra_query_texts, start=1):
-        compact = _clean_fragment(extra_query)
-        if not compact or compact in seen_texts:
-            continue
-        seen_texts.add(compact)
-        queries.append(RetrievalQuery(label=f"analysis_{index}", text=compact))
+    reserved_extra_slots = 0
+    if limit > 1 and cleaned_extra_queries:
+        reserved_extra_slots = min(len(cleaned_extra_queries), max(1, limit // 3))
+    base_slot_limit = max(0, limit - reserved_extra_slots)
+
+    for label, fragments in candidates:
+        if len(queries) >= base_slot_limit:
+            break
+        append_query(label, fragments)
+
+    for index, extra_query in enumerate(cleaned_extra_queries, start=1):
         if len(queries) >= limit:
             break
+        append_query(f"analysis_{index}", extra_query)
+
+    for label, fragments in candidates:
+        if len(queries) >= limit:
+            break
+        append_query(label, fragments)
 
     return tuple(queries)
 
@@ -496,10 +507,8 @@ def serialize_grounding_packet(packet: GroundingPacket) -> str:
             }
             for query in packet.queries
         ],
-        "evidence_items": [
-            item.model_dump(mode="json")
-            for item in packet.evidence_items
-        ],
+        "evidence_items": [item.model_dump(mode="json") for item in packet.evidence_items],
+        "warnings": list(packet.warnings),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -533,9 +542,7 @@ def validate_bundle_grounding(
         )
 
     canonical_evidence = [
-        allowed_by_id[evidence_id]
-        for evidence_id in referenced_ids
-        if evidence_id in allowed_by_id
+        allowed_by_id[evidence_id] for evidence_id in referenced_ids if evidence_id in allowed_by_id
     ]
 
     merged_warnings = list(dict.fromkeys([*bundle.warnings, *grounding_packet.warnings]))
