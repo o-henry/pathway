@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Restored Pathway stop to actually call `engine_stop` so pressing stop terminates the running local backend/Codex work.
+  - Changed cancellation handling so fetch failures caused by a user stop are surfaced as `실행이 중단되었습니다.` instead of the misleading local-backend-not-ready message.
+  - Simplified the chat cancellation message to `실행이 중단되었습니다.`
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `rg -n "handleCancelPathwayWork|engine_stop|실행이 중단되었습니다|Pathway 작업을 중단했습니다|진행 중이던 응답" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src/pages/tasks/TasksPage.tsx`
+- Known gaps:
+  - Stop is coarse-grained because `engine_stop` kills the local API process; the next user action restarts it via `ensureEngineStarted()`.
+- Next recommended task:
+  - Add a more granular backend cancellation command for Pathway runs so stop can cancel active generation without restarting the whole API service.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed Pathway stop behavior so it no longer calls `engine_stop`; stopping a Pathway run now cancels the UI run without killing the local API backend.
   - Added a local API transient-error guard for background goal analysis so temporary `failed to fetch` states do not become PATHWAY chat messages.
   - Kept backend-unavailable errors out of the intake conversation log while preserving non-transient analysis errors.

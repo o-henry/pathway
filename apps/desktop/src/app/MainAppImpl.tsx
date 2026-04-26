@@ -1242,6 +1242,10 @@ export default function MainApp() {
       void analyzeGoalInBackground(goal.id);
       return { goal, analysis: null };
     } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        setStatusMessage('실행이 중단되었습니다.');
+        throw new Error('실행이 중단되었습니다.');
+      }
       const message = formatUiError(error, '목표 상담을 시작하지 못했습니다.');
       setErrorMessage(message);
       if (createdGoalId) {
@@ -1307,6 +1311,10 @@ export default function MainApp() {
       await refreshGoalWorkspace(goalId, nextMap.id);
       setWorkspaceTab('workflow');
     } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        setStatusMessage('실행이 중단되었습니다.');
+        throw new Error('실행이 중단되었습니다.');
+      }
       const message = formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.');
       setErrorMessage(message);
       throw new Error(message);
@@ -1338,6 +1346,10 @@ export default function MainApp() {
       await refreshGoalWorkspace(activeGoalId, nextMap.id);
       setWorkspaceTab('workflow');
     } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        setStatusMessage('실행이 중단되었습니다.');
+        return;
+      }
       setErrorMessage(formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.'));
     } finally {
       setIsBusy(false);
@@ -1348,7 +1360,16 @@ export default function MainApp() {
     pathwayWorkCancelledRef.current = true;
     setIsBusy(false);
     setResearchPlanCollecting(false);
-    setStatusMessage('Pathway 작업을 중단했습니다.');
+    setStatusMessage('실행이 중단되었습니다.');
+    if (!hasTauriRuntime) {
+      return;
+    }
+    try {
+      await invoke('engine_stop');
+      setEngineStarted(false);
+    } catch {
+      // Cancellation has already been reflected in UI state.
+    }
   }
 
   async function handleSelectNode(nodeId: string) {

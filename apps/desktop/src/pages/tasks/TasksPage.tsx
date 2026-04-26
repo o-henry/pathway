@@ -563,7 +563,7 @@ export default function TasksPage(props: TasksPageProps) {
       phase: current.phase === "generating" ? "ready" : current.phase,
       messages: [
         ...current.messages,
-        makePathwayMessage("assistant", "중단했습니다. 진행 중이던 응답이 늦게 도착해도 이 대화에는 반영하지 않습니다."),
+        makePathwayMessage("assistant", "실행이 중단되었습니다."),
       ],
     }));
     await props.onCancelPathwayWork?.();
