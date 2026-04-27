@@ -11,14 +11,8 @@ import {
   createRevisionPreview,
   createStateUpdate,
   deleteGoal,
-  fetchCurrentState,
   fetchGoal,
-  fetchGoalAnalysis,
-  fetchGoalMaps,
-  fetchGoals,
   fetchRevisionPreview,
-  fetchRouteSelection,
-  fetchStateUpdates,
   generatePathway,
   rejectRevisionPreview,
   setLocalApiToken,
@@ -46,10 +40,10 @@ import {
   delay,
   formatUiError,
   isLocalApiTransientError,
-  isTauriUnavailableError,
   sortStateUpdatesNewestFirst,
 } from './pathwayWorkspaceUtils';
 import { usePathwayCollectorDoctor } from './usePathwayCollectorDoctor';
+import { usePathwayGoalWorkspaceController } from './usePathwayGoalWorkspaceController';
 import { usePathwayResearchCollector } from './usePathwayResearchCollector';
 import { usePathwayWorkspaceDerivedState } from './usePathwayWorkspaceDerivedState';
 import type {
@@ -185,6 +179,43 @@ export default function MainApp() {
     resetKey: goalAnalysis?.goal_id,
     setErrorMessage,
     setStatusMessage,
+  });
+  const {
+    handleDeletePathwayGoal,
+    handleSelectPathwayGoal,
+    refreshGoalWorkspace,
+    syncPathwayWorkspace,
+  } = usePathwayGoalWorkspaceController({
+    activeGoalId,
+    activeMapId,
+    analyzeGoalInBackground,
+    analyzeGoalWithRetry,
+    ensureEngineStarted,
+    goalAnalysis,
+    goalAnalysisError,
+    goals,
+    pathwayNewGoalMode,
+    refreshLocalApiTokenFromShell,
+    setActiveGoal,
+    setActiveGoalId,
+    setActiveMap,
+    setActiveMapId,
+    setCurrentState,
+    setErrorMessage,
+    setGoalAnalysis,
+    setGoalAnalysisError,
+    setGoals,
+    setIsBusy,
+    setMaps,
+    setPathwayNewGoalMode,
+    setRevisionPreview,
+    setRouteSelection,
+    setSelectedNodeId,
+    setShowStateUpdatePanel,
+    setShowWorkflowInspector,
+    setStateUpdates,
+    setStatusMessage,
+    setWorkflowCanvasFullscreen,
   });
   function authModeLabel(mode: PathwayAuthMode): string {
     if (mode === 'chatgpt') {
@@ -340,173 +371,6 @@ export default function MainApp() {
     }
   }
 
-  async function refreshGoals(preserveSelection = true) {
-    try {
-      await ensureEngineStarted();
-    } catch (error) {
-      if (!isTauriUnavailableError(error)) {
-        throw error;
-      }
-      await refreshLocalApiTokenFromShell();
-    }
-    const nextGoals = await fetchGoals();
-    setGoals(nextGoals);
-    if (nextGoals.length === 0) {
-      setPathwayNewGoalMode(false);
-      setActiveGoalId(null);
-      setActiveGoal(null);
-      setGoalAnalysis(null);
-      setActiveMap(null);
-      setActiveMapId(null);
-      setCurrentState(null);
-      setStateUpdates([]);
-      setRouteSelection(null);
-      setRevisionPreview(null);
-      return null;
-    }
-
-    if (preserveSelection && pathwayNewGoalMode) {
-      setActiveGoalId(null);
-      return null;
-    }
-
-    const preferredGoalId =
-      preserveSelection && activeGoalId && nextGoals.some((goal) => goal.id === activeGoalId)
-        ? activeGoalId
-        : nextGoals[0]?.id;
-    setActiveGoalId(preferredGoalId ?? null);
-    return preferredGoalId ?? null;
-  }
-
-  async function syncPathwayWorkspace(preserveSelection = true) {
-    const nextGoalId = await refreshGoals(preserveSelection);
-    if (!nextGoalId) {
-      return;
-    }
-    const preferredMapId =
-      preserveSelection && activeGoalId === nextGoalId
-        ? activeMapId
-        : null;
-    await refreshGoalWorkspace(nextGoalId, preferredMapId);
-  }
-
-  async function refreshGoalWorkspace(goalId: string, preferredMapId?: string | null) {
-    setRevisionPreview(null);
-    setWorkflowCanvasFullscreen(false);
-    const goal = goals.find((item) => item.id === goalId) ?? (await fetchGoals()).find((item) => item.id === goalId) ?? null;
-    setActiveGoal(goal);
-
-    const [rawMaps, nextUpdates, nextCurrentState, existingAnalysis] = await Promise.all([
-      fetchGoalMaps(goalId),
-      fetchStateUpdates(goalId),
-      fetchCurrentState(goalId),
-      fetchGoalAnalysis(goalId),
-    ]);
-    const nextMaps = [...rawMaps].sort((left, right) => {
-      const leftTime = Date.parse(left.updated_at ?? left.created_at ?? '') || 0;
-      const rightTime = Date.parse(right.updated_at ?? right.created_at ?? '') || 0;
-      return rightTime - leftTime;
-    });
-
-    setMaps(nextMaps);
-    setStateUpdates(nextUpdates);
-    setCurrentState(nextCurrentState);
-    if (existingAnalysis) {
-      setGoalAnalysis(existingAnalysis);
-      setGoalAnalysisError(null);
-    } else {
-      if (goalAnalysis?.goal_id === goalId) {
-        setGoalAnalysis(null);
-      }
-      if (!goalAnalysisError || goalAnalysisError.goalId !== goalId) {
-        void analyzeGoalInBackground(goalId, '목표 체크리스트 분석');
-      }
-    }
-
-    const chosenMap =
-      (preferredMapId ? nextMaps.find((item) => item.id === preferredMapId) : null) ??
-      nextMaps[0] ??
-      null;
-    setActiveMap(chosenMap);
-    setActiveMapId(chosenMap?.id ?? null);
-    setSelectedNodeId(null);
-    setShowWorkflowInspector(false);
-    setShowStateUpdatePanel(false);
-
-    if (chosenMap) {
-      const nextRouteSelection = await fetchRouteSelection(chosenMap.id);
-      setRouteSelection(nextRouteSelection);
-    } else {
-      setRouteSelection(null);
-    }
-  }
-
-  async function handleSelectPathwayGoal(goalId: string | null) {
-    setPathwayNewGoalMode(!goalId);
-    setActiveGoalId(goalId);
-    setErrorMessage('');
-    setGoalAnalysis(null);
-    setGoalAnalysisError(null);
-
-    if (!goalId) {
-      setActiveGoal(null);
-      setGoalAnalysisError(null);
-      setActiveMap(null);
-      setActiveMapId(null);
-      setCurrentState(null);
-      setStateUpdates([]);
-      setRouteSelection(null);
-      setRevisionPreview(null);
-      setSelectedNodeId(null);
-      setShowWorkflowInspector(false);
-      setShowStateUpdatePanel(false);
-      return;
-    }
-
-    setPathwayNewGoalMode(false);
-    const nextGoal = goals.find((item) => item.id === goalId) ?? null;
-    setActiveGoal(nextGoal);
-    await refreshGoalWorkspace(goalId);
-    try {
-      setIsBusy(true);
-      const analysis = await analyzeGoalWithRetry(goalId, '선택한 목표 체크리스트 분석');
-      setGoalAnalysis(analysis);
-      setGoalAnalysisError(null);
-      setStatusMessage('선택한 목표의 확인 질문을 갱신했습니다.');
-    } catch (error) {
-      const message = formatUiError(error, '선택한 목표의 확인 질문을 생성하지 못했습니다.');
-      setErrorMessage(message);
-      setGoalAnalysisError({ goalId, message });
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function handleDeletePathwayGoal(goalId: string) {
-    try {
-      setErrorMessage('');
-      await deleteGoal(goalId);
-      const deletedActiveGoal = activeGoalId === goalId;
-      if (deletedActiveGoal) {
-        setActiveGoalId(null);
-        setActiveGoal(null);
-        setGoalAnalysis(null);
-        setGoalAnalysisError(null);
-        setActiveMap(null);
-        setActiveMapId(null);
-        setCurrentState(null);
-        setStateUpdates([]);
-        setRouteSelection(null);
-        setRevisionPreview(null);
-        setSelectedNodeId(null);
-        setShowWorkflowInspector(false);
-        setShowStateUpdatePanel(false);
-      }
-      await syncPathwayWorkspace(!deletedActiveGoal);
-    } catch (error) {
-      setErrorMessage(formatUiError(error, '목표를 삭제하지 못했습니다.'));
-    }
-  }
 
   useEffect(() => {
     void (async () => {
