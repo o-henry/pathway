@@ -26,28 +26,31 @@ type UsePathwayResearchCollectorOptions = {
   setStatusMessage: (message: string) => void;
 };
 
-export function usePathwayResearchCollector({
+type PathwayResearchCollectorActionsOptions = {
+  cwd: string;
+  defaultJobs: ResearchPlanCollectorJob[];
+  ensureEngineStarted: () => Promise<void>;
+  invokeFn: typeof invoke;
+  readyPromises: Map<string, Promise<void>>;
+  setErrorMessage: (message: string) => void;
+  setResearchPlanCollecting: (collecting: boolean) => void;
+  setResearchPlanCollectionStatus: (message: string) => void;
+  setStatusMessage: (message: string) => void;
+};
+
+export function createPathwayResearchCollectorActions({
   cwd,
   defaultJobs,
   ensureEngineStarted,
-  resetKey,
+  invokeFn,
+  readyPromises,
   setErrorMessage,
+  setResearchPlanCollecting,
+  setResearchPlanCollectionStatus,
   setStatusMessage,
-}: UsePathwayResearchCollectorOptions) {
-  const [, setResearchPlanCollecting] = useState(false);
-  const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
-  const collectorReadyPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
-
-  useEffect(() => {
-    setResearchPlanCollectionStatus('');
-  }, [resetKey]);
-
-  function cancelResearchPlanCollection() {
-    setResearchPlanCollecting(false);
-  }
-
+}: PathwayResearchCollectorActionsOptions) {
   async function prepareCollectorForJob(providerId: string): Promise<void> {
-    const health = await invoke<CollectorHealthResult>('dashboard_crawl_provider_health', {
+    const health = await invokeFn<CollectorHealthResult>('dashboard_crawl_provider_health', {
       cwd,
       provider: providerId,
     });
@@ -59,11 +62,11 @@ export function usePathwayResearchCollector({
       setResearchPlanCollectionStatus(
         `${providerId} 수집기가 아직 준비되지 않아 자동 설치/준비를 시도합니다.${initialMessage ? ` · ${initialMessage}` : ''}`,
       );
-      await invoke<CollectorInstallResult>('dashboard_crawl_provider_install', {
+      await invokeFn<CollectorInstallResult>('dashboard_crawl_provider_install', {
         cwd,
         provider: providerId,
       });
-      const recheckedHealth = await invoke<CollectorHealthResult>('dashboard_crawl_provider_health', {
+      const recheckedHealth = await invokeFn<CollectorHealthResult>('dashboard_crawl_provider_health', {
         cwd,
         provider: providerId,
       });
@@ -79,22 +82,22 @@ export function usePathwayResearchCollector({
   }
 
   async function ensureCollectorReadyForJob(providerId: string): Promise<void> {
-    const cached = collectorReadyPromisesRef.current.get(providerId);
+    const cached = readyPromises.get(providerId);
     if (cached) {
       return cached;
     }
 
     const promise = prepareCollectorForJob(providerId).catch((error) => {
-      collectorReadyPromisesRef.current.delete(providerId);
+      readyPromises.delete(providerId);
       throw error;
     });
-    collectorReadyPromisesRef.current.set(providerId, promise);
+    readyPromises.set(providerId, promise);
     return promise;
   }
 
   async function runResearchPlanCollectorJob(job: ResearchPlanCollectorJob, provider: string): Promise<CollectorFetchResult> {
     await ensureCollectorReadyForJob(provider);
-    return invoke<CollectorFetchResult>('dashboard_crawl_provider_fetch_url', {
+    return invokeFn<CollectorFetchResult>('dashboard_crawl_provider_fetch_url', {
       cwd,
       provider,
       url: job.url,
@@ -208,8 +211,44 @@ export function usePathwayResearchCollector({
   }
 
   return {
-    cancelResearchPlanCollection,
     collectResearchPlanTargetsForGraph,
+  };
+}
+
+export function usePathwayResearchCollector({
+  cwd,
+  defaultJobs,
+  ensureEngineStarted,
+  resetKey,
+  setErrorMessage,
+  setStatusMessage,
+}: UsePathwayResearchCollectorOptions) {
+  const [, setResearchPlanCollecting] = useState(false);
+  const [researchPlanCollectionStatus, setResearchPlanCollectionStatus] = useState('');
+  const collectorReadyPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
+  const actions = createPathwayResearchCollectorActions({
+    cwd,
+    defaultJobs,
+    ensureEngineStarted,
+    invokeFn: invoke,
+    readyPromises: collectorReadyPromisesRef.current,
+    setErrorMessage,
+    setResearchPlanCollecting,
+    setResearchPlanCollectionStatus,
+    setStatusMessage,
+  });
+
+  useEffect(() => {
+    setResearchPlanCollectionStatus('');
+  }, [resetKey]);
+
+  function cancelResearchPlanCollection() {
+    setResearchPlanCollecting(false);
+  }
+
+  return {
+    cancelResearchPlanCollection,
+    collectResearchPlanTargetsForGraph: actions.collectResearchPlanTargetsForGraph,
     researchPlanCollectionStatus,
   };
 }
