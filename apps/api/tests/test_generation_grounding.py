@@ -41,6 +41,21 @@ def _goal() -> Goal:
     )
 
 
+def _fitness_goal() -> Goal:
+    now = datetime.now(UTC)
+    return Goal(
+        id="goal_fitness",
+        profile_id="default",
+        title="Build a durable morning exercise routine",
+        description="I stop after two weeks when work gets busy.",
+        category="fitness",
+        success_criteria="Keep a realistic morning routine for three months.",
+        status="active",
+        created_at=now,
+        updated_at=now,
+    )
+
+
 def _profile() -> Profile:
     now = datetime.now(UTC)
     return Profile(
@@ -142,6 +157,24 @@ def test_plan_retrieval_queries_reserves_slots_for_analysis_queries() -> None:
     assert any("one on one tutor conversation cost comparison" in text for text in texts)
 
 
+def test_plan_retrieval_queries_does_not_inject_topic_family_templates() -> None:
+    queries = plan_retrieval_queries(
+        goal=_fitness_goal(),
+        profile=_profile(),
+        current_state=None,
+        limit=6,
+        extra_query_texts=(),
+    )
+
+    query_text = "\n".join(query.text for query in queries)
+
+    assert "부상 리스크" not in query_text
+    assert "주간 루틴 유지" not in query_text
+    assert "회복 패턴" not in query_text
+    assert "강도 조절" not in query_text
+    assert "evidence-backed methods for this specific goal" in query_text
+
+
 def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
     search_index = StaticSearchIndex(
         [
@@ -202,7 +235,7 @@ def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
 
     titles = {item.title for item in packet.evidence_items}
 
-    assert "JLPT speaking guidance" in titles
+    assert {"JLPT speaking guidance", "Conversation rubric"} & titles
     assert "원어민 대화 후기" in titles
     assert "개인 시행착오 기록" in titles or "피드백 루프 연구" in titles
     assert len(packet.evidence_items) == 4

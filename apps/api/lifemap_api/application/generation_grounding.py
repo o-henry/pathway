@@ -83,38 +83,17 @@ def _current_state_fragments(current_state: CurrentStateSnapshot | None) -> list
     return fragments
 
 
-def _goal_focus_fragments(goal: Goal) -> list[str]:
-    lowered = " ".join([goal.title, goal.description, goal.category, goal.success_criteria]).lower()
-    if goal.category == "language" or any(
-        token in lowered
-        for token in ["일본어", "영어", "회화", "원어민", "fluency", "conversation", "speaking"]
-    ):
-        return [
-            "실제 대화 루프",
-            "원어민 노출",
-            "교정 피드백",
-            "말문 막힘 복구",
-        ]
-    if goal.category == "career":
-        return [
-            "직접 지원 루트",
-            "포트폴리오 보강",
-            "면접 대응",
-            "전환 비용",
-        ]
-    if goal.category == "fitness":
-        return [
-            "부상 리스크",
-            "주간 루틴 유지",
-            "회복 패턴",
-            "강도 조절",
-        ]
-    return [
-        "핵심 루트 구조",
-        "막히는 지점",
-        "우회 경로",
-        "전환 조건",
+def _goal_context_fragments(goal: Goal) -> list[str]:
+    fragments = [
+        goal.category,
+        goal.description,
+        goal.success_criteria,
+        "evidence-backed methods for this specific goal",
+        "people who reached a similar goal",
+        "route alternatives and opportunity costs",
+        "failure signals and switching conditions",
     ]
+    return [_clean_fragment(fragment) for fragment in fragments if _clean_fragment(fragment)]
 
 
 def plan_retrieval_queries(
@@ -127,7 +106,7 @@ def plan_retrieval_queries(
 ) -> tuple[RetrievalQuery, ...]:
     profile_context = _profile_fragments(profile)
     state_context = _current_state_fragments(current_state)
-    focus_context = _goal_focus_fragments(goal)
+    goal_context = _goal_context_fragments(goal)
     cleaned_extra_queries = tuple(
         dict.fromkeys(compact for query in extra_query_texts if (compact := _clean_fragment(query)))
     )
@@ -146,7 +125,7 @@ def plan_retrieval_queries(
                 goal.description,
                 goal.success_criteria,
                 "어떤 route structures와 practice systems가 실제로 작동하는가",
-                *focus_context[:2],
+                *goal_context[:2],
             ],
         ),
         (
@@ -155,7 +134,7 @@ def plan_retrieval_queries(
                 goal.title,
                 goal.success_criteria,
                 "경험담 개인 사례 what worked what failed",
-                *focus_context[1:3],
+                *goal_context[1:3],
             ],
         ),
         (
@@ -175,7 +154,7 @@ def plan_retrieval_queries(
                 "fallback routes switching conditions tradeoffs",
                 *profile_context[:3],
                 *state_context[:3],
-                *focus_context[2:4],
+                *goal_context[2:4],
             ],
         ),
         (
@@ -201,7 +180,7 @@ def plan_retrieval_queries(
                 goal.title,
                 goal.description,
                 "alternative routes opportunity cost adjacent strategies",
-                *focus_context[:3],
+                *goal_context[:3],
             ],
         ),
     ]
