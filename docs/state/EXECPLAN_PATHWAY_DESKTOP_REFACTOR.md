@@ -29,8 +29,11 @@ Reduce `MainAppImpl.tsx` responsibility by extracting Pathway-specific pure help
 1. Extract pure Pathway workspace helpers from `MainAppImpl.tsx`.
 2. Extract workflow tab JSX into a dedicated `PathwayWorkflowPanel` component.
 3. Extract collector doctor/result contracts and provider metadata.
-4. Run desktop typecheck and diff checks after each bounded change.
-5. Update state documentation with commits and known gaps.
+4. Extract graph/workspace derived state into a hook.
+5. Extract collector doctor status/install state into a hook.
+6. Extract research-plan collection execution into a hook.
+7. Run desktop typecheck and diff checks after each bounded change.
+8. Update state documentation with commits and known gaps.
 
 ## Validation
 
@@ -64,9 +67,13 @@ Expected results:
   - Extracted pure Pathway helper functions into `pathwayWorkspaceUtils.ts`.
   - Extracted the workflow tab into `PathwayWorkflowPanel.tsx`.
   - Extracted collector doctor/result contracts into `pathwayCollectorContracts.ts`.
+  - Extracted selected graph, evidence, assumptions, and progress marker derived state into `usePathwayWorkspaceDerivedState.ts`.
+  - Extracted collector doctor status/install flow into `usePathwayCollectorDoctor.ts`.
+  - Extracted research-plan collection provider fallback and status flow into `usePathwayResearchCollector.ts`.
 - Tests run:
   - `pnpm --filter desktop exec tsc --noEmit`
   - `git diff --check`
+  - `pnpm secret-scan`
 - Known gaps:
-  - `MainAppImpl.tsx` still owns engine/auth and Pathway mutation orchestration.
-  - A future pass should extract Pathway workspace state/actions into a hook after adding a focused test seam.
+  - `MainAppImpl.tsx` still owns engine/auth lifecycle and Pathway goal/map mutation orchestration.
+  - A future pass should extract goal/map refresh, intake, generation, and revision actions into a controller hook with mocked API/invoke dependencies.

@@ -3,6 +3,34 @@
 ## Latest micro-update
 
 - Completed work:
+  - Continued the Pathway desktop refactor by extracting remaining graph/workspace derived state and collector orchestration from `MainAppImpl.tsx`.
+  - Added `usePathwayWorkspaceDerivedState.ts` for active/display bundles, selected node/evidence/assumption data, node action guidance, preview-node changes, and progress-node matching.
+  - Added `usePathwayCollectorDoctor.ts` for collector doctor status refresh and install handling used by settings.
+  - Added `usePathwayResearchCollector.ts` for research-plan collection readiness, provider fallback execution, collection status text, and cancellation state.
+  - Reduced `MainAppImpl.tsx` further from 1508 lines to 1182 lines.
+- Atomic commits:
+  - `f20e16d Extract Pathway derived state hook`
+  - `6a48d6c Extract Pathway collector doctor hook`
+  - `4f5d384 Extract Pathway research collector hook`
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/usePathwayWorkspaceDerivedState.ts`
+  - `apps/desktop/src/app/usePathwayCollectorDoctor.ts`
+  - `apps/desktop/src/app/usePathwayResearchCollector.ts`
+  - `docs/state/EXECPLAN_PATHWAY_DESKTOP_REFACTOR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - `MainAppImpl.tsx` still owns engine/auth lifecycle and Pathway goal/map mutation orchestration.
+  - The next extraction should target goal/map refresh, intake, graph generation, revision preview/apply, and route selection as one controller hook with mocked API/invoke seams.
+- Next recommended task:
+  - Extract Pathway goal/map action orchestration from `MainAppImpl.tsx` into `usePathwayWorkspaceController` or a similarly focused hook.
+
+## Latest micro-update
+
+- Completed work:
   - Continued the Pathway desktop refactor by reducing `MainAppImpl.tsx` from 2199 lines to 1508 lines.
   - Extracted pure graph/workspace helpers, node guidance helpers, progress matching, intake text helpers, and UI error formatting into `apps/desktop/src/app/pathwayWorkspaceUtils.ts`.
   - Extracted the workflow canvas/sidebar JSX into `apps/desktop/src/app/PathwayWorkflowPanel.tsx`, leaving `MainAppImpl.tsx` to pass derived state and handlers.
