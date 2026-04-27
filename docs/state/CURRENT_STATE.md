@@ -3,6 +3,32 @@
 ## Latest micro-update
 
 - Completed work:
+  - Added focused regression tests around the newly extracted Pathway controller seams.
+  - Exposed `createPathwayResearchCollectorActions` so the research collector orchestration can be tested without rendering React hooks.
+  - Added tests for research collection success, fallback provider success, and all-provider failure.
+  - Extracted and tested goal workspace decision helpers for preferred goal selection and newest-map ordering.
+- Atomic commits:
+  - `8aaf084 Test Pathway research collector actions`
+  - `85b9e3f Test Pathway goal workspace decisions`
+- Changed files:
+  - `apps/desktop/src/app/usePathwayResearchCollector.ts`
+  - `apps/desktop/src/app/usePathwayResearchCollector.test.ts`
+  - `apps/desktop/src/app/usePathwayGoalWorkspaceController.ts`
+  - `apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/usePathwayResearchCollector.test.ts`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - `usePathwayMutationController` and `usePathwayEngineAuth` still need direct tests or similar factory seams.
+  - Desktop test execution currently uses the web workspace's Vitest binary with `--root ../..`; adding a first-class desktop test script would make this cleaner.
+- Next recommended task:
+  - Add first-class desktop test script/config, then test mutation and engine-auth controller behavior.
+
+## Latest micro-update
+
+- Completed work:
   - Finished the major `MainAppImpl.tsx` controller extraction pass.
   - Extracted goal workspace refresh/select/delete orchestration into `apps/desktop/src/app/usePathwayGoalWorkspaceController.ts`.
   - Extracted intake, graph generation, state-update preview, revision accept/reject, and route selection into `apps/desktop/src/app/usePathwayMutationController.ts`.
