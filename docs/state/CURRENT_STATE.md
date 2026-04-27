@@ -3,6 +3,34 @@
 ## Latest micro-update
 
 - Completed work:
+  - Continued the Pathway desktop refactor by reducing `MainAppImpl.tsx` from 2199 lines to 1508 lines.
+  - Extracted pure graph/workspace helpers, node guidance helpers, progress matching, intake text helpers, and UI error formatting into `apps/desktop/src/app/pathwayWorkspaceUtils.ts`.
+  - Extracted the workflow canvas/sidebar JSX into `apps/desktop/src/app/PathwayWorkflowPanel.tsx`, leaving `MainAppImpl.tsx` to pass derived state and handlers.
+  - Extracted collector doctor/result contracts and provider metadata into `apps/desktop/src/app/pathwayCollectorContracts.ts`.
+  - Added a focused ExecPlan for this desktop refactor pass.
+- Atomic commits:
+  - `27a6291 Extract Pathway workspace utilities`
+  - `94e0264 Extract Pathway workflow panel`
+  - `b1fe30b Extract Pathway collector contracts`
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayWorkflowPanel.tsx`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.ts`
+  - `apps/desktop/src/app/pathwayCollectorContracts.ts`
+  - `docs/state/EXECPLAN_PATHWAY_DESKTOP_REFACTOR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - `MainAppImpl.tsx` still owns engine/auth lifecycle and Pathway mutation orchestration.
+  - A future pass should extract Pathway workspace state/actions into a hook after defining a small test seam for refresh/generate/revision flows.
+- Next recommended task:
+  - Extract Pathway workspace state/actions from `MainAppImpl.tsx` into a hook or controller module with mocked API/invoke dependencies.
+
+## Latest micro-update
+
+- Completed work:
   - Added optional `semantic_role` to dynamic graph node type definitions so node type ids can remain map-specific while validation/rendering has a broad machine-readable role.
   - Updated generation and revision prompts to require `semantic_role` for new ontology node types without forcing fixed node type ids.
   - Updated graph-quality policy to prefer `semantic_role` over route/support marker text for evidence requirements and route-atlas shape checks.
