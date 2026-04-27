@@ -141,17 +141,6 @@ function makePathwayMessage(role: PathwayIntakeMessage["role"], content: string)
   };
 }
 
-function formatPathwayMessageTime(createdAt: string): string {
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return date.toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function isApprovalText(input: string): boolean {
   return APPROVAL_PATTERN.test(input.trim());
 }
@@ -1087,10 +1076,15 @@ export default function TasksPage(props: TasksPageProps) {
               </section>
             ) : (
               <section aria-label="Pathway 상담 타임라인" className="tasks-thread-timeline pathway-intake-timeline" role="log">
-                {pathwayIntake.messages.map((message) => {
+                {pathwayIntake.messages.map((message, index) => {
                   const bodyClassName = `tasks-thread-log-line pathway-intake-message-body${
                     isMultilinePathwayMessage(message.content) ? " is-multiline" : ""
                   }`;
+                  const showElapsedForMessage =
+                    pathwayIntakePending &&
+                    message.role === "assistant" &&
+                    index === pathwayIntake.messages.length - 1 &&
+                    Boolean(pathwayPendingStartedAt);
                   return (
                     <article
                       className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
@@ -1098,8 +1092,8 @@ export default function TasksPage(props: TasksPageProps) {
                     >
                       <div className="pathway-intake-message-header">
                         <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
-                        {message.createdAt ? (
-                          <small className="pathway-intake-elapsed">{formatPathwayMessageTime(message.createdAt)}</small>
+                        {showElapsedForMessage ? (
+                          <small className="pathway-intake-elapsed">{pathwayPendingElapsedLabel}</small>
                         ) : null}
                       </div>
                       <div className={bodyClassName}>

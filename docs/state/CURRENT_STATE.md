@@ -3,6 +3,24 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the current-time display that was incorrectly added to Pathway intake messages.
+  - Changed the active PATHWAY progress row to show elapsed work duration from the request start time.
+  - Kept the stored `pendingStartedAt` restore path so the elapsed duration survives switching away from and back to the Goals tab.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/lib/api.test.ts apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `pnpm secret-scan`
+- Known gaps:
+  - Needs a browser/UI spot-check in the running app to confirm the elapsed label appears in the exact desired row.
+- Next recommended task:
+  - Re-run a graph generation request and switch tabs during the run to verify the elapsed duration remains visible.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed Pathway intake message timestamps so chat rows retain created times after switching tabs.
   - Preserved `generating` state and `pendingStartedAt` instead of coercing generation back to ready during stored intake restoration.
   - Reattached the pending elapsed timer from stored generation state so leaving and returning to the Goals tab does not make the elapsed time disappear.
