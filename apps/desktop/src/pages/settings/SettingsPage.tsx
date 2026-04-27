@@ -11,6 +11,13 @@ type CollectorDoctorStatus = {
   configured?: boolean;
 };
 
+type LocalApiStatus = {
+  state: "checking" | "ready" | "error";
+  message: string;
+  url: string;
+  checkedAt: string | null;
+};
+
 type SettingsPageProps = {
   compact?: boolean;
   engineStarted: boolean;
@@ -26,11 +33,14 @@ type SettingsPageProps = {
   collectorDoctorStatuses: CollectorDoctorStatus[];
   collectorDoctorPending: boolean;
   collectorInstallPendingId: string | null;
+  localApiStatus: LocalApiStatus;
+  localApiStatusPending: boolean;
   onSelectCwdDirectory: () => void;
   onToggleCodexLogin: () => void;
   onCloseUsageResult: () => void;
   onOpenRunsFolder: () => void;
   onRefreshCollectorDoctor: () => void;
+  onRefreshLocalApiStatus: () => void;
   onInstallCollector: (providerId: string) => void;
 };
 
@@ -49,11 +59,14 @@ export default function SettingsPage({
   collectorDoctorStatuses,
   collectorDoctorPending,
   collectorInstallPendingId,
+  localApiStatus,
+  localApiStatusPending,
   onSelectCwdDirectory,
   onToggleCodexLogin,
   onCloseUsageResult,
   onOpenRunsFolder,
   onRefreshCollectorDoctor,
+  onRefreshLocalApiStatus,
   onInstallCollector,
 }: SettingsPageProps) {
   const { t } = useI18n();
@@ -147,6 +160,44 @@ export default function SettingsPage({
             </article>
           ))}
         </div>
+      </section>
+      <section className="settings-local-api-status" aria-label="local API status">
+        <div className="settings-collector-doctor-head">
+          <div>
+            <span className="settings-collector-doctor-kicker">Runtime Check</span>
+            <strong>로컬 API 준비 상태</strong>
+          </div>
+          <button
+            className="settings-refresh-button"
+            disabled={localApiStatusPending}
+            onClick={onRefreshLocalApiStatus}
+            type="button"
+          >
+            <span className="settings-refresh-label-text">
+              {localApiStatusPending ? "확인 중" : "새로고침"}
+            </span>
+          </button>
+        </div>
+        <article className={`settings-local-api-card is-${localApiStatus.state}`}>
+          <span
+            aria-hidden="true"
+            className={`settings-collector-dot is-${localApiStatus.state}`.trim()}
+          />
+          <div className="settings-local-api-copy">
+            <strong>
+              {localApiStatus.state === "ready"
+                ? "요청 가능"
+                : localApiStatus.state === "checking"
+                  ? "확인 중"
+                  : "요청 불가"}
+            </strong>
+            <p>{localApiStatus.message}</p>
+          </div>
+          <div className="settings-local-api-meta">
+            <code>{localApiStatus.url}</code>
+            <span>{localApiStatus.checkedAt ? `마지막 확인 ${localApiStatus.checkedAt}` : "아직 확인 전"}</span>
+          </div>
+        </article>
       </section>
       <div className="usage-method usage-method-hidden">{t("settings.recentStatus")}: {status}</div>
       {usageInfoText && !usageResultClosed && (

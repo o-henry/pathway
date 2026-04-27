@@ -6,6 +6,8 @@ import SettingsPage from '../pages/settings/SettingsPage';
 import { invoke } from '../shared/tauri';
 import {
   analyzeGoal,
+  checkLocalApiReady,
+  getApiBaseUrl,
 } from '../lib/api';
 import PathwayWorkflowPanel, { type PathwayStateForm } from './PathwayWorkflowPanel';
 import {
@@ -37,6 +39,7 @@ type WorkspaceTab = 'tasks' | 'workflow' | 'settings';
 const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'settings'];
 const SETTINGS_AUTH_REFRESH_COOLDOWN_MS = 60_000;
 const SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS = 5 * 60_000;
+const SETTINGS_LOCAL_API_REFRESH_COOLDOWN_MS = 30_000;
 const SETTINGS_DEFERRED_REFRESH_DELAY_MS = 120;
 const GOAL_ANALYSIS_RETRY_DELAYS_MS = [0, 1000, 2500, 5000] as const;
 
@@ -82,8 +85,22 @@ export default function MainApp() {
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('Pathway 로컬 작업공간이 준비되었습니다. 목표를 만들고, 자원을 분석한 뒤, 그래프를 확장하세요.');
   const [isBusy, setIsBusy] = useState(false);
+  const [localApiStatus, setLocalApiStatus] = useState<{
+    state: 'checking' | 'ready' | 'error';
+    message: string;
+    url: string;
+    checkedAt: string | null;
+  }>(() => ({
+    state: 'checking',
+    message: '아직 로컬 API 연결을 확인하지 않았습니다.',
+    url: getApiBaseUrl(),
+    checkedAt: null,
+  }));
+  const [localApiStatusPending, setLocalApiStatusPending] = useState(false);
   const goalAnalysisPromiseRef = useRef<Map<string, Promise<GoalAnalysisRecord>>>(new Map());
   const pathwayWorkCancelledRef = useRef(false);
+  const localApiStatusLastCheckedAtRef = useRef(0);
+  const localApiStatusInFlightRef = useRef(false);
 
   const [stateForm, setStateForm] = useState<PathwayStateForm>({
     progress_summary: '',
@@ -258,6 +275,61 @@ export default function MainApp() {
     return '알 수 없음';
   }
 
+  async function refreshLocalApiStatus() {
+    if (localApiStatusInFlightRef.current) {
+      return;
+    }
+    localApiStatusInFlightRef.current = true;
+    setLocalApiStatusPending(true);
+    setLocalApiStatus((current) => ({
+      ...current,
+      state: 'checking',
+      message: '로컬 API 연결을 확인하는 중입니다.',
+      url: getApiBaseUrl(),
+    }));
+    try {
+      if (hasTauriRuntime) {
+        await ensureEngineStarted();
+      } else {
+        await refreshLocalApiTokenFromShell();
+      }
+      await checkLocalApiReady();
+      localApiStatusLastCheckedAtRef.current = Date.now();
+      setLocalApiStatus({
+        state: 'ready',
+        message: '목표 저장, 체크리스트 분석, 조사, 그래프 생성을 시작할 수 있습니다.',
+        url: getApiBaseUrl(),
+        checkedAt: new Date().toLocaleTimeString('ko-KR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      });
+    } catch (error) {
+      localApiStatusLastCheckedAtRef.current = Date.now();
+      setLocalApiStatus({
+        state: 'error',
+        message: formatUiError(error, '로컬 API 연결 확인에 실패했습니다.'),
+        url: getApiBaseUrl(),
+        checkedAt: new Date().toLocaleTimeString('ko-KR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }),
+      });
+    } finally {
+      localApiStatusInFlightRef.current = false;
+      setLocalApiStatusPending(false);
+    }
+  }
+
+  async function refreshLocalApiStatusIfStale(maxAgeMs: number) {
+    if (Date.now() - localApiStatusLastCheckedAtRef.current < maxAgeMs) {
+      return;
+    }
+    await refreshLocalApiStatus();
+  }
+
 
   async function analyzeGoalWithRetry(goalId: string, statusLabel = '목표 분석'): Promise<GoalAnalysisRecord> {
     const existing = goalAnalysisPromiseRef.current.get(goalId);
@@ -425,6 +497,7 @@ export default function MainApp() {
     const refreshTimer = window.setTimeout(() => {
       void refreshAuthStateIfStale(SETTINGS_AUTH_REFRESH_COOLDOWN_MS);
       void refreshCollectorDoctorIfStale(SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS);
+      void refreshLocalApiStatusIfStale(SETTINGS_LOCAL_API_REFRESH_COOLDOWN_MS);
     }, SETTINGS_DEFERRED_REFRESH_DELAY_MS);
     return () => {
       window.clearTimeout(refreshTimer);
@@ -536,10 +609,13 @@ export default function MainApp() {
           cwd={cwd}
           engineStarted={engineStarted}
           isGraphRunning={false}
+          localApiStatus={localApiStatus}
+          localApiStatusPending={localApiStatusPending}
           loginCompleted={loginCompleted}
           onCloseUsageResult={() => setUsageResultClosed(true)}
           onOpenRunsFolder={() => void handleOpenRunsFolder()}
           onRefreshCollectorDoctor={() => void refreshCollectorDoctor()}
+          onRefreshLocalApiStatus={() => void refreshLocalApiStatus()}
           onInstallCollector={(providerId) => void handleInstallCollector(providerId)}
           onSelectCwdDirectory={() => void handleSelectCwdDirectory()}
           onToggleCodexLogin={() => void handleToggleCodexLogin()}

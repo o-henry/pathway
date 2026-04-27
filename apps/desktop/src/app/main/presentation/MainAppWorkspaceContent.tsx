@@ -227,10 +227,18 @@ export function MainAppWorkspaceContent(props: any) {
         cwd={props.cwd}
         engineStarted={props.engineStarted}
         isGraphRunning={props.isGraphRunning}
+        localApiStatus={props.localApiStatus ?? {
+          state: "checking",
+          message: "현재 작업공간에서 로컬 API 상태를 확인하지 않았습니다.",
+          url: "http://127.0.0.1:8000",
+          checkedAt: null,
+        }}
+        localApiStatusPending={Boolean(props.localApiStatusPending)}
         loginCompleted={props.loginCompleted}
         onCloseUsageResult={() => props.setUsageResultClosed(true)}
         onOpenRunsFolder={() => void props.onOpenRunsFolder()}
         onRefreshCollectorDoctor={() => void props.onRefreshCollectorDoctor?.()}
+        onRefreshLocalApiStatus={() => void props.onRefreshLocalApiStatus?.()}
         onInstallCollector={(providerId) => void props.onInstallCollector?.(providerId)}
         onSelectCwdDirectory={() => void props.onSelectCwdDirectory()}
         onToggleCodexLogin={() => void props.onLoginCodex()}

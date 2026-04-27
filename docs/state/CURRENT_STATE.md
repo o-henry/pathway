@@ -3,6 +3,30 @@
 ## Latest micro-update
 
 - Completed work:
+  - Added a "로컬 API 준비 상태" block directly under Settings > 수집기 상태.
+  - The settings block shows request readiness, API URL, last checked time, and a manual refresh button.
+  - Settings tab entry now auto-checks local API readiness on a short cooldown, using the same engine-start + readiness probe path as graph generation preflight.
+  - Kept the older workspace settings composition compiling by passing a fallback local API status.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/main/presentation/MainAppWorkspaceContent.tsx`
+  - `apps/desktop/src/pages/settings/SettingsPage.tsx`
+  - `apps/desktop/src/styles/layout/shell/settings-hub.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/lib/api.test.ts apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `pnpm dev:desktop:services`
+  - `pnpm secret-scan`
+- Known gaps:
+  - Browser-level visual verification could not run because the local Playwright browser binary is not installed in this environment.
+  - Dev services did start successfully while checking, and the local API server reached startup before being stopped.
+- Next recommended task:
+  - Install Playwright browsers or use the desktop app window to visually verify the Settings card placement.
+
+## Latest micro-update
+
+- Completed work:
   - Fixed the desktop dev boot path so `pnpm dev` / `pnpm dev:desktop:services` starts the local API together with the desktop UI service group.
   - Added `1421` to desktop dev port cleanup because Vite uses it for the WebSocket server, and enabled `concurrently --kill-others-on-fail` so failed partial boots do not leave API/UI processes running.
   - Added a fast authenticated local API readiness probe and wired Tasks intake approval to run that probe before switching to the graph-generation phase.
