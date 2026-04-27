@@ -3,6 +3,44 @@
 ## Latest micro-update
 
 - Completed work:
+  - Added optional `semantic_role` to dynamic graph node type definitions so node type ids can remain map-specific while validation/rendering has a broad machine-readable role.
+  - Updated generation and revision prompts to require `semantic_role` for new ontology node types without forcing fixed node type ids.
+  - Updated graph-quality policy to prefer `semantic_role` over route/support marker text for evidence requirements and route-atlas shape checks.
+  - Kept marker fallback only for legacy bundles that do not yet contain `semantic_role`.
+  - Added a generated-graph quality gate requiring all ontology node types to include `semantic_role` before generation/revision proposals proceed.
+  - Updated the local stub provider and canvas display helpers to emit/read `semantic_role`.
+  - Added graph-quality regression tests for semantic-role evidence attachment and explicit goal-role override.
+- Atomic commits:
+  - `afcc34f Add semantic roles for graph node types`
+  - `bbbe766 Require semantic roles for generated graphs`
+- Changed files:
+  - `apps/api/lifemap_api/domain/graph_bundle.py`
+  - `apps/api/lifemap_api/application/graph_quality.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/graph_bundle_fixture.py`
+  - `apps/api/tests/test_graph_quality.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/lib/types.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_quality.py apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/domain/graph_bundle.py apps/api/lifemap_api/application/graph_quality.py apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_graph_quality.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_quality.py apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py apps/api/tests/test_generation_grounding.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/graph_quality.py apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/tests/test_graph_quality.py apps/api/tests/test_map_generation.py apps/api/tests/graph_bundle_fixture.py`
+  - `git diff --check`
+- Known gaps:
+  - The broad role names are still a stable policy layer; if Pathway needs finer behavior later, add role metadata rather than multiplying fixed node types.
+  - Existing persisted maps without `semantic_role` still render through marker fallback until they are regenerated or revised.
+- Next recommended task:
+  - Split `MainAppImpl.tsx` workflow orchestration into hooks/components; backend hardcoding cleanup is now much better bounded.
+
+## Latest micro-update
+
+- Completed work:
   - Refactored Pathway research query planning to remove fixed goal-family branches for language/career/fitness-style focus fragments.
   - Replaced those branches with generic goal/category/description/success-criteria context plus broad evidence-backed method, similar-user, route-alternative, and failure/switching query intents.
   - Refactored desktop research collection seeds from fixed English-learning URLs into query-based source-family search probes for academic, official, open media, course, guided program, and community sources.
