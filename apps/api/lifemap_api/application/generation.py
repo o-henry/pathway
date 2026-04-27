@@ -64,6 +64,12 @@ def _build_system_prompt() -> str:
         - This is a scenario map, never a prophecy or certainty claim.
         - Use a dynamic ontology. Do not assume a fixed node taxonomy.
         - Invent node types and edge types only when they are useful for this goal.
+        - For every ontology node type, set `semantic_role` to a broad machine role
+          such as goal, route, route_choice, fallback_route, checkpoint, risk,
+          constraint, cost, opportunity_cost, switch_condition, practice,
+          resource, evidence, assumption, milestone, or other.
+        - `semantic_role` is for validation/rendering only; the node type `id`,
+          label, and description must still be specific to this map.
         - Keep the graph grounded in the goal, profile constraints, and explicit assumptions.
         - Use retrieved evidence only through the evidence IDs provided in the grounding packet.
         - Never invent evidence IDs, source titles, or quotes.
@@ -137,6 +143,8 @@ def _build_user_prompt(
         Expectations:
         - `map.goal_id` must equal `{goal.id}`.
         - The ontology must be useful for this specific goal instead of generic.
+        - Every ontology node type must include `semantic_role`; do not force node
+          type ids into a fixed taxonomy just to satisfy validation.
         - Include warnings that remind the user this is a scenario map and may need revision.
         - Use assumptions when information is missing.
         - If evidence exists, connect it to specific nodes with `evidence_refs`.
@@ -197,6 +205,8 @@ def _build_repair_prompt(
         - If validation says the route atlas is too sparse, expand the graph
           with more route families, representative route variants, checkpoints,
           failure modes, fallback/switch nodes, and opportunity-cost nodes.
+        - If validation says route/support nodes are missing, set correct
+          `ontology.node_types[].semantic_role` values instead of renaming node types.
         - If validation says nodes are missing evidence, attach allowed evidence ids
           from the packet to the specific route/support nodes they justify. Do not
           leave user-facing decision nodes ungrounded when usable evidence exists.

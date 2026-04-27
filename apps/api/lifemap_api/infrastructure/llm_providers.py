@@ -584,6 +584,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "goal",
             "label": "목표",
             "description": "사용자가 도달하려는 상태",
+            "semantic_role": "goal",
             "default_style": {"tone": "mist", "shape": "rounded_card"},
             "fields": [
                 {
@@ -598,6 +599,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "route",
             "label": "루트",
             "description": "달성 경로",
+            "semantic_role": "route",
             "default_style": {"tone": "iris", "shape": "rounded_card"},
             "fields": [
                 {
@@ -612,6 +614,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "practice_system",
             "label": "연습 시스템",
             "description": "반복 구조와 실천 루프",
+            "semantic_role": "practice",
             "default_style": {"tone": "sky", "shape": "rounded_card"},
             "fields": [
                 {
@@ -626,6 +629,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "checkpoint",
             "label": "체크포인트",
             "description": "경로 검증 지점",
+            "semantic_role": "checkpoint",
             "default_style": {"tone": "sky", "shape": "rounded_card"},
             "fields": [
                 {
@@ -640,6 +644,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "constraint",
             "label": "제약",
             "description": "진행을 약화시키는 압력",
+            "semantic_role": "constraint",
             "default_style": {"tone": "mist", "shape": "rounded_card"},
             "fields": [
                 {"key": "impact", "label": "영향", "value_type": "markdown", "required": False}
@@ -649,6 +654,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "risk",
             "label": "리스크",
             "description": "실패 패턴이나 이탈 신호",
+            "semantic_role": "risk",
             "default_style": {"tone": "mist", "shape": "rounded_card"},
             "fields": [
                 {
@@ -663,6 +669,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "fallback_route",
             "label": "전환 루트",
             "description": "기존 경로가 약해질 때의 대안",
+            "semantic_role": "fallback_route",
             "default_style": {"tone": "sky", "shape": "rounded_card"},
             "fields": [
                 {
@@ -677,6 +684,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "opportunity_cost",
             "label": "기회비용",
             "description": "선택하지 않는 동안 약해지는 다른 경로",
+            "semantic_role": "opportunity_cost",
             "default_style": {"tone": "mist", "shape": "rounded_card"},
             "fields": [
                 {"key": "cost", "label": "잃는 것", "value_type": "markdown", "required": False}
@@ -686,6 +694,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "switch_condition",
             "label": "전환 조건",
             "description": "루트를 바꿀 시점과 신호",
+            "semantic_role": "switch_condition",
             "default_style": {"tone": "sky", "shape": "rounded_card"},
             "fields": [
                 {"key": "signal", "label": "신호", "value_type": "markdown", "required": False}
@@ -695,6 +704,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "milestone",
             "label": "마일스톤",
             "description": "중간 성취 지점",
+            "semantic_role": "milestone",
             "default_style": {"tone": "sky", "shape": "rounded_card"},
             "fields": [
                 {
@@ -709,6 +719,7 @@ def _base_node_types() -> dict[str, dict[str, Any]]:
             "id": "environment",
             "label": "환경 설계",
             "description": "실행 환경과 노출 구조",
+            "semantic_role": "resource",
             "default_style": {"tone": "mist", "shape": "rounded_card"},
             "fields": [
                 {"key": "setup", "label": "환경 세팅", "value_type": "markdown", "required": False}
@@ -1125,6 +1136,7 @@ class StubPathwayProvider:
                     "id": "recovery_route",
                     "label": "회복 루트",
                     "description": "기존 루트가 약해졌을 때 붙는 보정 경로",
+                    "semantic_role": "fallback_route",
                     "default_style": {"tone": "sky", "shape": "rounded_card"},
                     "fields": [
                         {

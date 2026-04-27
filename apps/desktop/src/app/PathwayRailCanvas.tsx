@@ -106,25 +106,52 @@ function hashString(value: string): number {
 function nodeSemanticFamily(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): string {
   const value = `${definition?.id ?? ""} ${definition?.label ?? ""} ${node.type} ${node.label}`.toLowerCase();
   const dataRole = normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role);
+  const semanticRole = normalizeGraphSearchText(definition?.semantic_role);
   if (nodeLooksLikeGoal(definition, node)) {
     return "goal";
   }
-  if (dataRole === PERSONAL_LEARNING_DATA_ROLE || value.includes("learning") || value.includes("학습")) {
+  if (
+    dataRole === PERSONAL_LEARNING_DATA_ROLE ||
+    semanticRole === "practice" ||
+    value.includes("learning") ||
+    value.includes("학습")
+  ) {
     return "learning";
   }
-  if (value.includes("risk") || value.includes("warning")) {
+  if (semanticRole === "risk" || value.includes("risk") || value.includes("warning")) {
     return "risk";
   }
-  if (value.includes("resource") || value.includes("asset") || value.includes("capital")) {
+  if (
+    semanticRole === "resource" ||
+    value.includes("resource") ||
+    value.includes("asset") ||
+    value.includes("capital")
+  ) {
     return "resource";
   }
-  if (value.includes("decision") || value.includes("branch") || value.includes("gate")) {
+  if (
+    semanticRole === "route_choice" ||
+    semanticRole === "switch_condition" ||
+    value.includes("decision") ||
+    value.includes("branch") ||
+    value.includes("gate")
+  ) {
     return "decision";
   }
-  if (value.includes("evidence") || value.includes("signal") || value.includes("research")) {
+  if (
+    semanticRole === "evidence" ||
+    value.includes("evidence") ||
+    value.includes("signal") ||
+    value.includes("research")
+  ) {
     return "evidence";
   }
-  if (value.includes("constraint") || value.includes("blocker") || value.includes("limit")) {
+  if (
+    semanticRole === "constraint" ||
+    value.includes("constraint") ||
+    value.includes("blocker") ||
+    value.includes("limit")
+  ) {
     return "constraint";
   }
   return "route";
@@ -201,6 +228,7 @@ function ensureGoalNodeType(bundle: GraphBundle): string {
     id: "goal",
     label: "GOAL",
     description: "사용자가 기입한 최종 목표",
+    semantic_role: "goal",
     default_style: { tone: "goal", shape: "rounded_card" },
     fields: [{ key: "source", label: "Source", value_type: "text", required: false }],
   });
@@ -306,6 +334,7 @@ function ensureLearningNodeType(bundle: GraphBundle): string {
     id: "personal_learning_task",
     label: "개인 학습 TASK",
     description: "사용자가 실제로 완료하고 퀴즈로 점검한 개인 학습 경로",
+    semantic_role: "practice",
     default_style: { tone: "learning", shape: "rounded_card" },
     fields: [
       { key: "date", label: "날짜", value_type: "date", required: true },

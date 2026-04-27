@@ -11,6 +11,7 @@ export interface GraphNodeTypeDefinition {
   id: string;
   label: string;
   description: string;
+  semantic_role?: string | null;
   default_style?: {
     tone?: string;
     shape?: string;

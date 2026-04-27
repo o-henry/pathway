@@ -85,6 +85,11 @@ def _build_revision_system_prompt() -> str:
         - Use revision_meta.change_note on nodes that changed materially.
         - Use evidence ids only from the grounding packet.
         - Unsupported claims must be captured as assumptions.
+        - Preserve existing ontology `semantic_role` values when they are useful.
+          Add `semantic_role` for new node types using broad roles such as goal,
+          route, route_choice, fallback_route, checkpoint, risk, constraint,
+          cost, opportunity_cost, switch_condition, practice, resource,
+          evidence, assumption, milestone, or other.
         - Keep revisions incremental: add, connect, annotate, weaken, hide, or
           supersede nodes instead of rewriting the whole graph for style only.
         - If the user reports a changed situation, discovered fit, working method,
@@ -157,6 +162,8 @@ def _build_revision_user_prompt(
         Expectations:
         - `map.goal_id` must equal `{goal_id}`.
         - Keep the ontology dynamic and useful for this goal.
+        - New ontology node types must include `semantic_role`; keep node type ids
+          specific to this graph instead of renaming them to a fixed taxonomy.
         - Reflect the latest check-in `{checkin_id}` in node statuses and route choices.
         - Read the latest state update's `progress_summary` as the user's own
           freeform report of what they actually did, practiced, discovered,

@@ -73,6 +73,26 @@ ACTION_DATA_KEYS = (
     "switch_condition",
 )
 
+ROUTE_EVIDENCE_ROLES = {
+    "route",
+    "route_choice",
+    "fallback_route",
+}
+
+SUPPORT_EVIDENCE_ROLES = {
+    "checkpoint",
+    "constraint",
+    "cost",
+    "evidence",
+    "milestone",
+    "opportunity_cost",
+    "practice",
+    "resource",
+    "risk",
+    "switch_condition",
+    "tradeoff",
+}
+
 
 def semantic_text_for_node_types(bundle: GraphBundle) -> dict[str, str]:
     return {
@@ -85,6 +105,42 @@ def semantic_text_for_node_types(bundle: GraphBundle) -> dict[str, str]:
         ).casefold()
         for node_type in bundle.ontology.node_types
     }
+
+
+def semantic_role_for_node_type(bundle: GraphBundle, node_type_id: str) -> str:
+    node_type = next(
+        (candidate for candidate in bundle.ontology.node_types if candidate.id == node_type_id),
+        None,
+    )
+    return str(node_type.semantic_role or "").strip().casefold() if node_type else ""
+
+
+def node_has_route_role(bundle: GraphBundle, node_id: str) -> bool:
+    node = next((candidate for candidate in bundle.nodes if candidate.id == node_id), None)
+    semantic_role = semantic_role_for_node_type(bundle, node.type) if node is not None else ""
+    if semantic_role:
+        return semantic_role in ROUTE_EVIDENCE_ROLES
+    node_index = semantic_text_for_node_types(bundle)
+    return node_matches_any_marker(
+        bundle=bundle,
+        node_index=node_index,
+        node_id=node_id,
+        markers=ROUTE_SEMANTIC_MARKERS,
+    )
+
+
+def node_has_support_role(bundle: GraphBundle, node_id: str) -> bool:
+    node = next((candidate for candidate in bundle.nodes if candidate.id == node_id), None)
+    semantic_role = semantic_role_for_node_type(bundle, node.type) if node is not None else ""
+    if semantic_role:
+        return semantic_role in SUPPORT_EVIDENCE_ROLES
+    node_index = semantic_text_for_node_types(bundle)
+    return node_matches_any_marker(
+        bundle=bundle,
+        node_index=node_index,
+        node_id=node_id,
+        markers=SUPPORT_SEMANTIC_MARKERS,
+    )
 
 
 def node_matches_any_marker(
@@ -171,6 +227,10 @@ def node_requires_evidence(
     node_index: dict[str, str],
     node_id: str,
 ) -> bool:
+    node = next((candidate for candidate in bundle.nodes if candidate.id == node_id), None)
+    semantic_role = semantic_role_for_node_type(bundle, node.type) if node is not None else ""
+    if semantic_role:
+        return semantic_role in ROUTE_EVIDENCE_ROLES or semantic_role in SUPPORT_EVIDENCE_ROLES
     return node_matches_any_marker(
         bundle=bundle,
         node_index=node_index,
@@ -185,27 +245,16 @@ def node_requires_evidence(
 
 
 def pathway_shape_errors(bundle: GraphBundle) -> list[str]:
-    node_type_text = semantic_text_for_node_types(bundle)
     node_ids = [node.id for node in bundle.nodes]
     route_like_node_ids = [
         node.id
         for node in bundle.nodes
-        if node_matches_any_marker(
-            bundle=bundle,
-            node_index=node_type_text,
-            node_id=node.id,
-            markers=ROUTE_SEMANTIC_MARKERS,
-        )
+        if node_has_route_role(bundle, node.id)
     ]
     support_node_ids = [
         node.id
         for node in bundle.nodes
-        if node_matches_any_marker(
-            bundle=bundle,
-            node_index=node_type_text,
-            node_id=node.id,
-            markers=SUPPORT_SEMANTIC_MARKERS,
-        )
+        if node_has_support_role(bundle, node.id)
     ]
     progression_type_ids = {
         edge_type.id for edge_type in bundle.ontology.edge_types if edge_type.role == "progression"

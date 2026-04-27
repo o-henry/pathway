@@ -35,6 +35,7 @@ class GraphNodeTypeDefinition(GraphDomainModel):
     id: str = Field(min_length=1, max_length=120)
     label: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1)
+    semantic_role: str | None = Field(default=None, min_length=1, max_length=80)
     default_style: GraphNodeTypeStyle | None = None
     fields: list[GraphFieldDefinition] = Field(default_factory=list)
 
