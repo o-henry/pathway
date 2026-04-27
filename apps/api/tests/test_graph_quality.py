@@ -3,6 +3,7 @@ from __future__ import annotations
 from lifemap_api.application.generation_grounding import GroundingPacket, RetrievalQuery
 from lifemap_api.application.graph_quality import (
     attach_missing_decision_evidence,
+    enforce_semantic_roles,
     pathway_grounding_errors,
 )
 from lifemap_api.domain.graph_bundle import EvidenceItem, GraphBundle
@@ -70,3 +71,17 @@ def test_graph_quality_does_not_marker_match_when_semantic_role_is_explicit() ->
     errors = pathway_grounding_errors(bundle, _grounding_packet())
 
     assert "Route-looking goal" not in "; ".join(errors)
+
+
+def test_generated_graph_quality_requires_semantic_roles() -> None:
+    raw_bundle = build_valid_graph_bundle()
+    raw_bundle["ontology"]["node_types"][1].pop("semantic_role")
+    bundle = GraphBundle.model_validate(raw_bundle)
+
+    try:
+        enforce_semantic_roles(bundle)
+    except ValueError as exc:
+        assert "semantic_role" in str(exc)
+        assert "route_choice" in str(exc)
+    else:
+        raise AssertionError("missing semantic_role should fail generated graph quality")

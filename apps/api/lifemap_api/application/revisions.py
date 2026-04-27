@@ -17,6 +17,7 @@ from lifemap_api.application.graph_quality import (
     attach_missing_action_fields,
     attach_missing_decision_evidence,
     enforce_pathway_grounding,
+    enforce_semantic_roles,
 )
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
 from lifemap_api.domain.models import (
@@ -203,6 +204,7 @@ def _build_revision_repair_prompt(
         Rules:
         - Return JSON only.
         - `map.goal_id` must equal `{goal_id}`.
+        - Every `ontology.node_types[]` item must include `semantic_role`.
         - You may only use evidence ids from this packet:
           {", ".join(allowed_evidence_ids) or "(none)"}
         - Preserve valid structure wherever possible.
@@ -226,7 +228,8 @@ def _validate_revised_bundle(
         }
     )
     validated = validate_graph_bundle(normalized)
-    evidence_attached = attach_missing_decision_evidence(validated, grounding_packet)
+    semantic_validated = enforce_semantic_roles(validated)
+    evidence_attached = attach_missing_decision_evidence(semantic_validated, grounding_packet)
     action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
     grounded = validate_bundle_grounding(action_attached, grounding_packet)
     return enforce_pathway_grounding(grounded, grounding_packet)

@@ -300,6 +300,22 @@ def pathway_shape_errors(bundle: GraphBundle) -> list[str]:
     return errors
 
 
+def semantic_role_errors(bundle: GraphBundle) -> list[str]:
+    missing_type_ids = [
+        node_type.id
+        for node_type in bundle.ontology.node_types
+        if not str(node_type.semantic_role or "").strip()
+    ]
+    if not missing_type_ids:
+        return []
+    preview = ", ".join(missing_type_ids[:8])
+    suffix = "" if len(missing_type_ids) <= 8 else f", and {len(missing_type_ids) - 8} more"
+    return [
+        "ontology node types must include semantic_role for generated Pathway maps: "
+        f"{preview}{suffix}"
+    ]
+
+
 def pathway_grounding_errors(
     bundle: GraphBundle,
     grounding_packet: GroundingPacket,
@@ -449,6 +465,13 @@ def attach_missing_action_fields(
 
 def enforce_pathway_shape(bundle: GraphBundle) -> GraphBundle:
     errors = pathway_shape_errors(bundle)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return bundle
+
+
+def enforce_semantic_roles(bundle: GraphBundle) -> GraphBundle:
+    errors = semantic_role_errors(bundle)
     if errors:
         raise ValueError("; ".join(errors))
     return bundle

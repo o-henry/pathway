@@ -159,6 +159,7 @@ def _build_route_atlas_bundle(goal_id: str, *, title: str = "Generated Route Atl
                 "id": "checkpoint",
                 "label": "Checkpoint",
                 "description": "A route validation checkpoint",
+                "semantic_role": "checkpoint",
                 "default_style": {
                     "tone": "sky",
                     "shape": "rounded_card",
@@ -170,6 +171,7 @@ def _build_route_atlas_bundle(goal_id: str, *, title: str = "Generated Route Atl
                 "id": "risk",
                 "label": "Risk",
                 "description": "A route risk or failure mode",
+                "semantic_role": "risk",
                 "default_style": {
                     "tone": "mist",
                     "shape": "rounded_card",
@@ -181,6 +183,7 @@ def _build_route_atlas_bundle(goal_id: str, *, title: str = "Generated Route Atl
                 "id": "opportunity_cost",
                 "label": "Opportunity Cost",
                 "description": "Cost of not choosing another path",
+                "semantic_role": "opportunity_cost",
                 "default_style": {
                     "tone": "mist",
                     "shape": "rounded_card",
@@ -192,6 +195,7 @@ def _build_route_atlas_bundle(goal_id: str, *, title: str = "Generated Route Atl
                 "id": "switch_condition",
                 "label": "Switch Condition",
                 "description": "When the user should change routes",
+                "semantic_role": "switch_condition",
                 "default_style": {
                     "tone": "sky",
                     "shape": "rounded_card",

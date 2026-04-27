@@ -18,6 +18,7 @@ def build_valid_graph_bundle() -> dict:
                     "id": "goal",
                     "label": "Goal",
                     "description": "Top-level goal node",
+                    "semantic_role": "goal",
                     "default_style": {
                         "tone": "lavender",
                         "shape": "rounded_card",
@@ -36,6 +37,7 @@ def build_valid_graph_bundle() -> dict:
                     "id": "route_choice",
                     "label": "Route Choice",
                     "description": "Strategic route choice node",
+                    "semantic_role": "route_choice",
                     "default_style": {
                         "tone": "peach",
                         "shape": "rounded_card",

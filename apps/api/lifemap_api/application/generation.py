@@ -17,6 +17,7 @@ from lifemap_api.application.graph_quality import (
     attach_missing_decision_evidence,
     enforce_pathway_grounding,
     enforce_pathway_shape,
+    enforce_semantic_roles,
 )
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
 from lifemap_api.domain.models import CurrentStateSnapshot, Goal, LifeMap, LifeMapCreate, Profile
@@ -205,6 +206,8 @@ def _build_repair_prompt(
         - If validation says the route atlas is too sparse, expand the graph
           with more route families, representative route variants, checkpoints,
           failure modes, fallback/switch nodes, and opportunity-cost nodes.
+        - If validation says ontology node types are missing semantic_role, add
+          semantic_role to each node type without changing existing node ids.
         - If validation says route/support nodes are missing, set correct
           `ontology.node_types[].semantic_role` values instead of renaming node types.
         - If validation says nodes are missing evidence, attach allowed evidence ids
@@ -246,7 +249,8 @@ def _validate_candidate(
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = _normalize_bundle(candidate, goal)
     validated = validate_graph_bundle(normalized)
-    evidence_attached = attach_missing_decision_evidence(validated, grounding_packet)
+    semantic_validated = enforce_semantic_roles(validated)
+    evidence_attached = attach_missing_decision_evidence(semantic_validated, grounding_packet)
     action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
     grounded = validate_bundle_grounding(action_attached, grounding_packet)
     shaped = enforce_pathway_shape(grounded)
