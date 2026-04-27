@@ -38,6 +38,7 @@ type TasksPageProps = {
   activeGoalTitle?: string | null;
   pathwayGoalAnalysis?: GoalAnalysisRecord | null;
   pathwayGoalAnalysisError?: { goalId: string; message: string } | null;
+  pathwayHasActiveGraph?: boolean;
   onSelectGoal?: (goalId: string | null) => void;
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
@@ -410,36 +411,50 @@ export default function TasksPage(props: TasksPageProps) {
         ? current
         : loadStoredPathwayIntake(activeGoalId);
       if (restored && restored.goalId === activeGoalId && restored.messages.length > 0) {
-        const hasAssistantMessage = restored.messages.some((message) => message.role === "assistant");
+        const activeRestored = props.pathwayHasActiveGraph
+          ? {
+              ...restored,
+              messages: restored.messages.filter((message) => !isTransientBackendMessage(message.content)),
+            }
+          : restored;
+        if (activeRestored.messages.length === 0) {
+          return {
+            phase: props.pathwayHasActiveGraph ? "ready" : "analyzing",
+            goalId: activeGoalId,
+            answers: activeRestored.answers,
+            messages: [],
+          };
+        }
+        const hasAssistantMessage = activeRestored.messages.some((message) => message.role === "assistant");
         if (analysis && !hasAssistantMessage) {
           return {
-            ...restored,
+            ...activeRestored,
             phase: "clarifying",
-            messages: [...restored.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
+            messages: [...activeRestored.messages, makePathwayMessage("assistant", formatPathwayFollowups(analysis))],
           };
         }
         if (analysis && hasAssistantMessage) {
           const nextFollowups = formatPathwayFollowups(analysis);
-          const assistantIndex = restored.messages.findIndex((message) => message.role === "assistant");
-          if (assistantIndex >= 0 && restored.messages[assistantIndex]?.content !== nextFollowups) {
+          const assistantIndex = activeRestored.messages.findIndex((message) => message.role === "assistant");
+          if (assistantIndex >= 0 && activeRestored.messages[assistantIndex]?.content !== nextFollowups) {
             return {
-              ...restored,
-              phase: restored.phase === "idle" || restored.phase === "analyzing" ? "clarifying" : restored.phase,
-              messages: restored.messages.map((message, index) => (
+              ...activeRestored,
+              phase: activeRestored.phase === "idle" || activeRestored.phase === "analyzing" ? "clarifying" : activeRestored.phase,
+              messages: activeRestored.messages.map((message, index) => (
                 index === assistantIndex ? { ...message, content: nextFollowups } : message
               )),
             };
           }
         }
-        const hasSameError = analysisError && restored.messages.some((message) => message.content === analysisError);
-        if (!analysis && analysisError && !hasSameError && !isTransientBackendMessage(analysisError)) {
+        const hasSameError = analysisError && activeRestored.messages.some((message) => message.content === analysisError);
+        if (!analysis && analysisError && !hasSameError && !isTransientBackendMessage(analysisError) && !props.pathwayHasActiveGraph) {
           return {
-            ...restored,
+            ...activeRestored,
             phase: "idle",
-            messages: [...restored.messages, makePathwayMessage("assistant", analysisError)],
+            messages: [...activeRestored.messages, makePathwayMessage("assistant", analysisError)],
           };
         }
-        return restored;
+        return activeRestored;
       }
       const goalText = String(props.activeGoalTitle ?? "").trim();
       const messages: PathwayIntakeMessage[] = [];
@@ -449,14 +464,14 @@ export default function TasksPage(props: TasksPageProps) {
       if (analysis) {
         messages.push(makePathwayMessage("assistant", formatPathwayFollowups(analysis)));
       }
-      if (!analysis && analysisError && !isTransientBackendMessage(analysisError)) {
+      if (!analysis && analysisError && !isTransientBackendMessage(analysisError) && !props.pathwayHasActiveGraph) {
         messages.push(makePathwayMessage("assistant", analysisError));
       }
-      if (!analysis && (!analysisError || isTransientBackendMessage(analysisError))) {
+      if (!analysis && (!analysisError || isTransientBackendMessage(analysisError)) && !props.pathwayHasActiveGraph) {
         messages.push(makePathwayMessage("assistant", formatPathwayAnalysisPendingMessage()));
       }
       return {
-        phase: analysis ? "clarifying" : "analyzing",
+        phase: analysis ? "clarifying" : props.pathwayHasActiveGraph ? "ready" : "analyzing",
         goalId: activeGoalId,
         answers: [],
         messages,
@@ -467,6 +482,7 @@ export default function TasksPage(props: TasksPageProps) {
     props.activeGoalTitle,
     props.pathwayGoalAnalysis,
     props.pathwayGoalAnalysisError,
+    props.pathwayHasActiveGraph,
     props.pathwayMode,
     pathwayIntakePending,
   ]);

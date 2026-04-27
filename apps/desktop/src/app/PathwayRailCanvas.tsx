@@ -729,13 +729,13 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   });
 
   const minX = Math.min(...positioned.map((item) => item.x), 120);
-  const minY = Math.min(...positioned.map((item) => item.y), rootBaseY);
+  const minY = Math.min(...positioned.map((item) => item.y));
   const maxX = Math.max(...positioned.map((item) => item.x + item.width), 0);
   const maxY = Math.max(...positioned.map((item) => item.y + item.height), 0);
   const contentWidth = Math.max(1, maxX - minX);
   const contentHeight = Math.max(1, maxY - minY);
   const horizontalPadding = 20;
-  const topPadding = 78;
+  const topPadding = 76;
   const bottomPadding = 24;
 
   const normalized = positioned.map((item) => ({
@@ -1078,11 +1078,14 @@ export default function PathwayRailCanvas({
       const nextZoom = clampZoom(Math.min(1.42, fitX, fitY));
       setCanvasZoom(nextZoom);
       const contentCenterX = ((visibleBounds.minX + visibleBounds.maxX) / 2) * nextZoom;
-      const contentCenterY = ((visibleBounds.minY + visibleBounds.maxY) / 2) * nextZoom;
       const targetScrollLeft = Math.max(0, PATHWAY_STAGE_INSET_X + contentCenterX - bounds.width / 2);
-      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + contentCenterY - bounds.height / 2 + 56);
-      canvas.scrollLeft = targetScrollLeft;
-      canvas.scrollTop = targetScrollTop;
+      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + visibleBounds.minY * nextZoom - 72);
+      const applyScroll = () => {
+        canvas.scrollLeft = targetScrollLeft;
+        canvas.scrollTop = targetScrollTop;
+      };
+      applyScroll();
+      window.requestAnimationFrame(applyScroll);
     };
 
     fitCanvas();

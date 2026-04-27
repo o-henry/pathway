@@ -512,6 +512,18 @@ def test_generate_map_endpoint_creates_valid_map(client: TestClient) -> None:
     assert payload["graph_bundle"]["bundle_id"] == "gb_test_001"
     assert payload["graph_bundle"]["evidence"][0]["id"] == "ev_rag_001"
     assert payload["graph_bundle"]["evidence"][0]["title"] == "Speaking checkpoint note"
+    required_action_fields = {"user_step", "how_to_do_it", "success_check", "record_after"}
+    user_facing_types = {
+        "route_choice",
+        "checkpoint",
+        "risk",
+        "opportunity_cost",
+        "switch_condition",
+    }
+    for node in payload["graph_bundle"]["nodes"]:
+        if node["type"] in user_facing_types:
+            assert required_action_fields.issubset(node["data"])
+            assert node["evidence_refs"]
     assert len(provider.calls) == 1
     assert '"id": "ev_rag_001"' in provider.calls[0][-1]["content"]
 

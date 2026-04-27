@@ -169,41 +169,76 @@ function evidenceReliabilityLabel(item: EvidenceItem): string {
   return item.reliability;
 }
 
-function extractActionableNodeEntries(node: GraphNodeRecord): Array<[string, string]> {
-  const actionPattern = /action|step|next|todo|task|instruction|how|routine|practice|checkpoint|milestone|criteria|plan|실행|단계|다음|방법|루틴|연습|검증|기준/i;
-  return Object.entries(node.data ?? {})
-    .filter(([key, value]) => actionPattern.test(key) && value != null && String(value).trim())
-    .slice(0, 5)
-    .map(([key, value]) => [key.replaceAll('_', ' '), formatFieldValue(value)]);
+const ACTION_FIELD_LABELS: Record<string, string> = {
+  user_step: '먼저 할 일',
+  how_to_do_it: '하는 방법',
+  practice_step: '연습 방식',
+  next_action: '다음 행동',
+  success_check: '성공 확인',
+  verification_step: '검증',
+  record_after: '기록할 것',
+  checkpoint: '체크포인트',
+  switch_condition: '전환 조건',
+  evidence_basis: '근거 신호',
+};
+
+const ACTION_FIELD_ORDER = Object.keys(ACTION_FIELD_LABELS);
+
+function formatActionFieldValue(value: unknown): string {
+  if (value == null) {
+    return '';
+  }
+  if (Array.isArray(value)) {
+    return value.map(formatActionFieldValue).filter(Boolean).join(' / ');
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, entryValue]) => `${key.replaceAll('_', ' ')}: ${formatActionFieldValue(entryValue)}`)
+      .filter((line) => line.trim())
+      .join(' / ');
+  }
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
+function extractActionableNodeEntries(node: GraphNodeRecord): string[] {
+  const data = node.data ?? {};
+  return ACTION_FIELD_ORDER
+    .map((key) => {
+      const value = formatActionFieldValue(data[key]);
+      return value ? `${ACTION_FIELD_LABELS[key]}: ${value}` : '';
+    })
+    .filter(Boolean)
+    .slice(0, 6);
 }
 
 function buildNodeActionGuidance(
   node: GraphNodeRecord,
   evidence: EvidenceItem[],
   assumptions: AssumptionItem[],
-): { intro: string; steps: string[]; note: string } {
+): { title: string; steps: string[]; note: string } {
   const actionableEntries = extractActionableNodeEntries(node);
   const contentEvidence = evidence.filter((item) => !isMetadataOnlyEvidence(item));
   const metadataEvidence = evidence.filter(isMetadataOnlyEvidence);
-  const steps = actionableEntries.map(([key, value]) => `${key}: ${value}`);
-  if (steps.length === 0) {
-    if (contentEvidence.length > 0) {
-      steps.push(`연결된 근거 ${contentEvidence.length}개를 기준으로 '${node.label}'에 해당하는 행동을 하나 정하고 실행 기록에 남기세요.`);
-    } else if (metadataEvidence.length > 0) {
-      steps.push(`후보 URL ${metadataEvidence.length}개는 원문 검토 전입니다. 먼저 출처를 확인한 뒤 이 노드를 실행 경로로 믿을지 판단하세요.`);
-    } else {
-      steps.push(`'${node.label}'에 해당하는 실제 행동이나 확인 결과를 업데이트 입력창에 기록해 이 노드가 현재 상태와 맞는지 검증하세요.`);
-    }
+  const steps = actionableEntries;
+  const missingActionDetail = steps.length === 0;
+  if (missingActionDetail) {
+    steps.push('이 노드는 실행 지침이 생성되지 않았습니다. 이 상태로는 따라 할 step으로 쓰기 어렵습니다.');
+    steps.push('그래프를 다시 생성하거나 업데이트 입력으로 “이 노드의 구체 실행 단계를 근거 기반으로 보강”하라고 요청하세요.');
+  }
+  if (metadataEvidence.length > 0 && contentEvidence.length === 0) {
+    steps.push('후보 URL만 붙어 있으므로, 실행 전에 근거로 쓸 만한 자료인지 먼저 확인합니다.');
   }
   if (assumptions.length > 0) {
-    steps.push(`전제 ${assumptions.length}개가 틀릴 경우 경로가 바뀔 수 있으니, 실행 전 가장 약한 전제부터 확인하세요.`);
+    steps.push(`이 노드는 전제 ${assumptions.length}개에 기대고 있습니다. 틀릴 가능성이 큰 전제 하나를 먼저 확인합니다.`);
   }
   return {
-    intro: node.summary || '이 노드가 현재 그래프에서 맡는 역할을 먼저 확인하세요.',
+    title: missingActionDetail
+      ? '실행 지침 없음'
+      : '근거 기반 실행 단계',
     steps: steps.slice(0, 4),
-    note: contentEvidence.length > 0
-      ? '근거가 붙은 노드입니다. 실행 후 실제 결과를 기록하면 그래프가 이 경로를 유지할지 조정할지 판단할 수 있습니다.'
-      : '근거가 부족한 노드입니다. 실행보다 먼저 확인이나 기록을 통해 이 노드의 신뢰도를 높이는 편이 좋습니다.',
+    note: missingActionDetail
+      ? '이건 정상적인 최종 상태가 아닙니다. 새로 생성되는 그래프는 주요 노드마다 실행 필드를 갖도록 백엔드 계약을 강화했습니다.'
+      : '실행 후 결과를 기록하면 다음 리비전에서 이 경로를 유지할지, 약화할지, 다른 루트로 돌릴지 판단할 수 있습니다.',
   };
 }
 
@@ -438,6 +473,7 @@ export default function MainApp() {
   const [routeSelection, setRouteSelection] = useState<RouteSelectionRecord | null>(null);
   const [revisionPreview, setRevisionPreview] = useState<RevisionProposalRecord | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showStateUpdatePanel, setShowStateUpdatePanel] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('Pathway 로컬 작업공간이 준비되었습니다. 목표를 만들고, 자원을 분석한 뒤, 그래프를 확장하세요.');
   const [isBusy, setIsBusy] = useState(false);
@@ -664,6 +700,9 @@ export default function MainApp() {
       if (pathwayWorkCancelledRef.current) {
         return;
       }
+      if (isLocalApiTransientError(error)) {
+        return;
+      }
       const message = formatUiError(error, `${statusLabel}에 실패했습니다.`);
       setGoalAnalysisError({ goalId, message });
       setStatusMessage(message);
@@ -790,6 +829,7 @@ export default function MainApp() {
     setActiveMapId(chosenMap?.id ?? null);
     setSelectedNodeId(null);
     setShowWorkflowInspector(false);
+    setShowStateUpdatePanel(false);
 
     if (chosenMap) {
       const nextRouteSelection = await fetchRouteSelection(chosenMap.id);
@@ -817,6 +857,7 @@ export default function MainApp() {
       setRevisionPreview(null);
       setSelectedNodeId(null);
       setShowWorkflowInspector(false);
+      setShowStateUpdatePanel(false);
       return;
     }
 
@@ -857,6 +898,7 @@ export default function MainApp() {
         setRevisionPreview(null);
         setSelectedNodeId(null);
         setShowWorkflowInspector(false);
+        setShowStateUpdatePanel(false);
       }
       await syncPathwayWorkspace(!deletedActiveGoal);
     } catch (error) {
@@ -1287,29 +1329,6 @@ export default function MainApp() {
     }
   }
 
-  async function handleAnalyzeGoal() {
-    if (!activeGoalId) {
-      return;
-    }
-    try {
-      setIsBusy(true);
-      setErrorMessage('');
-      setGoalAnalysisError(null);
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
-      const analysis = await analyzeGoalWithRetry(activeGoalId);
-      setGoalAnalysis(analysis);
-      setStatusMessage('목표 분석이 갱신되었습니다. 필요한 자원 축과 조사 입력이 업데이트되었습니다.');
-    } catch (error) {
-      const message = formatUiError(error, '목표 분석에 실패했습니다.');
-      setErrorMessage(message);
-      setGoalAnalysisError({ goalId: activeGoalId, message });
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
   async function handleStartPathwayIntake(goalText: string) {
     const normalizedGoal = goalText.trim();
     if (!normalizedGoal) {
@@ -1523,7 +1542,14 @@ export default function MainApp() {
     try {
       setIsBusy(true);
       setErrorMessage('');
-      await collectResearchPlanTargetsForGraph('리비전 미리보기');
+      let jobsForCollection = researchPlanCollectorJobs;
+      if (jobsForCollection.length === 0 || goalAnalysis?.goal_id !== activeGoalId) {
+        const analysis = await analyzeGoalWithRetry(activeGoalId, '업데이트 입력 분석');
+        setGoalAnalysis(analysis);
+        setGoalAnalysisError(null);
+        jobsForCollection = buildResearchPlanCollectorJobs(analysis);
+      }
+      await collectResearchPlanTargetsForGraph('리비전 미리보기', jobsForCollection);
       const stateUpdate = await createStateUpdate(activeGoalId, {
         update_date: new Date().toISOString().slice(0, 10),
         actual_time_spent: stateForm.actual_time_spent ? Number(stateForm.actual_time_spent) : null,
@@ -1548,6 +1574,7 @@ export default function MainApp() {
       });
       const hydratedPreview = await fetchRevisionPreview(preview.id);
       setRevisionPreview(hydratedPreview);
+      setShowStateUpdatePanel(false);
       setStatusMessage('현실 업데이트를 바탕으로 그래프 변경 미리보기를 생성했습니다. 캔버스에서 약해진 선, 새 연결, 보강 루트를 먼저 확인하세요.');
     } catch (error) {
       setErrorMessage(formatUiError(error, '그래프 변경 미리보기를 생성하지 못했습니다.'));
@@ -1694,6 +1721,7 @@ export default function MainApp() {
     const shouldShowInspector = showWorkflowInspector && hasSidebarContent;
     const previewNodeChanges = revisionPreview?.diff.node_changes ?? [];
     const previewEdgeChanges = revisionPreview?.diff.edge_changes ?? [];
+    const updateDraftReady = stateForm.progress_summary.trim().length > 0;
     const workflowCanvasStats = displayBundle ? (
       <div className="pathway-canvas-status-strip" aria-label="그래프 상태" title={statusMessage}>
         <span className="pathway-canvas-status-label">활성 그래프</span>
@@ -1717,15 +1745,15 @@ export default function MainApp() {
           <span className="sr-only">{showWorkflowInspector ? "인스펙터 숨기기" : "인스펙터 보기"}</span>
         </button>
         <button
-          aria-label="입력 분석"
-          className="pathway-canvas-icon-button"
+          aria-label={showStateUpdatePanel ? "업데이트 입력 닫기" : "업데이트 입력 열기"}
+          className={`pathway-canvas-icon-button ${showStateUpdatePanel ? "is-active" : ""}`.trim()}
           disabled={!activeGoalId || isBusy}
-          onClick={handleAnalyzeGoal}
-          title="입력 분석"
+          onClick={() => setShowStateUpdatePanel((current) => !current)}
+          title={showStateUpdatePanel ? "업데이트 입력 닫기" : "업데이트 입력 열기"}
           type="button"
         >
           <img alt="" aria-hidden="true" className="canvas-control-icon" src="/icon-magic-stick.svg" />
-          <span className="sr-only">입력 분석</span>
+          <span className="sr-only">{showStateUpdatePanel ? "업데이트 입력 닫기" : "업데이트 입력 열기"}</span>
         </button>
         <button
           aria-label="루트 생성"
@@ -1794,19 +1822,24 @@ export default function MainApp() {
                     activeProgressNodeIds={activeProgressNodeIds}
                     onSelectNode={handleSelectNode}
                   />
-                  {displayBundle ? (
+                  {displayBundle && showStateUpdatePanel ? (
                     <section className="pathway-request-panel pathway-canvas-update-floater">
                       <div className="pathway-request-head">
                         <div>
                           <span className="pathway-panel-kicker">업데이트</span>
-                          <strong>GOAL을 위해 실제로 한 일을 적고 그래프에 반영하기</strong>
+                          <strong>GOAL을 위해 실제로 한 일을 적으면 그래프가 바로 반영됩니다</strong>
                           <p className="pathway-panel-copy">
                             추가된/변경된 사항을 입력하면 다음 리비전이 기존 그래프를 보존한 채 이어서 붙습니다.
                           </p>
                         </div>
                         {revisionPreview ? null : (
-                          <button className="mini-action-button pathway-primary-button" onClick={handlePreviewStateUpdate} type="button" disabled={!activeGoalId || isBusy}>
-                            미리보기
+                          <button
+                            className="mini-action-button pathway-primary-button"
+                            disabled={!activeGoalId || isBusy || !updateDraftReady}
+                            onClick={handlePreviewStateUpdate}
+                            type="button"
+                          >
+                            전송
                           </button>
                         )}
                       </div>
@@ -1815,6 +1848,15 @@ export default function MainApp() {
                         className="pathway-textarea pathway-request-textarea"
                         value={stateForm.progress_summary}
                         onChange={(event) => setStateForm((current) => ({ ...current, progress_summary: event.target.value }))}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' || event.shiftKey) {
+                            return;
+                          }
+                          event.preventDefault();
+                          if (updateDraftReady && !isBusy && !revisionPreview) {
+                            void handlePreviewStateUpdate();
+                          }
+                        }}
                         placeholder="예: 오늘 원어민 대화 15분을 시도했고 표현 우회 설명 연습을 했다."
                       />
                     </section>
@@ -1845,7 +1887,7 @@ export default function MainApp() {
               <aside className="pathway-workflow-sidebar panel-card is-open">
                 <header className="pathway-workflow-sidebar-head">
                   <div>
-                    <span className="pathway-panel-kicker">컨텍스트 패널</span>
+                    <span className="pathway-panel-kicker">선택한 노드</span>
                     <strong>{selectedNode?.label ?? activeGoal?.title ?? '현재 워크스페이스'}</strong>
                   </div>
                   <button
@@ -1921,8 +1963,8 @@ export default function MainApp() {
 
                       {selectedNodeActionGuidance ? (
                         <section className="pathway-inspector-section pathway-node-action-guide">
-                          <span className="pathway-panel-kicker">따라 할 설명</span>
-                          <p className="pathway-panel-copy">{selectedNodeActionGuidance.intro}</p>
+                          <span className="pathway-panel-kicker">지금 할 일</span>
+                          <strong>{selectedNodeActionGuidance.title}</strong>
                           <ol className="pathway-action-list">
                             {selectedNodeActionGuidance.steps.map((step, index) => (
                               <li key={`${selectedNode.id}:action:${index}`}>{step}</li>
@@ -1949,7 +1991,7 @@ export default function MainApp() {
 
                       {selectedNodeVisibleFields.length > 0 ? (
                         <section className="pathway-inspector-section">
-                          <span className="pathway-panel-kicker">구조화된 노드 정보</span>
+                          <span className="pathway-panel-kicker">노드 원문 데이터</span>
                           <ul className="pathway-fact-list">
                             {selectedNodeVisibleFields.map(([key, value]) => (
                               <li key={key}>
@@ -2082,6 +2124,7 @@ export default function MainApp() {
         pathwayGoalAnalysis={goalAnalysis}
         pathwayGoalAnalysisError={goalAnalysisError}
         pathwayGoals={goals}
+        pathwayHasActiveGraph={Boolean(activeMap)}
         pathwayMode
         publishAction={() => {}}
         setStatus={setStatusMessage}

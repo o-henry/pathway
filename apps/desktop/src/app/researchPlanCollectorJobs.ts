@@ -12,7 +12,7 @@ export type ResearchPlanCollectorJob = {
 };
 
 const URL_PATTERN = /https?:\/\/[^\s<>()"'`]+/gi;
-const MAX_TOTAL_RESEARCH_PLAN_JOBS = 12;
+const MAX_TOTAL_RESEARCH_PLAN_JOBS = 24;
 const DEFAULT_COLLECTOR_ORDER = ['scrapling', 'crawl4ai', 'lightpanda_experimental'];
 const SUPPORTED_FETCH_COLLECTORS = new Set([
   'crawl4ai',
@@ -87,6 +87,22 @@ const SOURCE_HINT_URL_SEEDS: ReadonlyArray<{ patterns: string[]; url: string }> 
   {
     patterns: ['reddit', 'native speaker', 'talk'],
     url: 'https://www.reddit.com/r/EnglishLearning/comments/1crpj60/how_to_meet_a_native_english_speaker_to_talk/',
+  },
+  {
+    patterns: ['youtube', '유튜브', 'open learning media', 'video', '강연'],
+    url: 'https://www.youtube.com/results?search_query=english+speaking+practice+routine',
+  },
+  {
+    patterns: ['course', 'curriculum', 'lecture', '강의', '강좌', 'class'],
+    url: 'https://www.coursera.org/search?query=english%20speaking',
+  },
+  {
+    patterns: ['academy', '학원', 'tutor', '튜터', 'program'],
+    url: 'https://www.italki.com/en/teachers/english',
+  },
+  {
+    patterns: ['community', 'forum', '커뮤니티', 'learner story', 'review'],
+    url: 'https://www.reddit.com/r/EnglishLearning/search/?q=speaking%20routine&restrict_sr=1',
   },
 ];
 

@@ -226,3 +226,36 @@ def test_revision_proposal_can_be_rejected(client: TestClient) -> None:
     assert reject_response.json()['status'] == 'rejected'
 
     client.app.dependency_overrides.clear()
+
+
+def test_revision_prompt_turns_checkin_into_personalized_action_nodes(
+    client: TestClient,
+) -> None:
+    _put_profile(client)
+    goal_id = _create_goal(client)
+    _create_source(client)
+    map_id = _create_map(client, goal_id)
+    checkin_id = _create_checkin(client, goal_id, map_id)
+
+    provider = FakeLLMProvider([json.dumps(_build_revised_bundle(goal_id), ensure_ascii=False)])
+    client.app.dependency_overrides[get_llm_provider] = lambda: provider
+
+    proposal_response = client.post(
+        f'/pathways/{map_id}/revision-previews',
+        json={'checkin_id': checkin_id},
+    )
+
+    assert proposal_response.status_code == 201
+    assert provider.calls
+    revised_node = proposal_response.json()["proposed_graph_bundle"]["nodes"][1]
+    assert {"user_step", "how_to_do_it", "success_check", "record_after"}.issubset(
+        revised_node["data"]
+    )
+    prompt_text = "\n\n".join(message["content"] for message in provider.calls[0])
+    assert "Add personalized nodes" in prompt_text
+    assert "node.data" in prompt_text
+    assert "user_step" in prompt_text
+    assert "문법에서 흥미가 떨어졌지만 짧은 말하기는 괜찮았다" in prompt_text
+    assert "주말 speaking drill을 추가하고 평일은 짧게 간다" in prompt_text
+
+    client.app.dependency_overrides.clear()

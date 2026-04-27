@@ -6,7 +6,14 @@ from textwrap import dedent
 from pydantic import ValidationError
 
 from lifemap_api.application.errors import EntityNotFoundError, GenerationFailedError
-from lifemap_api.application.generation import SCHEMA_NAME, _serialize_goal, _serialize_profile
+from lifemap_api.application.generation import (
+    SCHEMA_NAME,
+    _attach_missing_action_fields,
+    _attach_missing_decision_evidence,
+    _enforce_pathway_grounding,
+    _serialize_goal,
+    _serialize_profile,
+)
 from lifemap_api.application.generation_grounding import (
     build_grounding_packet,
     serialize_grounding_packet,
@@ -72,15 +79,20 @@ def _build_revision_system_prompt() -> str:
         Non-negotiable rules:
         - Return JSON only.
         - Output must satisfy the provided JSON Schema.
-        - Preserve useful structure from the current map unless the check-in makes it stale.
+        - Preserve useful structure from the current map. Do not delete or overwrite
+          existing graph history during normal revision.
         - This is still a scenario map, not a deterministic claim engine.
         - Use node.status to track route state such as active, at_risk, stalled,
           completed, or proposed.
         - Use revision_meta.change_note on nodes that changed materially.
         - Use evidence ids only from the grounding packet.
         - Unsupported claims must be captured as assumptions.
-        - Keep revisions incremental when possible instead of rewriting the
-          whole graph for style only.
+        - Keep revisions incremental: add, connect, annotate, weaken, hide, or
+          supersede nodes instead of rewriting the whole graph for style only.
+        - If the user reports a changed situation, discovered fit, working method,
+          blocker, or new opportunity, add personalized nodes that explain what
+          the user should do next and connect those nodes to the relevant existing
+          route/checkpoint and the goal path.
         - Treat the latest check-in narrative as freeform user-reported reality:
           actions taken, things learned, failed attempts, blockers, and new
           opportunities may all be described in natural language instead of
@@ -89,9 +101,15 @@ def _build_revision_system_prompt() -> str:
           keyword-triggered branching.
         - Prefer appending, annotating, weakening, or superseding prior graph
           material over deleting it.
-        - For this structured-output path, keep `ontology.node_types[].fields`,
-          `node.data`, `node.style_overrides`, `edge.style_overrides`, and
-          `node.revision_meta` as empty objects/arrays unless a repair prompt
+        - For every new or materially changed route, checkpoint, risk, cost,
+          switch, fallback, curriculum, media, community, tutor/academy, and
+          practice node, `node.data` must include user-facing execution fields:
+          `user_step`, `how_to_do_it`, `success_check`, `record_after`, and,
+          when relevant, `switch_condition`.
+        - Do not write about what Pathway analyzed. Write instructions the user
+          can follow.
+        - Keep `ontology.node_types[].fields`, `node.style_overrides`, and
+          `edge.style_overrides` as empty objects/arrays unless a repair prompt
           explicitly asks otherwise.
         """
     ).strip()
@@ -148,8 +166,15 @@ def _build_revision_user_prompt(
         - When that report implies new skill gains, missing prerequisites,
           better checkpoints, or route risks, express those changes in the graph
           even if `learned_items` is empty.
-        - Add or remove nodes only when the check-in justifies it.
+        - Add personalized nodes when the user's update reveals a better method,
+          changed constraint, new bottleneck, or route fit. Connect each added node
+          to the relevant existing graph node and to the continuing path toward
+          the goal.
+        - Avoid destructive removal. If a route became worse, mark it at_risk,
+          weakened, hidden, or superseded and add the reason.
         - Use `revision_meta.change_note` on changed or newly added nodes.
+        - New/changed user-facing nodes must include concrete step instructions in
+          `node.data`, not internal analysis prose.
         - Keep evidence refs explicit and assumptions honest.
         """
     ).strip()
@@ -196,7 +221,30 @@ def _validate_revised_bundle(
         }
     )
     validated = validate_graph_bundle(normalized)
-    return validate_bundle_grounding(validated, grounding_packet)
+    evidence_attached = _attach_missing_decision_evidence(validated, grounding_packet)
+    action_attached = _attach_missing_action_fields(evidence_attached, grounding_packet)
+    grounded = validate_bundle_grounding(action_attached, grounding_packet)
+    return _enforce_pathway_grounding(grounded, grounding_packet)
+
+
+def _revision_extra_query_texts(
+    state_updates: list[StateUpdate],
+    checkin_id: str,
+) -> tuple[str, ...]:
+    target_update = next((item for item in state_updates if item.id == checkin_id), None)
+    if target_update is None:
+        return ()
+    parts = [
+        target_update.progress_summary,
+        target_update.blockers,
+        target_update.next_adjustment,
+        target_update.mood or "",
+        " ".join(str(item) for item in target_update.learned_items),
+        json.dumps(target_update.resource_deltas, ensure_ascii=False, sort_keys=True),
+        "similar user solved this bottleneck experience curriculum expert method",
+        "updated personal route fit next steps evidence",
+    ]
+    return tuple(part for part in parts if str(part).strip())
 
 
 def _attempt_revision_generation(
@@ -226,6 +274,7 @@ def _attempt_revision_generation(
         query_limit=query_limit,
         hits_per_query=hits_per_query,
         evidence_limit=evidence_limit,
+        extra_query_texts=_revision_extra_query_texts(state_updates, checkin_id),
     )
     goal_json = _serialize_goal(goal)
     profile_json = _serialize_profile(profile)

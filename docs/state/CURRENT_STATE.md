@@ -3,6 +3,61 @@
 ## Latest micro-update
 
 - Completed work:
+  - Tightened first graph generation so route/support decision nodes cannot remain ungrounded when retrieved non-metadata evidence exists.
+  - Added deterministic evidence attachment after LLM generation: if the model omits `evidence_refs` on route/checkpoint/risk/switch/tradeoff nodes, Pathway attaches the closest retrieved evidence item before validation.
+  - Strengthened graph generation prompts so every major route/support node must include user-facing execution fields such as `user_step`, `how_to_do_it`, `success_check`, `record_after`, and `switch_condition`.
+  - Added a backend safety pass that fills missing execution fields from the node's linked evidence instead of leaving the UI to invent generic context-panel prose.
+  - Changed graph revision generation so user updates trigger incremental, personalized node additions/connections rather than style rewrites or destructive replacement.
+  - Passed latest state-update text into revision grounding queries so "what changed for me" can drive follow-up retrieval before proposing new nodes.
+  - Required revised/new nodes to include the same execution fields as first-generation nodes, and reused the backend evidence/action-field safety passes for revision proposals.
+  - Kept `public_url_metadata` as candidate-source-only material; it is not accepted as support for route claims.
+  - Expanded generation retrieval defaults from 6 queries / 8 evidence items to 10 queries / 18 evidence items.
+  - Expanded desktop automatic collector job budget from 12 to 24 and added seed coverage for YouTube/open media, lectures/courses, tutors/academies, and community/forum sources.
+  - Changed the selected-node `지금 할 일` panel to read only structured execution fields from `node.data`; if an older graph lacks them, the UI now says the node has no generated execution instructions instead of pretending a summary is actionable guidance.
+  - Changed the Pathway workflow canvas update box so it is hidden by default and toggled by the left magic-stick/sparkle control, keeping the full graph visible after generation.
+  - Removed the manual `입력 분석` canvas action from the primary workflow controls; update submission now refreshes goal analysis automatically when the revision flow needs collector jobs.
+  - Replaced the update box's confusing `미리보기` primary action with `전송`, and added Enter-to-submit while preserving Shift+Enter for multiline notes.
+  - Hid the update box after a revision preview is generated or when the active goal/map changes.
+  - Suppressed transient local-backend readiness failures from the Pathway intake chat/status path when an active graph already exists, preventing the generated-success chat from being followed by the misleading backend-not-ready message.
+  - Adjusted Pathway graph top spacing so nodes sit below the active-graph stats badge without leaving a giant empty initial viewport.
+  - Reworked the selected-node inspector copy from vague internal analysis (`따라 할 설명`) into a `지금 할 일` block that either uses concrete action fields or clearly says the node lacks actionable detail.
+  - Renamed the inspector header from `컨텍스트 패널` to `선택한 노드` and `구조화된 노드 정보` to `노드 원문 데이터`.
+  - Reduced the automatic collection status text so the completion line fits on one row in the sidebar.
+- Changed files:
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/api/tests/test_revisions.py`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_PATHWAY_UPDATE_PANEL_BACKEND_MESSAGE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_goal_analysis.py apps/api/tests/test_generation_grounding.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_revisions.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py apps/api/tests/test_goal_analysis.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_revisions.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/config.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/config.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/config.py apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `rg -n "입력 분석|handleAnalyzeGoal|미리보기" apps/desktop/src/app/MainAppImpl.tsx apps/desktop/src/pages/tasks/TasksPage.tsx`
+- Known gaps:
+  - No live Tauri/browser screenshot was captured in this pass; verification was limited to TypeScript and diff checks.
+  - The accepted revision flow still uses the internal term "미리보기" for actual graph diff review/apply/discard, which is separate from the update input's send action.
+  - Source collection still depends on what public pages collectors can safely fetch; blocked/private/paywalled pages remain metadata-only and are not treated as route proof.
+- Next recommended task:
+  - Regenerate a graph from scratch and confirm selected route/support nodes show concrete evidence in the inspector instead of "이 노드에 연결된 근거가 아직 없습니다."
+
+## Latest micro-update
+
+- Completed work:
   - Responded to the thin generated-graph problem by changing map generation from a compact-plan contract to a route-atlas contract.
   - Replaced the old `4 to 9 nodes` prompt with a richer first-map expectation: 12 to 24 nodes, multiple route families, representative variants, checkpoints, failure modes, switch/fallback conditions, and opportunity-cost nodes.
   - Added a generation-only shape quality gate so schema-valid but sparse graph bundles fail before persistence and enter the existing repair loop with explicit expansion instructions.

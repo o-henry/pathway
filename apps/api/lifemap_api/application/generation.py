@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from textwrap import dedent
 
 from pydantic import ValidationError
@@ -31,6 +32,7 @@ MIN_ROUTE_ATLAS_EDGES = 10
 MIN_ROUTE_ATLAS_OPTIONS = 5
 MIN_ROUTE_ATLAS_SUPPORT_NODES = 4
 MIN_ROUTE_ATLAS_BRANCHING_FACTOR = 3
+SOURCE_CANDIDATE_RELIABILITY = "public_url_metadata"
 
 ROUTE_SEMANTIC_MARKERS = (
     "route",
@@ -78,6 +80,18 @@ SUPPORT_SEMANTIC_MARKERS = (
     "압력",
     "기회",
     "손실",
+)
+
+ACTION_DATA_KEYS = (
+    "user_step",
+    "how_to_do_it",
+    "practice_step",
+    "next_action",
+    "success_check",
+    "verification_step",
+    "record_after",
+    "checkpoint",
+    "switch_condition",
 )
 
 
@@ -137,10 +151,17 @@ def _build_system_prompt() -> str:
           but never jokey enough to reduce clarity.
         - Keep field values compact and readable for a graph-first UI.
         - Include only the evidence items actually referenced by at least one node.
-        - For each node, include compact actionable fields in `node.data` when useful:
-          `next_action`, `practice_step`, `checkpoint`, `switch_condition`,
-          `verification_step`, or similarly named dynamic fields. These fields should
-          tell the user what to try, check, or record for that node.
+        - For every route, checkpoint, risk, cost, switch, fallback, curriculum,
+          media, community, tutor/academy, and practice node, `node.data` must
+          include concrete user-facing execution fields:
+          `user_step`, `how_to_do_it`, `success_check`, `record_after`, and,
+          when relevant, `switch_condition`.
+        - Those action fields must be derived from the linked evidence and the
+          user's constraints. Do not use internal analysis prose, generic advice,
+          or "this node represents..." explanations.
+        - A clicked node should read like instructions the user can follow today:
+          what to do, with what resource, for how long or how often, what result
+          counts, and what to record for the next graph revision.
         - Keep `ontology.node_types[].fields`, `node.style_overrides`,
           `edge.style_overrides`, and `node.revision_meta` as empty objects/arrays
           unless a repair prompt explicitly asks otherwise.
@@ -180,10 +201,17 @@ def _build_user_prompt(
         - Include warnings that remind the user this is a scenario map and may need revision.
         - Use assumptions when information is missing.
         - If evidence exists, connect it to specific nodes with `evidence_refs`.
+          Route, checkpoint, risk, cost, switch, fallback, curriculum, media,
+          community, tutor/academy, and practice nodes must cite retrieved evidence.
+          Do not ship first-map decision nodes with empty `evidence_refs` when the
+          grounding packet contains usable evidence.
         - If evidence does not exist for a claim, do not disguise it as evidence.
         - If an evidence item has reliability `public_url_metadata`, use it only to
           mark a candidate source, blocked fetch, or review need. Do not summarize
           unsupported page claims from it.
+        - Cover the evidence landscape broadly: academic papers, public community
+          experience, YouTube/open media, structured courses, lectures, tutors,
+          academies, official guides, and failure/switch cases where relevant.
         - Prefer route families that show tradeoffs and switching conditions
           instead of collapsing everything into one default path.
         - Make the graph broad enough that the user can see multiple viable,
@@ -194,8 +222,11 @@ def _build_user_prompt(
           checkpoints, risks, and switch conditions.
         - Use node summaries that explain tradeoffs, not just labels.
         - Make each node actionable enough for a context panel: if the user clicks
-          it, the node summary and `node.data` should explain what to do, what to
-          verify, or when to switch routes.
+          it, `node.data.user_step`, `node.data.how_to_do_it`,
+          `node.data.success_check`, and `node.data.record_after` should tell
+          the user what to do next. Avoid self-descriptions of the graph.
+        - Do not write node action text that brags about what Pathway analyzed.
+          Write instructions for the user.
         - Keep scores within 0 and 1.
         - Every node must include `scores` with `time_load`, `money_load`,
           `energy_load`, and `uncertainty`.
@@ -227,6 +258,11 @@ def _build_repair_prompt(
         - If validation says the route atlas is too sparse, expand the graph
           with more route families, representative route variants, checkpoints,
           failure modes, fallback/switch nodes, and opportunity-cost nodes.
+        - If validation says nodes are missing evidence, attach allowed evidence ids
+          from the packet to the specific route/support nodes they justify. Do not
+          leave user-facing decision nodes ungrounded when usable evidence exists.
+        - Do not use `public_url_metadata` evidence as support for route claims;
+          use it only for source-review/candidate-source nodes.
 
         Previous JSON:
         {raw_output}
@@ -266,6 +302,82 @@ def _node_matches_any_marker(
         ]
     ).casefold()
     return any(marker in semantic_text for marker in markers)
+
+
+def _usable_evidence_ids(grounding_packet: GroundingPacket) -> set[str]:
+    return {
+        item.id
+        for item in grounding_packet.evidence_items
+        if item.reliability != SOURCE_CANDIDATE_RELIABILITY
+    }
+
+
+def _tokenize_grounding_text(value: str) -> set[str]:
+    return {
+        token.casefold()
+        for token in re.findall(r"[0-9A-Za-z가-힣]{2,}", value)
+        if len(token) >= 2
+    }
+
+
+def _best_evidence_id_for_node(
+    *,
+    node_text: str,
+    evidence_items,
+) -> str | None:
+    node_tokens = _tokenize_grounding_text(node_text)
+    best_id: str | None = None
+    best_score = -1
+    for item in evidence_items:
+        evidence_tokens = _tokenize_grounding_text(
+            " ".join([item.title, item.quote_or_summary, item.reliability])
+        )
+        overlap_score = len(node_tokens & evidence_tokens)
+        if overlap_score > best_score:
+            best_score = overlap_score
+            best_id = item.id
+    return best_id
+
+
+def _clip_instruction_text(value: str, limit: int = 170) -> str:
+    normalized = " ".join(value.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 1].rstrip() + "…"
+
+
+def _node_has_action_fields(node) -> bool:
+    data = node.data if isinstance(node.data, dict) else {}
+    for key in ACTION_DATA_KEYS:
+        value = data.get(key)
+        if value is None:
+            continue
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, (list, tuple)) and any(str(item).strip() for item in value):
+            return True
+        if isinstance(value, dict) and any(str(item).strip() for item in value.values()):
+            return True
+    return False
+
+
+def _node_requires_evidence(
+    *,
+    bundle: GraphBundle,
+    node_index: dict[str, str],
+    node_id: str,
+) -> bool:
+    return _node_matches_any_marker(
+        bundle=bundle,
+        node_index=node_index,
+        node_id=node_id,
+        markers=ROUTE_SEMANTIC_MARKERS,
+    ) or _node_matches_any_marker(
+        bundle=bundle,
+        node_index=node_index,
+        node_id=node_id,
+        markers=SUPPORT_SEMANTIC_MARKERS,
+    )
 
 
 def _pathway_shape_errors(bundle: GraphBundle) -> list[str]:
@@ -335,8 +447,165 @@ def _pathway_shape_errors(bundle: GraphBundle) -> list[str]:
     return errors
 
 
+def _pathway_grounding_errors(
+    bundle: GraphBundle,
+    grounding_packet: GroundingPacket,
+) -> list[str]:
+    usable_evidence_ids = _usable_evidence_ids(grounding_packet)
+    if not usable_evidence_ids:
+        return []
+
+    node_type_text = _semantic_text_for_node_types(bundle)
+    ungrounded_nodes = [
+        node.label or node.id
+        for node in bundle.nodes
+        if _node_requires_evidence(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+        )
+        and not any(evidence_id in usable_evidence_ids for evidence_id in node.evidence_refs)
+    ]
+    if not ungrounded_nodes:
+        return []
+    preview = ", ".join(ungrounded_nodes[:8])
+    suffix = "" if len(ungrounded_nodes) <= 8 else f", and {len(ungrounded_nodes) - 8} more"
+    return [
+        "decision graph has route/support nodes without usable evidence_refs: "
+        f"{preview}{suffix}. Attach retrieved non-metadata evidence to each "
+        "user-facing route, checkpoint, risk, switch, and tradeoff node."
+    ]
+
+
+def _attach_missing_decision_evidence(
+    bundle: GraphBundle,
+    grounding_packet: GroundingPacket,
+) -> GraphBundle:
+    usable_items = [
+        item
+        for item in grounding_packet.evidence_items
+        if item.reliability != SOURCE_CANDIDATE_RELIABILITY
+    ]
+    if not usable_items:
+        return bundle
+
+    usable_ids = {item.id for item in usable_items}
+    node_type_text = _semantic_text_for_node_types(bundle)
+    changed = False
+    next_nodes = []
+    for node in bundle.nodes:
+        if not _node_requires_evidence(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+        ) or any(evidence_id in usable_ids for evidence_id in node.evidence_refs):
+            next_nodes.append(node)
+            continue
+        node_text = " ".join(
+            [
+                node.type,
+                node.label,
+                node.summary,
+                json.dumps(node.data, ensure_ascii=False, sort_keys=True),
+                node_type_text.get(node.type, ""),
+            ]
+        )
+        evidence_id = _best_evidence_id_for_node(
+            node_text=node_text,
+            evidence_items=usable_items,
+        )
+        if evidence_id is None:
+            next_nodes.append(node)
+            continue
+        changed = True
+        next_nodes.append(
+            node.model_copy(
+                update={
+                    "evidence_refs": list(dict.fromkeys([*node.evidence_refs, evidence_id])),
+                }
+            )
+        )
+
+    if not changed:
+        return bundle
+    return bundle.model_copy(update={"nodes": next_nodes})
+
+
+def _attach_missing_action_fields(
+    bundle: GraphBundle,
+    grounding_packet: GroundingPacket,
+) -> GraphBundle:
+    evidence_by_id = {
+        item.id: item
+        for item in grounding_packet.evidence_items
+        if item.reliability != SOURCE_CANDIDATE_RELIABILITY
+    }
+    if not evidence_by_id:
+        return bundle
+
+    node_type_text = _semantic_text_for_node_types(bundle)
+    changed = False
+    next_nodes = []
+    for node in bundle.nodes:
+        if not _node_requires_evidence(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+        ) or _node_has_action_fields(node):
+            next_nodes.append(node)
+            continue
+
+        linked_evidence = next(
+            (
+                evidence_by_id[evidence_id]
+                for evidence_id in node.evidence_refs
+                if evidence_id in evidence_by_id
+            ),
+            None,
+        )
+        if linked_evidence is None:
+            next_nodes.append(node)
+            continue
+
+        basis = _clip_instruction_text(linked_evidence.quote_or_summary)
+        data = dict(node.data)
+        data.update(
+            {
+                "user_step": (
+                    f"'{node.label}'을 오늘 실행 가능한 한 세션으로 쪼개서 바로 시도한다."
+                ),
+                "how_to_do_it": (
+                    f"연결 근거 '{linked_evidence.title}'의 핵심 신호를 기준으로 "
+                    f"{_clip_instruction_text(node.summary, 120)}"
+                ),
+                "success_check": "실제로 수행한 결과가 목표에 가까워졌는지 한 문장으로 판정한다.",
+                "record_after": (
+                    "한 일, 걸린 시간, 막힌 점, 다음에 바꿀 점을 "
+                    "업데이트 입력창에 남긴다."
+                ),
+                "evidence_basis": basis,
+            }
+        )
+        changed = True
+        next_nodes.append(node.model_copy(update={"data": data}))
+
+    if not changed:
+        return bundle
+    return bundle.model_copy(update={"nodes": next_nodes})
+
+
 def _enforce_pathway_shape(bundle: GraphBundle) -> GraphBundle:
     errors = _pathway_shape_errors(bundle)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return bundle
+
+
+def _enforce_pathway_grounding(
+    bundle: GraphBundle,
+    grounding_packet: GroundingPacket,
+) -> GraphBundle:
+    errors = _pathway_grounding_errors(bundle, grounding_packet)
     if errors:
         raise ValueError("; ".join(errors))
     return bundle
@@ -369,8 +638,11 @@ def _validate_candidate(
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = _normalize_bundle(candidate, goal)
     validated = validate_graph_bundle(normalized)
-    grounded = validate_bundle_grounding(validated, grounding_packet)
-    return _enforce_pathway_shape(grounded)
+    evidence_attached = _attach_missing_decision_evidence(validated, grounding_packet)
+    action_attached = _attach_missing_action_fields(evidence_attached, grounding_packet)
+    grounded = validate_bundle_grounding(action_attached, grounding_packet)
+    shaped = _enforce_pathway_shape(grounded)
+    return _enforce_pathway_grounding(shaped, grounding_packet)
 
 
 def _attempt_generation(
