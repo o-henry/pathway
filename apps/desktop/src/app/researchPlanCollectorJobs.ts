@@ -19,90 +19,71 @@ const SUPPORTED_FETCH_COLLECTORS = new Set([
   'scrapling',
   'lightpanda_experimental',
 ]);
-const SOURCE_HINT_URL_SEEDS: ReadonlyArray<{ patterns: string[]; url: string }> = [
+const SOURCE_FAMILY_SEARCH_SEEDS: ReadonlyArray<{
+  id: string;
+  patterns: string[];
+  buildUrls: (query: string) => string[];
+}> = [
   {
-    patterns: ['cefr', 'council of europe', 'common european framework'],
-    url: 'https://www.coe.int/en/web/common-european-framework-reference-languages/table-1-cefr-3.3-common-reference-levels-global-scale',
+    id: 'academic',
+    patterns: [
+      'academic',
+      'paper',
+      'preprint',
+      'research',
+      'study',
+      'empirical',
+      'literature review',
+      'systematic review',
+      'meta-analysis',
+      '논문',
+      '학술',
+      '연구',
+      '메타분석',
+    ],
+    buildUrls: (query) => [
+      `https://www.semanticscholar.org/search?q=${encodeURIComponent(query)}&sort=relevance`,
+      `https://arxiv.org/search/?query=${encodeURIComponent(query)}&searchtype=all&source=header`,
+      `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(query)}`,
+      `https://openreview.net/search?term=${encodeURIComponent(query)}&group=all&content=all`,
+    ],
   },
   {
-    patterns: ['actfl', 'proficiency guidelines'],
-    url: 'https://www.actfl.org/educator-resources/actfl-proficiency-guidelines',
+    id: 'official',
+    patterns: ['official', 'guide', 'guideline', 'standard', 'framework', 'reference', '공식', '가이드', '기준'],
+    buildUrls: (query) => [
+      `https://www.google.com/search?q=${encodeURIComponent(`${query} official guide`)}`,
+    ],
   },
   {
-    patterns: ['cambridge', 'b2 first'],
-    url: 'https://www.cambridgeenglish.org/exams-and-tests/qualifications/first/',
+    id: 'open_media',
+    patterns: ['youtube', '유튜브', 'open media', 'video', '강연', 'talk', 'lecture video'],
+    buildUrls: (query) => [
+      `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+    ],
   },
   {
-    patterns: ['british council'],
-    url: 'https://learnenglish.britishcouncil.org/level/improve-your-english-level/how-improve-your-english-speaking',
+    id: 'course',
+    patterns: ['course', 'curriculum', 'lecture', 'class', '강의', '강좌', '커리큘럼', '수업'],
+    buildUrls: (query) => [
+      `https://www.coursera.org/search?query=${encodeURIComponent(query)}`,
+      `https://www.classcentral.com/search?q=${encodeURIComponent(query)}`,
+    ],
   },
   {
-    patterns: ['plos', 'willingness to communicate'],
-    url: 'https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0328226',
+    id: 'guided_program',
+    patterns: ['academy', '학원', 'tutor', '튜터', 'mentor', 'coach', 'program', 'cohort'],
+    buildUrls: (query) => [
+      `https://www.google.com/search?q=${encodeURIComponent(`${query} tutor academy program`)}`,
+    ],
   },
   {
-    patterns: ['arxiv', 'preprint', 'paper', 'academic paper', '논문', '학술', 'empirical study'],
-    url: 'https://arxiv.org/search/?query=goal+learning+intervention&searchtype=all&source=header',
-  },
-  {
-    patterns: ['semantic scholar', 'citation', 'literature review', 'systematic review', 'meta-analysis', '메타분석'],
-    url: 'https://www.semanticscholar.org/search?q=learning%20intervention%20systematic%20review&sort=relevance',
-  },
-  {
-    patterns: ['pubmed', 'pmc', 'health', 'behavior change', 'habit', 'intervention study'],
-    url: 'https://pubmed.ncbi.nlm.nih.gov/?term=behavior+change+intervention+systematic+review',
-  },
-  {
-    patterns: ['openreview', 'machine learning paper', 'ai research'],
-    url: 'https://openreview.net/search?term=learning%20intervention&group=all&content=all',
-  },
-  {
-    patterns: ['doi', 'publisher', 'journal article'],
-    url: 'https://doi.org/',
-  },
-  {
-    patterns: ['language exchange', 'tandem', 'speaking gains'],
-    url: 'https://pubmed.ncbi.nlm.nih.gov/37251019/',
-  },
-  {
-    patterns: ['task repetition', 'oral performance'],
-    url: 'https://www.sciencedirect.com/science/article/pii/S0346251X25002787',
-  },
-  {
-    patterns: ['learner experience', 'learned english', 'how i learned english'],
-    url: 'https://www.fluentu.com/blog/english/how-did-you-learn-english/',
-  },
-  {
-    patterns: ['native speaker', 'language exchange', 'free tutor'],
-    url: 'https://reallifeglobal.com/the-truth-about-speaking-with-native-speakers/',
-  },
-  {
-    patterns: ['englishclub', 'confidence', 'speaking'],
-    url: 'https://www.englishclub.com/esl-forums/viewtopic.php?t=70225',
-  },
-  {
-    patterns: ['reddit', 'confidence', 'speaking'],
-    url: 'https://www.reddit.com/r/EnglishLearning/comments/1s8zjrh/how_can_i_become_more_confidence_on_speaking/',
-  },
-  {
-    patterns: ['reddit', 'native speaker', 'talk'],
-    url: 'https://www.reddit.com/r/EnglishLearning/comments/1crpj60/how_to_meet_a_native_english_speaker_to_talk/',
-  },
-  {
-    patterns: ['youtube', '유튜브', 'open learning media', 'video', '강연'],
-    url: 'https://www.youtube.com/results?search_query=english+speaking+practice+routine',
-  },
-  {
-    patterns: ['course', 'curriculum', 'lecture', '강의', '강좌', 'class'],
-    url: 'https://www.coursera.org/search?query=english%20speaking',
-  },
-  {
-    patterns: ['academy', '학원', 'tutor', '튜터', 'program'],
-    url: 'https://www.italki.com/en/teachers/english',
-  },
-  {
-    patterns: ['community', 'forum', '커뮤니티', 'learner story', 'review'],
-    url: 'https://www.reddit.com/r/EnglishLearning/search/?q=speaking%20routine&restrict_sr=1',
+    id: 'community',
+    patterns: ['community', 'forum', 'reddit', '커뮤니티', '포럼', 'experience', 'story', 'review', 'case'],
+    buildUrls: (query) => [
+      `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`,
+      `https://www.google.com/search?q=${encodeURIComponent(`${query} forum community experience`)}`,
+    ],
   },
 ];
 
@@ -129,13 +110,21 @@ function resolveProviderCandidates(preferredCollectors: string[]): string[] {
   return uniqueStrings([...preferred, ...DEFAULT_COLLECTOR_ORDER]);
 }
 
-function sourceSeedUrlsForHints(values: string[]): string[] {
+function buildSearchQuery(values: string[]): string {
+  return cleanLine(values.find((value) => cleanLine(value).length >= 8) ?? values.join(' ')).slice(0, 180);
+}
+
+function sourceSearchUrlsForHints(values: string[]): string[] {
   const normalizedHints = values.map((value) => cleanLine(value).toLowerCase()).filter(Boolean);
-  return SOURCE_HINT_URL_SEEDS
+  const query = buildSearchQuery(values);
+  if (!query) {
+    return [];
+  }
+  return SOURCE_FAMILY_SEARCH_SEEDS
     .filter((seed) =>
       normalizedHints.some((hint) => seed.patterns.some((pattern) => hint.includes(pattern))),
     )
-    .map((seed) => seed.url);
+    .flatMap((seed) => seed.buildUrls(query));
 }
 
 export function buildResearchPlanCollectorJobs(
@@ -158,10 +147,11 @@ export function buildResearchPlanCollectorJobs(
       ...target.source_examples,
       ...target.example_queries,
     ];
-    const explicitUrls = uniqueStrings([
-      ...extractUrls(rawHints),
-      ...sourceSeedUrlsForHints(rawHints),
-    ]).slice(0, targetBudget);
+    const explicitUrls = extractUrls(rawHints).slice(0, targetBudget);
+    const searchUrls = sourceSearchUrlsForHints(rawHints).slice(
+      0,
+      Math.max(0, targetBudget - explicitUrls.length),
+    );
     const topic = `pathway:${analysis?.goal_id ?? 'goal'}:${safeToken(target.id)}:${safeToken(target.layer)}`;
 
     explicitUrls.forEach((url, index) => {
@@ -174,6 +164,18 @@ export function buildResearchPlanCollectorJobs(
         url,
         topic,
         kind: 'explicit_url',
+      });
+    });
+    searchUrls.forEach((url, index) => {
+      jobs.push({
+        id: `${target.id}:search:${index}`,
+        targetId: target.id,
+        targetLabel: target.label,
+        provider,
+        providerCandidates,
+        url,
+        topic,
+        kind: 'search_probe',
       });
     });
   }
