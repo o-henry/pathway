@@ -3,6 +3,34 @@
 ## Latest micro-update
 
 - Completed work:
+  - Finished the major `MainAppImpl.tsx` controller extraction pass.
+  - Extracted goal workspace refresh/select/delete orchestration into `apps/desktop/src/app/usePathwayGoalWorkspaceController.ts`.
+  - Extracted intake, graph generation, state-update preview, revision accept/reject, and route selection into `apps/desktop/src/app/usePathwayMutationController.ts`.
+  - Extracted engine start/stop, local API token, Codex auth, cwd selection/opening, and settings persistence into `apps/desktop/src/app/usePathwayEngineAuth.ts`.
+  - Reduced `MainAppImpl.tsx` further from 1182 lines to 588 lines; it is now mostly shell wiring, page composition, and lifecycle effects.
+- Atomic commits:
+  - `9a77bba Extract Pathway goal workspace controller`
+  - `ff42909 Extract Pathway mutation controller`
+  - `67356f4 Extract Pathway engine auth hook`
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/usePathwayGoalWorkspaceController.ts`
+  - `apps/desktop/src/app/usePathwayMutationController.ts`
+  - `apps/desktop/src/app/usePathwayEngineAuth.ts`
+  - `docs/state/EXECPLAN_PATHWAY_DESKTOP_REFACTOR.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+- Known gaps:
+  - The extracted hooks need focused tests with mocked API/invoke dependencies.
+  - `MainAppImpl.tsx` still has shell lifecycle effects and prop wiring, but no longer owns the large Pathway controller bodies.
+- Next recommended task:
+  - Add focused tests for `usePathwayGoalWorkspaceController`, `usePathwayMutationController`, and `usePathwayEngineAuth` around success/failure paths.
+
+## Latest micro-update
+
+- Completed work:
   - Continued the Pathway desktop refactor by extracting remaining graph/workspace derived state and collector orchestration from `MainAppImpl.tsx`.
   - Added `usePathwayWorkspaceDerivedState.ts` for active/display bundles, selected node/evidence/assumption data, node action guidance, preview-node changes, and progress-node matching.
   - Added `usePathwayCollectorDoctor.ts` for collector doctor status refresh and install handling used by settings.

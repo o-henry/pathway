@@ -32,8 +32,11 @@ Reduce `MainAppImpl.tsx` responsibility by extracting Pathway-specific pure help
 4. Extract graph/workspace derived state into a hook.
 5. Extract collector doctor status/install state into a hook.
 6. Extract research-plan collection execution into a hook.
-7. Run desktop typecheck and diff checks after each bounded change.
-8. Update state documentation with commits and known gaps.
+7. Extract goal workspace refresh/select/delete orchestration into a controller hook.
+8. Extract intake/generation/revision/route-selection mutations into a controller hook.
+9. Extract engine/auth/cwd lifecycle into an engine auth hook.
+10. Run desktop typecheck and diff checks after each bounded change.
+11. Update state documentation with commits and known gaps.
 
 ## Validation
 
@@ -70,10 +73,13 @@ Expected results:
   - Extracted selected graph, evidence, assumptions, and progress marker derived state into `usePathwayWorkspaceDerivedState.ts`.
   - Extracted collector doctor status/install flow into `usePathwayCollectorDoctor.ts`.
   - Extracted research-plan collection provider fallback and status flow into `usePathwayResearchCollector.ts`.
+  - Extracted goal workspace refresh/select/delete orchestration into `usePathwayGoalWorkspaceController.ts`.
+  - Extracted intake, graph generation, state update preview, revision accept/reject, and route selection into `usePathwayMutationController.ts`.
+  - Extracted engine start/stop, local API token, Codex auth, cwd, and settings persistence into `usePathwayEngineAuth.ts`.
 - Tests run:
   - `pnpm --filter desktop exec tsc --noEmit`
   - `git diff --check`
   - `pnpm secret-scan`
 - Known gaps:
-  - `MainAppImpl.tsx` still owns engine/auth lifecycle and Pathway goal/map mutation orchestration.
-  - A future pass should extract goal/map refresh, intake, generation, and revision actions into a controller hook with mocked API/invoke dependencies.
+  - `MainAppImpl.tsx` is now mostly shell wiring, page composition, and lifecycle effects.
+  - Future cleanup should focus on tests for the extracted hooks and optional smaller presentation prop builders.
