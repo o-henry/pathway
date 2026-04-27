@@ -653,7 +653,7 @@ def test_generate_map_endpoint_rejects_nonexistent_evidence_refs(client: TestCli
     client.app.dependency_overrides.clear()
 
 
-def test_stub_provider_varies_language_goal_topology_and_preserves_grounding(
+def test_stub_provider_uses_generic_topology_and_preserves_grounding(
     client: TestClient,
 ) -> None:
     _put_profile_custom(
@@ -693,26 +693,25 @@ def test_stub_provider_varies_language_goal_topology_and_preserves_grounding(
     labels = {node["label"] for node in graph_bundle["nodes"]}
 
     assert len(graph_bundle["nodes"]) >= 12
-    assert "주간 회화 루프" in labels
-    assert "원어민 노출 환경" in labels
-    assert "30분 대화 마일스톤" in labels
-    assert "마이크로 회화 루트" in labels
-    assert "언어교환 루트" in labels
+    assert "직행 루트" in labels
+    assert "가이드 루트" in labels
+    assert "작은 실험 루트" in labels
+    assert "지원 확보 루트" in labels
+    assert "중간 마일스톤" in labels
     evidence_titles = {item["title"] for item in graph_bundle["evidence"]}
     assert {
         "Speaking loop note",
         "Tutor feedback note",
         "Immersion environment note",
     } & evidence_titles
-    assert any(
-        node_type["id"] == "practice_system" for node_type in graph_bundle["ontology"]["node_types"]
+    assert all(
+        node_type["id"] != "practice_system" for node_type in graph_bundle["ontology"]["node_types"]
     )
-    assert "직행 루트" not in labels
 
     client.app.dependency_overrides.clear()
 
 
-def test_stub_provider_changes_node_count_for_non_language_goal(client: TestClient) -> None:
+def test_stub_provider_does_not_branch_by_goal_topic(client: TestClient) -> None:
     _put_profile_custom(
         client,
         weekly_free_hours=4,
@@ -749,12 +748,13 @@ def test_stub_provider_changes_node_count_for_non_language_goal(client: TestClie
 
     assert len(graph_bundle["nodes"]) >= 12
     assert len(graph_bundle["edges"]) >= 10
-    assert "직접 도전 루트" in labels
-    assert "포트폴리오 보강 루트" in labels
-    assert "작은 프로젝트 루트" in labels
-    assert "네트워크 루트" in labels
+    assert "직행 루트" in labels
+    assert "가이드 루트" in labels
+    assert "작은 실험 루트" in labels
+    assert "지원 확보 루트" in labels
     assert "전환 판단 조건" in labels
-    assert "주간 회화 루프" not in labels
+    assert "직접 도전 루트" not in labels
+    assert "포트폴리오 보강 루트" not in labels
     assert all(
         node_type["id"] != "practice_system" for node_type in graph_bundle["ontology"]["node_types"]
     )
