@@ -25,6 +25,37 @@ import {
 
 type GoalAnalysisError = { goalId: string; message: string } | null;
 
+export function resolvePreferredPathwayGoalId({
+  activeGoalId,
+  goals,
+  pathwayNewGoalMode,
+  preserveSelection,
+}: {
+  activeGoalId: string | null;
+  goals: GoalRecord[];
+  pathwayNewGoalMode: boolean;
+  preserveSelection: boolean;
+}): string | null {
+  if (goals.length === 0) {
+    return null;
+  }
+  if (preserveSelection && pathwayNewGoalMode) {
+    return null;
+  }
+  if (preserveSelection && activeGoalId && goals.some((goal) => goal.id === activeGoalId)) {
+    return activeGoalId;
+  }
+  return goals[0]?.id ?? null;
+}
+
+export function sortPathwayMapsNewestFirst(maps: LifeMap[]): LifeMap[] {
+  return [...maps].sort((left, right) => {
+    const leftTime = Date.parse(left.updated_at ?? left.created_at ?? '') || 0;
+    const rightTime = Date.parse(right.updated_at ?? right.created_at ?? '') || 0;
+    return rightTime - leftTime;
+  });
+}
+
 type UsePathwayGoalWorkspaceControllerOptions = {
   activeGoalId: string | null;
   activeMapId: string | null;
@@ -128,10 +159,12 @@ export function usePathwayGoalWorkspaceController({
       return null;
     }
 
-    const preferredGoalId =
-      preserveSelection && activeGoalId && nextGoals.some((goal) => goal.id === activeGoalId)
-        ? activeGoalId
-        : nextGoals[0]?.id;
+    const preferredGoalId = resolvePreferredPathwayGoalId({
+      activeGoalId,
+      goals: nextGoals,
+      pathwayNewGoalMode,
+      preserveSelection,
+    });
     setActiveGoalId(preferredGoalId ?? null);
     return preferredGoalId ?? null;
   }
@@ -160,11 +193,7 @@ export function usePathwayGoalWorkspaceController({
       fetchCurrentState(goalId),
       fetchGoalAnalysis(goalId),
     ]);
-    const nextMaps = [...rawMaps].sort((left, right) => {
-      const leftTime = Date.parse(left.updated_at ?? left.created_at ?? '') || 0;
-      const rightTime = Date.parse(right.updated_at ?? right.created_at ?? '') || 0;
-      return rightTime - leftTime;
-    });
+    const nextMaps = sortPathwayMapsNewestFirst(rawMaps);
 
     setMaps(nextMaps);
     setStateUpdates(nextUpdates);
