@@ -194,7 +194,6 @@ export default function SettingsPage({
             <p>{localApiStatus.message}</p>
           </div>
           <div className="settings-local-api-meta">
-            <code>{localApiStatus.url}</code>
             <span>{localApiStatus.checkedAt ? `마지막 확인 ${localApiStatus.checkedAt}` : "아직 확인 전"}</span>
           </div>
         </article>

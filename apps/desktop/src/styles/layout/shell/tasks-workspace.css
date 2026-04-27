@@ -1491,6 +1491,20 @@
   letter-spacing: 0.04em;
 }
 
+.pathway-intake-message-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.pathway-intake-elapsed {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .tasks-thread-message-artifact {
   font-size: 10px;
   color: var(--text-muted);

@@ -35,7 +35,7 @@
   max-width: 720px;
   margin-inline: auto;
   padding: 12px;
-  border: 1px solid #dde5ef;
+  border: 0;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.88);
   display: grid;

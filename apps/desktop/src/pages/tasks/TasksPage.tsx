@@ -110,6 +110,7 @@ type PathwayIntakeMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  createdAt: string;
 };
 
 type PathwayIntakeState = {
@@ -117,6 +118,7 @@ type PathwayIntakeState = {
   goalId: string | null;
   answers: string[];
   messages: PathwayIntakeMessage[];
+  pendingStartedAt: number | null;
 };
 
 const EMPTY_PATHWAY_INTAKE_STATE: PathwayIntakeState = {
@@ -124,6 +126,7 @@ const EMPTY_PATHWAY_INTAKE_STATE: PathwayIntakeState = {
   goalId: null,
   answers: [],
   messages: [],
+  pendingStartedAt: null,
 };
 const PATHWAY_INTAKE_STORAGE_KEY = "pathway:intake:v1";
 
@@ -134,7 +137,19 @@ function makePathwayMessage(role: PathwayIntakeMessage["role"], content: string)
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     role,
     content,
+    createdAt: new Date().toISOString(),
   };
+}
+
+function formatPathwayMessageTime(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function isApprovalText(input: string): boolean {
@@ -163,14 +178,23 @@ function normalizePathwayIntakeState(input: unknown, goalId: string): PathwayInt
       && (message.role === "user" || message.role === "assistant")
       && typeof message.content === "string"
       && typeof message.id === "string"
-    ));
+    ))
+    .map((message) => ({
+      ...message,
+      createdAt: typeof message.createdAt === "string" && message.createdAt.trim()
+        ? message.createdAt
+        : new Date().toISOString(),
+    }));
   return {
-    phase: phase === "generating" ? "ready" : phase,
+    phase,
     goalId,
     answers: Array.isArray(candidate.answers)
       ? candidate.answers.filter((answer): answer is string => typeof answer === "string")
       : [],
     messages,
+    pendingStartedAt: typeof candidate.pendingStartedAt === "number" && Number.isFinite(candidate.pendingStartedAt)
+      ? candidate.pendingStartedAt
+      : null,
   };
 }
 
@@ -415,6 +439,8 @@ export default function TasksPage(props: TasksPageProps) {
         const activeRestored = props.pathwayHasActiveGraph
           ? {
               ...restored,
+              phase: restored.phase === "generating" ? "ready" : restored.phase,
+              pendingStartedAt: null,
               messages: restored.messages.filter((message) => !isTransientBackendMessage(message.content)),
             }
           : restored;
@@ -424,6 +450,7 @@ export default function TasksPage(props: TasksPageProps) {
             goalId: activeGoalId,
             answers: activeRestored.answers,
             messages: [],
+            pendingStartedAt: null,
           };
         }
         const hasAssistantMessage = activeRestored.messages.some((message) => message.role === "assistant");
@@ -476,6 +503,7 @@ export default function TasksPage(props: TasksPageProps) {
         goalId: activeGoalId,
         answers: [],
         messages,
+        pendingStartedAt: null,
       };
     });
   }, [
@@ -584,6 +612,7 @@ export default function TasksPage(props: TasksPageProps) {
     setPathwayIntake((current) => ({
       ...current,
       phase: current.phase === "generating" ? "ready" : current.phase,
+      pendingStartedAt: null,
       messages: [
         ...current.messages,
         makePathwayMessage("assistant", "실행이 중단되었습니다."),
@@ -627,6 +656,7 @@ export default function TasksPage(props: TasksPageProps) {
           phase: "clarifying",
           goalId: result.goal.id,
           answers: [],
+          pendingStartedAt: null,
           messages: [...current.messages, makePathwayMessage("assistant", formatPathwayFollowups(result.analysis))],
         }));
       } catch (error) {
@@ -704,7 +734,9 @@ export default function TasksPage(props: TasksPageProps) {
       }
       try {
         const runId = beginPathwayRun();
+        const startedAt = Date.now();
         setPathwayIntakePending(true);
+        setPathwayPendingStartedAt(startedAt);
         await props.onPreflightPathwayGeneration?.();
         if (!isCurrentPathwayRun(runId)) {
           return;
@@ -712,6 +744,7 @@ export default function TasksPage(props: TasksPageProps) {
         setPathwayIntake((current) => ({
           ...current,
           phase: "generating",
+          pendingStartedAt: startedAt,
           messages: [
             ...current.messages,
             makePathwayMessage("assistant", "승인 확인했습니다. API 연결을 확인했고, 지금부터 답변 반영과 조사/그래프 생성을 시작합니다."),
@@ -723,6 +756,8 @@ export default function TasksPage(props: TasksPageProps) {
         }
         setPathwayIntake((current) => ({
           ...current,
+          phase: "ready",
+          pendingStartedAt: null,
           messages: [
             ...current.messages,
             makePathwayMessage("assistant", "그래프를 생성했습니다. 워크플로우 탭에서 경로와 근거를 확인할 수 있습니다."),
@@ -736,6 +771,7 @@ export default function TasksPage(props: TasksPageProps) {
         setPathwayIntake((current) => ({
           ...current,
           phase: "ready",
+          pendingStartedAt: null,
           messages: [...current.messages, makePathwayMessage("assistant", message)],
         }));
       } finally {
@@ -786,14 +822,22 @@ export default function TasksPage(props: TasksPageProps) {
       setPathwayPendingElapsedSeconds(0);
       return;
     }
-    const startedAt = Date.now();
+    const startedAt = pathwayIntake.pendingStartedAt ?? pathwayPendingStartedAt ?? Date.now();
     setPathwayPendingStartedAt(startedAt);
-    setPathwayPendingElapsedSeconds(0);
+    setPathwayPendingElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     const timer = window.setInterval(() => {
       setPathwayPendingElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [pathwayIntakePending]);
+  }, [pathwayIntake.pendingStartedAt, pathwayIntakePending, pathwayPendingStartedAt]);
+
+  useEffect(() => {
+    if (!props.pathwayMode || pathwayIntakePending || pathwayIntake.phase !== "generating" || !pathwayIntake.pendingStartedAt) {
+      return;
+    }
+    setPathwayIntakePending(true);
+    setPathwayPendingStartedAt(pathwayIntake.pendingStartedAt);
+  }, [pathwayIntake.pendingStartedAt, pathwayIntake.phase, pathwayIntakePending, props.pathwayMode]);
 
   useEffect(() => {
     setMentionIndex(0);
@@ -879,6 +923,7 @@ export default function TasksPage(props: TasksPageProps) {
                     goalId: null,
                     answers: [],
                     messages: [],
+                    pendingStartedAt: null,
                   });
                   props.onSelectGoal?.(null);
                   requestAnimationFrame(() => composerRef.current?.focus());
@@ -1051,7 +1096,12 @@ export default function TasksPage(props: TasksPageProps) {
                       className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
                       key={message.id}
                     >
-                      <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
+                      <div className="pathway-intake-message-header">
+                        <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
+                        {message.createdAt ? (
+                          <small className="pathway-intake-elapsed">{formatPathwayMessageTime(message.createdAt)}</small>
+                        ) : null}
+                      </div>
                       <div className={bodyClassName}>
                         {renderPathwayMessageContent(message.content)}
                       </div>

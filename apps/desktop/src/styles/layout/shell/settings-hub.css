@@ -452,17 +452,15 @@
   gap: 10px;
   padding: 12px;
   border-radius: 6px;
-  border: 1px solid rgba(31, 36, 48, 0.08);
+  border: 0;
   background: #fbfcfe;
 }
 
 .settings-local-api-card.is-ready {
-  border-color: rgba(22, 154, 99, 0.24);
   background: #f7fcf9;
 }
 
 .settings-local-api-card.is-error {
-  border-color: rgba(212, 84, 84, 0.24);
   background: #fffafa;
 }
 
@@ -494,12 +492,6 @@
   font-size: 11px;
   line-height: 1.25;
   text-align: right;
-}
-
-.settings-local-api-meta code {
-  color: #2d3442;
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 .panel-card {

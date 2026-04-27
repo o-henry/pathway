@@ -3,6 +3,33 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed Pathway intake message timestamps so chat rows retain created times after switching tabs.
+  - Preserved `generating` state and `pendingStartedAt` instead of coercing generation back to ready during stored intake restoration.
+  - Reattached the pending elapsed timer from stored generation state so leaving and returning to the Goals tab does not make the elapsed time disappear.
+  - Adjusted Settings local API readiness UI per feedback: removed the API URL, moved the last-check text into the right meta position, removed the ready-state green border, and removed the 작업면 정리 border.
+  - Checked the running API: `/health` returns OK, but the visible English-speaking goals currently have zero generated maps.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/pages/settings/SettingsPage.tsx`
+  - `apps/desktop/src/styles/layout/shell/tasks-workspace.css`
+  - `apps/desktop/src/styles/layout/shell/settings-hub.css`
+  - `apps/desktop/src/styles/layout/shell/settings-view.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/lib/api.test.ts apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `curl -sS http://127.0.0.1:8000/health`
+  - `curl -sS http://127.0.0.1:8000/goals`
+  - `curl -sS http://127.0.0.1:8000/goals/goal_b3b000c0201f43608f9423a781bd18c7/maps`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The currently visible generation did not complete into a graph; the API is ready, but the selected goals report zero maps.
+- Next recommended task:
+  - Re-run OK after this UI fix and verify the pending timer remains visible until either graph success or an explicit failure message appears.
+
+## Latest micro-update
+
+- Completed work:
   - Added a "로컬 API 준비 상태" block directly under Settings > 수집기 상태.
   - The settings block shows request readiness, API URL, last checked time, and a manual refresh button.
   - Settings tab entry now auto-checks local API readiness on a short cooldown, using the same engine-start + readiness probe path as graph generation preflight.
