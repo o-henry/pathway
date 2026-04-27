@@ -114,6 +114,21 @@ def _hit(
     )
 
 
+def _metadata_hit(*, chunk_id: str, similarity: float) -> SourceSearchHit:
+    return SourceSearchHit(
+        chunk_id=chunk_id,
+        source_id=f"src_{chunk_id}",
+        title=f"Metadata candidate {chunk_id}",
+        url="https://example.com/search",
+        snippet="Metadata-only public source candidate. Use only as a discovery clue.",
+        similarity_score=similarity,
+        reliability="public_url_metadata",
+        source_type="public_url_metadata",
+        metadata={"layer": f"pathway:collector:{chunk_id}"},
+        source_created_at=datetime.now(UTC),
+    )
+
+
 def test_plan_retrieval_queries_expands_into_experience_and_switching_families() -> None:
     queries = plan_retrieval_queries(
         goal=_goal(),
@@ -238,7 +253,50 @@ def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
     assert {"JLPT speaking guidance", "Conversation rubric"} & titles
     assert "원어민 대화 후기" in titles
     assert "개인 시행착오 기록" in titles or "피드백 루프 연구" in titles
-    assert len(packet.evidence_items) == 4
+
+
+def test_build_grounding_packet_keeps_metadata_candidates_from_crowding_out_evidence() -> None:
+    search_index = StaticSearchIndex(
+        [
+            _metadata_hit(chunk_id="metadata_1", similarity=0.99),
+            _metadata_hit(chunk_id="metadata_2", similarity=0.98),
+            _hit(
+                chunk_id="official_1",
+                source_id="src_official",
+                title="British Council speaking practice guidance",
+                snippet="Speaking improves through regular output, recording, and listening.",
+                similarity=0.86,
+                layer="official",
+            ),
+            _hit(
+                chunk_id="lived_1",
+                source_id="src_lived",
+                title="Learner story about conversation freeze",
+                snippet="The learner reduced freeze-ups through repeated low-stakes speaking.",
+                similarity=0.85,
+                layer="lived_experience",
+            ),
+        ]
+    )
+
+    packet = build_grounding_packet(
+        goal=_goal(),
+        profile=_profile(),
+        current_state=_current_state(),
+        embedding_provider=FakeEmbeddingProvider(),
+        search_index=search_index,
+        query_limit=4,
+        hits_per_query=4,
+        evidence_limit=3,
+        extra_query_texts=(),
+    )
+
+    titles = {item.title for item in packet.evidence_items}
+
+    assert "British Council speaking practice guidance" in titles
+    assert "Learner story about conversation freeze" in titles
+    assert all(item.reliability != "public_url_metadata" for item in packet.evidence_items)
+    assert len(packet.evidence_items) == 2
     assert all(item.id.startswith("ev_rag_") for item in packet.evidence_items)
     assert not any(
         "does not yet include lived-experience" in warning for warning in packet.warnings

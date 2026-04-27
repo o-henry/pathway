@@ -8,6 +8,8 @@ from lifemap_api.domain.graph_bundle import EvidenceItem, GraphBundle
 from lifemap_api.domain.models import CurrentStateSnapshot, Goal, Profile, SourceSearchHit
 from lifemap_api.domain.ports import EmbeddingProvider, SourceSearchIndex
 
+PUBLIC_URL_METADATA_RELIABILITY = "public_url_metadata"
+
 
 @dataclass(frozen=True)
 class RetrievalQuery:
@@ -286,6 +288,8 @@ def _aggregate_hits(
 
 
 def _layer_key(hit: SourceSearchHit) -> str:
+    if _is_metadata_only_hit(hit):
+        return PUBLIC_URL_METADATA_RELIABILITY
     layer = str(hit.metadata.get("layer", "")).strip().lower()
     if layer:
         return layer
@@ -309,6 +313,13 @@ def _layer_priority(layer: str) -> int:
     return order.get(layer, 50)
 
 
+def _is_metadata_only_hit(hit: SourceSearchHit) -> bool:
+    return (
+        hit.reliability == PUBLIC_URL_METADATA_RELIABILITY
+        or hit.source_type == PUBLIC_URL_METADATA_RELIABILITY
+    )
+
+
 def _layer_best_score(layer: str, ranked_hits: list[RankedGroundingHit]) -> float:
     for candidate in ranked_hits:
         if _layer_key(candidate.hit) == layer:
@@ -323,6 +334,12 @@ def _select_diverse_hits(
 ) -> list[RankedGroundingHit]:
     if limit <= 0 or not ranked_hits:
         return []
+
+    usable_ranked_hits = [
+        candidate for candidate in ranked_hits if not _is_metadata_only_hit(candidate.hit)
+    ]
+    if usable_ranked_hits:
+        ranked_hits = usable_ranked_hits
 
     selected: list[RankedGroundingHit] = []
     selected_chunk_ids: set[str] = set()

@@ -3,6 +3,47 @@
 ## Latest micro-update
 
 - Completed work:
+  - Identified why the visible graph lacked per-node execution guidance: the Codex GraphBundle output schema only allowed an empty `node.data` object, so action fields could not survive generation.
+  - Opened strict node data fields for `user_step`, `how_to_do_it`, `success_check`, `record_after`, and related basis fields.
+  - Added graph-quality validation so route/support nodes must carry user-facing action guidance, not Pathway self-analysis prose.
+  - Changed grounding selection so metadata-only public URL candidates cannot crowd out usable source-library evidence.
+  - Fixed terminal GOAL rendering so the generated goal node is preserved, a separate display-only terminal goal is added, and only route-like terminal leaves connect to it.
+  - Lowered the minimum canvas zoom to make wider generated maps fit more comfortably.
+  - Fixed the API/Codex process environment so local Node/NVM command directories are added to subprocess PATH before invoking Codex.
+- Changed files:
+  - `.env.example`
+  - `README.md`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/graph_quality.py`
+  - `apps/api/lifemap_api/config.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_codex_cli_provider.py`
+  - `apps/api/tests/test_generation_grounding.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `src-tauri/src/main.rs`
+  - `docs/state/EXECPLAN_PATHWAY_GRAPH_GENERATION_LONG_RUN.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `curl -sS -X POST --output /tmp/pathway-generate-c358-action-layout.json --write-out status:%{http_code}\ time:%{time_total}\n http://127.0.0.1:8000/goals/goal_c358cf3c689f43eb9fe0a288a811a55b/pathways/generate`
+  - `curl -sS -X POST --output /tmp/pathway-generate-c358-action-layout-2.json --write-out status:%{http_code}\ time:%{time_total}\n http://127.0.0.1:8000/goals/goal_c358cf3c689f43eb9fe0a288a811a55b/pathways/generate`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_codex_cli_provider.py apps/api/tests/test_map_generation.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_graph_quality.py`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The first live generation after removing the timeout succeeded at the API layer but exposed an incomplete graph-quality issue: existing generated map `map_d53e5dae7afe4faabc1c7bbc35564d0a` predates the action-field schema fix and still lacks meaningful per-node guidance.
+  - A post-fix live generation from this Codex sandbox could not complete because the sandboxed API process cannot access `/Users/henry/.codex/sessions`; Codex CLI returned a permission error. This is a local verification-environment blocker, not a deliberate fallback or lowered-quality path.
+- Next recommended task:
+  - Re-run `pnpm dev` from the normal user terminal and generate the same goal again. The old map should be ignored/regenerated because it was produced before action fields were allowed.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the duplicated elapsed timer from prior assistant messages so only the bottom pending PATHWAY row shows generation elapsed time.
   - Removed the second generation preflight inside `handleGeneratePathwayFromIntake`; Tasks already preflights before showing the "generation started" message.
   - Added one-shot local API recovery/retry for transient API failures during intake graph generation fetch/generate calls.

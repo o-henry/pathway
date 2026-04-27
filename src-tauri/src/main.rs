@@ -245,24 +245,63 @@ fn common_command_dirs() -> &'static [&'static str] {
     ]
 }
 
-fn augmented_path_env() -> String {
-    let mut entries: Vec<String> = std::env::var_os("PATH")
-        .map(|value| {
-            std::env::split_paths(&value)
-                .map(|path| path.to_string_lossy().to_string())
-                .collect()
-        })
+fn local_user_command_dirs() -> Vec<PathBuf> {
+    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+        return Vec::new();
+    };
+
+    let mut dirs = vec![
+        home.join(".local/bin"),
+        home.join(".cargo/bin"),
+        home.join(".npm-global/bin"),
+    ];
+
+    let node_versions = home.join(".nvm/versions/node");
+    if let Ok(entries) = std::fs::read_dir(node_versions) {
+        let mut node_bins = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path().join("bin"))
+            .filter(|path| path.exists())
+            .collect::<Vec<_>>();
+        node_bins.sort_by(|left, right| right.cmp(left));
+        dirs.extend(node_bins);
+    }
+
+    dirs
+}
+
+fn augmented_path_entries() -> Vec<PathBuf> {
+    let mut entries: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|value| std::env::split_paths(&value).collect())
         .unwrap_or_default();
 
-    for dir in common_command_dirs() {
-        if !entries.iter().any(|entry| entry == dir) {
-            entries.push((*dir).to_string());
+    for dir in local_user_command_dirs() {
+        if dir.exists() && !entries.iter().any(|entry| entry == &dir) {
+            entries.push(dir);
         }
     }
 
-    std::env::join_paths(entries.iter().map(PathBuf::from))
+    for dir in common_command_dirs() {
+        let path = PathBuf::from(*dir);
+        if path.exists() && !entries.iter().any(|entry| entry == &path) {
+            entries.push(path);
+        }
+    }
+
+    entries
+}
+
+fn augmented_path_env() -> String {
+    let entries = augmented_path_entries();
+    std::env::join_paths(entries.iter())
         .map(|value| value.to_string_lossy().to_string())
-        .unwrap_or_else(|_| entries.join(":"))
+        .unwrap_or_else(|_| {
+            entries
+                .iter()
+                .map(|entry| entry.to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join(":")
+        })
 }
 
 fn resolve_command_path(name: &str) -> Option<PathBuf> {
@@ -271,17 +310,8 @@ fn resolve_command_path(name: &str) -> Option<PathBuf> {
         return Some(requested);
     }
 
-    if let Some(paths) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&paths) {
-            let candidate = dir.join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-
-    for dir in common_command_dirs() {
-        let candidate = Path::new(dir).join(name);
+    for dir in augmented_path_entries() {
+        let candidate = dir.join(name);
         if candidate.exists() {
             return Some(candidate);
         }

@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     llm_request_timeout_seconds: float = Field(
         default=180.0, alias="LIFEMAP_LLM_REQUEST_TIMEOUT_SECONDS"
     )
+    graph_generation_timeout_seconds: float = Field(
+        default=0.0, alias="LIFEMAP_GRAPH_GENERATION_TIMEOUT_SECONDS"
+    )
     llm_max_repair_attempts: int = Field(default=2, alias="LIFEMAP_LLM_MAX_REPAIR_ATTEMPTS")
     generation_query_limit: int = Field(default=10, alias="LIFEMAP_GENERATION_QUERY_LIMIT")
     generation_hits_per_query: int = Field(

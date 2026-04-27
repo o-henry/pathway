@@ -4,6 +4,7 @@ from __future__ import annotations
 # Keep E501 suppressed locally so the content remains readable as authored data.
 # ruff: noqa: E501
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -13,6 +14,58 @@ from typing import Any
 
 from lifemap_api.application.errors import AppConfigurationError, ProviderInvocationError
 from lifemap_api.config import Settings
+
+GRAPH_BUNDLE_SCHEMA_NAME = "life_map_graph_bundle"
+GOAL_ANALYSIS_SCHEMA_NAME = "pathway_goal_analysis"
+
+
+def _existing_path_entries() -> list[str]:
+    value = os.environ.get("PATH", "")
+    return [entry for entry in value.split(os.pathsep) if entry]
+
+
+def _local_command_dirs() -> list[str]:
+    dirs: list[Path] = []
+    home = Path.home()
+    dirs.extend(
+        [
+            home / ".local" / "bin",
+            home / ".cargo" / "bin",
+            home / ".npm-global" / "bin",
+        ]
+    )
+
+    node_versions = home / ".nvm" / "versions" / "node"
+    if node_versions.exists():
+        dirs.extend(
+            path / "bin"
+            for path in sorted(node_versions.iterdir(), reverse=True)
+            if path.is_dir()
+        )
+
+    dirs.extend(
+        [
+            Path("/opt/homebrew/bin"),
+            Path("/usr/local/bin"),
+            Path("/usr/bin"),
+            Path("/bin"),
+            Path("/opt/homebrew/sbin"),
+            Path("/usr/local/sbin"),
+        ]
+    )
+    return [str(path) for path in dirs if path.exists()]
+
+
+def _codex_subprocess_env() -> dict[str, str]:
+    entries: list[str] = []
+    for entry in [*_existing_path_entries(), *_local_command_dirs()]:
+        if entry and entry not in entries:
+            entries.append(entry)
+
+    env = os.environ.copy()
+    if entries:
+        env["PATH"] = os.pathsep.join(entries)
+    return env
 
 
 def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
@@ -155,14 +208,38 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
         }
 
     if schema.get("title") == "GraphBundle":
+        nullable_string = {"type": ["string", "null"]}
+        nullable_number = {"type": ["number", "null"]}
         empty_object = {
             "type": "object",
             "additionalProperties": False,
             "properties": {},
             "required": [],
         }
-        nullable_string = {"type": ["string", "null"]}
-        nullable_number = {"type": ["number", "null"]}
+        node_data = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "user_step": nullable_string,
+                "how_to_do_it": nullable_string,
+                "success_check": nullable_string,
+                "record_after": nullable_string,
+                "switch_condition": nullable_string,
+                "evidence_basis": nullable_string,
+                "assumption_basis": nullable_string,
+                "fit_reason": nullable_string,
+            },
+            "required": [
+                "user_step",
+                "how_to_do_it",
+                "success_check",
+                "record_after",
+                "switch_condition",
+                "evidence_basis",
+                "assumption_basis",
+                "fit_reason",
+            ],
+        }
         return {
             "type": "object",
             "additionalProperties": False,
@@ -192,6 +269,7 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
                                     "id": {"type": "string"},
                                     "label": {"type": "string"},
                                     "description": {"type": "string"},
+                                    "semantic_role": {"type": "string"},
                                     "default_style": {
                                         "type": ["object", "null"],
                                         "additionalProperties": False,
@@ -221,6 +299,7 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
                                     "id",
                                     "label",
                                     "description",
+                                    "semantic_role",
                                     "default_style",
                                     "fields",
                                 ],
@@ -264,7 +343,7 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
                             "type": {"type": "string"},
                             "label": {"type": "string"},
                             "summary": {"type": "string"},
-                            "data": empty_object,
+                            "data": node_data,
                             "scores": {
                                 "type": "object",
                                 "additionalProperties": False,
@@ -438,6 +517,14 @@ class CodexCliProvider:
             f"{rendered_messages}"
         )
 
+    def _timeout_for_schema(self, schema_name: str) -> float | None:
+        timeout = (
+            self._settings.graph_generation_timeout_seconds
+            if schema_name == GRAPH_BUNDLE_SCHEMA_NAME
+            else self._settings.llm_request_timeout_seconds
+        )
+        return timeout if timeout > 0 else None
+
     def generate_structured_json(
         self,
         *,
@@ -447,8 +534,9 @@ class CodexCliProvider:
     ) -> str:
         prompt = self._build_prompt(messages=messages, schema_name=schema_name)
         use_web_search = (
-            self._settings.codex_web_search_enabled and schema_name != "pathway_goal_analysis"
+            self._settings.codex_web_search_enabled and schema_name != GOAL_ANALYSIS_SCHEMA_NAME
         )
+        timeout_seconds = self._timeout_for_schema(schema_name)
         try:
             with tempfile.TemporaryDirectory(prefix="pathway-codex-") as temp_dir:
                 temp_path = Path(temp_dir)
@@ -478,7 +566,8 @@ class CodexCliProvider:
                     input=prompt,
                     text=True,
                     capture_output=True,
-                    timeout=self._settings.llm_request_timeout_seconds,
+                    env=_codex_subprocess_env(),
+                    timeout=timeout_seconds,
                     check=False,
                 )
                 if result.returncode != 0:
@@ -493,8 +582,11 @@ class CodexCliProvider:
                 "Codex CLI was not found on PATH. Install/login to Codex before using Pathway AI analysis."
             ) from exc
         except subprocess.TimeoutExpired as exc:
+            timeout_text = (
+                f"{timeout_seconds:g}s" if timeout_seconds is not None else "the configured limit"
+            )
             raise ProviderInvocationError(
-                f"Codex CLI structured generation timed out after {self._settings.llm_request_timeout_seconds:g}s"
+                f"Codex CLI structured generation timed out after {timeout_text}"
             ) from exc
 
         if not output_text:
@@ -531,7 +623,7 @@ def _extract_evidence_ids(content: str) -> list[str]:
 
 
 def _extract_grounding_packet(content: str) -> dict[str, Any]:
-    return _extract_json_block(content, "Retrieved evidence packet:", "JSON Schema:") or {}
+    return _extract_json_block(content, "Retrieved evidence packet:", "Expectations:") or {}
 
 
 def _normalize_text(value: object | None) -> str:

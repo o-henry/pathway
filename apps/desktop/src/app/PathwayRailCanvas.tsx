@@ -95,6 +95,14 @@ function nodeLooksLikeGoal(definition: GraphNodeTypeDefinition | undefined, node
   return semanticTextIncludesGoal(value);
 }
 
+function nodeHasDisplayRole(node: GraphNodeRecord, role: string): boolean {
+  return normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role) === role;
+}
+
+function nodeSemanticRole(definition: GraphNodeTypeDefinition | undefined): string {
+  return normalizeGraphSearchText(definition?.semantic_role);
+}
+
 function hashString(value: string): number {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -256,16 +264,19 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
   const nodeTypes = new Map(next.ontology.node_types.map((item) => [item.id, item]));
   const existingNodeIds = new Set(next.nodes.map((node) => node.id));
   const userGoalLabel = String(userGoalTitle ?? "").trim();
+  const generatedGoalNode = next.nodes.find(
+    (node) => !nodeHasDisplayRole(node, TERMINAL_GOAL_DATA_ROLE) && nodeLooksLikeGoal(nodeTypes.get(node.type), node),
+  );
   const fallbackGoalLabel =
     userGoalLabel ||
-    next.nodes.find((node) => nodeLooksLikeGoal(nodeTypes.get(node.type), node))?.label ||
+    generatedGoalNode?.label ||
     next.map.title ||
     "GOAL";
 
-  let goalNode = next.nodes.find((node) => nodeLooksLikeGoal(nodeTypes.get(node.type), node));
-  if (!goalNode) {
-    const goalNodeId = makeUniqueNodeId("goal", existingNodeIds);
-    goalNode = {
+  let terminalGoalNode = next.nodes.find((node) => nodeHasDisplayRole(node, TERMINAL_GOAL_DATA_ROLE));
+  if (!terminalGoalNode) {
+    const goalNodeId = makeUniqueNodeId("terminal_goal", existingNodeIds);
+    terminalGoalNode = {
       id: goalNodeId,
       type: goalTypeId,
       label: fallbackGoalLabel,
@@ -277,20 +288,20 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
       evidence_refs: [],
       assumption_refs: [],
     };
-    next.nodes.push(goalNode);
+    next.nodes.push(terminalGoalNode);
     existingNodeIds.add(goalNodeId);
   } else {
-    goalNode.type = goalTypeId;
-    goalNode.label = fallbackGoalLabel;
-    goalNode.summary = goalNode.summary || "사용자가 기입한 최종 목표입니다.";
-    goalNode.data = {
-      ...goalNode.data,
-      source: (goalNode.data as Record<string, unknown> | undefined)?.source ?? "user_goal",
+    terminalGoalNode.type = goalTypeId;
+    terminalGoalNode.label = fallbackGoalLabel;
+    terminalGoalNode.summary = terminalGoalNode.summary || "사용자가 기입한 최종 목표입니다.";
+    terminalGoalNode.data = {
+      ...terminalGoalNode.data,
+      source: (terminalGoalNode.data as Record<string, unknown> | undefined)?.source ?? "user_goal",
       pathway_display_role: TERMINAL_GOAL_DATA_ROLE,
     };
   }
 
-  const goalNodeId = goalNode.id;
+  const goalNodeId = terminalGoalNode.id;
   const nonGoalNodeIds = new Set(
     next.nodes.filter((node) => node.id !== goalNodeId).map((node) => node.id),
   );
@@ -306,7 +317,42 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
     }
   });
 
-  const terminalNodeIds = [...nonGoalNodeIds].filter((nodeId) => (outgoing.get(nodeId) ?? 0) === 0);
+  const connectableTerminalRoles = new Set([
+    "checkpoint",
+    "curriculum",
+    "fallback_route",
+    "milestone",
+    "practice",
+    "route",
+    "route_choice",
+    "switch_condition",
+  ]);
+  const nonTerminalRoles = new Set([
+    "assumption",
+    "constraint",
+    "cost",
+    "evidence",
+    "goal",
+    "opportunity_cost",
+    "resource",
+    "risk",
+  ]);
+  const terminalNodeIds = next.nodes
+    .filter((node) => {
+      if (node.id === goalNodeId || (outgoing.get(node.id) ?? 0) !== 0) {
+        return false;
+      }
+      const semanticRole = nodeSemanticRole(nodeTypes.get(node.type));
+      if (connectableTerminalRoles.has(semanticRole)) {
+        return true;
+      }
+      if (nonTerminalRoles.has(semanticRole)) {
+        return false;
+      }
+      const family = nodeSemanticFamily(nodeTypes.get(node.type), node);
+      return family === "decision" || family === "learning" || family === "route";
+    })
+    .map((node) => node.id);
   const existingEdgeIds = new Set(next.edges.map((edge) => edge.id));
   const terminalGoalEdges = terminalNodeIds.map((nodeId) => {
     const baseId = `terminal_goal_${nodeId}`;
@@ -888,7 +934,7 @@ const PATHWAY_STAGE_INSET_Y = 20;
 const PATHWAY_STAGE_INSET_BOTTOM = 132;
 
 function clampZoom(value: number): number {
-  return Math.max(0.72, Math.min(1.8, Number(value.toFixed(2))));
+  return Math.max(0.5, Math.min(1.8, Number(value.toFixed(2))));
 }
 
 function buildCollapsedDescendantSet(bundle: GraphBundle, collapsedNodeIds: Set<string>): Set<string> {
@@ -1197,7 +1243,7 @@ export default function PathwayRailCanvas({
   };
   const zoomOut = () => {
     viewportTouchedRef.current = true;
-    setCanvasZoom((current) => Math.max(0.55, Number((current - 0.1).toFixed(2))));
+    setCanvasZoom((current) => Math.max(0.5, Number((current - 0.1).toFixed(2))));
   };
 
   const getNodeVisualSize = (node: GraphNode): { width: number; height: number } => {

@@ -53,8 +53,14 @@ def test_codex_graph_bundle_schema_is_strict_for_nested_objects() -> None:
 
     _assert_strict_objects(schema)
     node_schema = schema["properties"]["nodes"]["items"]
+    node_type_schema = schema["properties"]["ontology"]["properties"]["node_types"]["items"]
+    node_data_schema = node_schema["properties"]["data"]
+    assert "semantic_role" in node_type_schema["properties"]
+    assert "semantic_role" in node_type_schema["required"]
     assert node_schema["properties"]["style_overrides"]["additionalProperties"] is False
     assert node_schema["properties"]["data"]["additionalProperties"] is False
+    assert "user_step" in node_data_schema["properties"]
+    assert "how_to_do_it" in node_data_schema["properties"]
 
 
 @pytest.fixture()
@@ -529,7 +535,9 @@ def test_generate_map_endpoint_creates_valid_map(client: TestClient) -> None:
             assert required_action_fields.issubset(node["data"])
             assert node["evidence_refs"]
     assert len(provider.calls) == 1
-    assert '"id": "ev_rag_001"' in provider.calls[0][-1]["content"]
+    prompt = provider.calls[0][-1]["content"]
+    assert '"id": "ev_rag_001"' in prompt
+    assert "JSON Schema:" not in prompt
 
     client.app.dependency_overrides.clear()
 

@@ -346,6 +346,33 @@ def pathway_grounding_errors(
     ]
 
 
+def pathway_action_errors(bundle: GraphBundle) -> list[str]:
+    node_type_text = semantic_text_for_node_types(bundle)
+    missing_action_nodes = [
+        node.label or node.id
+        for node in bundle.nodes
+        if node_requires_evidence(
+            bundle=bundle,
+            node_index=node_type_text,
+            node_id=node.id,
+        )
+        and not node_has_action_fields(node)
+    ]
+    if not missing_action_nodes:
+        return []
+    preview = ", ".join(missing_action_nodes[:8])
+    suffix = (
+        ""
+        if len(missing_action_nodes) <= 8
+        else f", and {len(missing_action_nodes) - 8} more"
+    )
+    return [
+        "decision graph has route/support nodes without user-facing action fields: "
+        f"{preview}{suffix}. Fill node.data.user_step, how_to_do_it, "
+        "success_check, and record_after with concrete instructions for the user."
+    ]
+
+
 def attach_missing_decision_evidence(
     bundle: GraphBundle,
     grounding_packet: GroundingPacket,
@@ -482,6 +509,13 @@ def enforce_pathway_grounding(
     grounding_packet: GroundingPacket,
 ) -> GraphBundle:
     errors = pathway_grounding_errors(bundle, grounding_packet)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return bundle
+
+
+def enforce_pathway_actions(bundle: GraphBundle) -> GraphBundle:
+    errors = pathway_action_errors(bundle)
     if errors:
         raise ValueError("; ".join(errors))
     return bundle

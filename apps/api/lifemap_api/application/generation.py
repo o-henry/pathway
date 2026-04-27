@@ -16,6 +16,7 @@ from lifemap_api.application.graph_quality import (
     attach_missing_action_fields,
     attach_missing_decision_evidence,
     enforce_pathway_grounding,
+    enforce_pathway_actions,
     enforce_pathway_shape,
     enforce_semantic_roles,
 )
@@ -119,7 +120,6 @@ def _build_user_prompt(
     goal: Goal,
     profile: Profile | None,
     current_state: CurrentStateSnapshot | None,
-    schema: dict,
     grounding_packet: GroundingPacket,
 ) -> str:
     return dedent(
@@ -138,10 +138,9 @@ def _build_user_prompt(
         Retrieved evidence packet:
         {serialize_grounding_packet(grounding_packet)}
 
-        JSON Schema:
-        {json.dumps(schema, ensure_ascii=False, indent=2)}
-
         Expectations:
+        - The output schema is enforced separately by the caller. Return one JSON
+          object that satisfies it; do not include markdown or explanatory prose.
         - `map.goal_id` must equal `{goal.id}`.
         - The ontology must be useful for this specific goal instead of generic.
         - Every ontology node type must include `semantic_role`; do not force node
@@ -213,6 +212,9 @@ def _build_repair_prompt(
         - If validation says nodes are missing evidence, attach allowed evidence ids
           from the packet to the specific route/support nodes they justify. Do not
           leave user-facing decision nodes ungrounded when usable evidence exists.
+        - If validation says nodes are missing action fields, fill `node.data`
+          with concrete user instructions: `user_step`, `how_to_do_it`,
+          `success_check`, and `record_after`. Do not describe what Pathway analyzed.
         - Do not use `public_url_metadata` evidence as support for route claims;
           use it only for source-review/candidate-source nodes.
 
@@ -252,7 +254,8 @@ def _validate_candidate(
     semantic_validated = enforce_semantic_roles(validated)
     evidence_attached = attach_missing_decision_evidence(semantic_validated, grounding_packet)
     action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
-    grounded = validate_bundle_grounding(action_attached, grounding_packet)
+    action_validated = enforce_pathway_actions(action_attached)
+    grounded = validate_bundle_grounding(action_validated, grounding_packet)
     shaped = enforce_pathway_shape(grounded)
     return enforce_pathway_grounding(shaped, grounding_packet)
 
@@ -287,7 +290,7 @@ def _attempt_generation(
         {"role": "system", "content": _build_system_prompt()},
         {
             "role": "user",
-            "content": _build_user_prompt(goal, profile, current_state, schema, grounding_packet),
+            "content": _build_user_prompt(goal, profile, current_state, grounding_packet),
         },
     ]
     last_error = "Unknown generation failure"
@@ -313,7 +316,6 @@ def _attempt_generation(
                         goal,
                         profile,
                         current_state,
-                        schema,
                         grounding_packet,
                     ),
                 },
