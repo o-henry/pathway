@@ -3,6 +3,50 @@
 ## Latest micro-update
 
 - Completed work:
+  - Refactored Pathway research query planning to remove fixed goal-family branches for language/career/fitness-style focus fragments.
+  - Replaced those branches with generic goal/category/description/success-criteria context plus broad evidence-backed method, similar-user, route-alternative, and failure/switching query intents.
+  - Refactored desktop research collection seeds from fixed English-learning URLs into query-based source-family search probes for academic, official, open media, course, guided program, and community sources.
+  - Extracted shared graph quality policy helpers from `generation.py` into `apps/api/lifemap_api/application/graph_quality.py`, so generation and revision no longer depend on generation-private helper imports.
+  - Removed the deterministic local stub provider's language-specific graph template and topic-family routing; the stub now emits one generic route-atlas topology instead of topic-specific hardcoded graphs.
+  - Updated map-generation and grounding tests to lock in the no-topic-template behavior.
+- Atomic commits:
+  - `2e27359 Remove topic-family grounding query templates`
+  - `6fdce98 Generalize research collector seed URLs`
+  - `47d209a Extract graph quality policy helpers`
+  - `2d96067 Remove topic-specific stub graph branching`
+- Changed files:
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/graph_quality.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_generation_grounding.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/researchPlanCollectorJobs.ts`
+  - `docs/state/EXECPLAN_PATHWAY_REFACTOR_HARDCODING.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_generation_grounding.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation_grounding.py apps/api/tests/test_generation_grounding.py`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py apps/api/tests/test_generation_grounding.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/application/graph_quality.py apps/api/lifemap_api/application/generation_grounding.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_map_generation.py`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_map_generation.py apps/api/tests/test_goal_analysis.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_revisions.py apps/api/tests/test_codex_cli_provider.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/application/graph_quality.py apps/api/lifemap_api/infrastructure/llm_providers.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py apps/api/tests/test_revisions.py`
+  - `pnpm secret-scan`
+  - `git diff --check`
+- Known gaps:
+  - Source-family search probes are still an interim discovery bridge; a real backend source-discovery service should eventually create concrete candidate URLs.
+  - Route/support graph validation still relies on semantic marker lists; the stronger next step is schema-level semantic roles in the dynamic ontology.
+  - A broader ruff command including untouched `apps/api/tests/test_goal_analysis.py` still reports pre-existing long-line issues outside this refactor.
+- Next recommended task:
+  - Introduce explicit semantic roles for generated node types so grounding/action-field validation does not depend on route/support marker strings.
+
+## Latest micro-update
+
+- Completed work:
   - Tightened first graph generation so route/support decision nodes cannot remain ungrounded when retrieved non-metadata evidence exists.
   - Added deterministic evidence attachment after LLM generation: if the model omits `evidence_refs` on route/checkpoint/risk/switch/tradeoff nodes, Pathway attaches the closest retrieved evidence item before validation.
   - Strengthened graph generation prompts so every major route/support node must include user-facing execution fields such as `user_step`, `how_to_do_it`, `success_check`, `record_after`, and `switch_condition`.
