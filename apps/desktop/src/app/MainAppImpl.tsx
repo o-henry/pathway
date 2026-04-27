@@ -3,32 +3,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppNav from '../components/AppNav';
 import TasksPage from '../pages/tasks/TasksPage';
 import SettingsPage from '../pages/settings/SettingsPage';
-import { invoke, openPath, openUrl } from '../shared/tauri';
+import { invoke } from '../shared/tauri';
 import {
   analyzeGoal,
-  setLocalApiToken,
 } from '../lib/api';
 import PathwayWorkflowPanel, { type PathwayStateForm } from './PathwayWorkflowPanel';
 import {
-  extractAuthMode,
-  isEngineAlreadyStartedError,
-  loadPersistedAuthMode,
-  loadPersistedCodexMultiAgentMode,
-  loadPersistedCwd,
-  loadPersistedLoginCompleted,
-} from './mainAppUtils';
-import {
   buildResearchPlanCollectorJobs,
 } from './researchPlanCollectorJobs';
-import {
-  type PathwayAuthMode,
-} from './pathwayCollectorContracts';
+import type { PathwayAuthMode } from './pathwayCollectorContracts';
 import {
   delay,
   formatUiError,
   isLocalApiTransientError,
 } from './pathwayWorkspaceUtils';
 import { usePathwayCollectorDoctor } from './usePathwayCollectorDoctor';
+import { usePathwayEngineAuth } from './usePathwayEngineAuth';
 import { usePathwayGoalWorkspaceController } from './usePathwayGoalWorkspaceController';
 import { usePathwayMutationController } from './usePathwayMutationController';
 import { usePathwayResearchCollector } from './usePathwayResearchCollector';
@@ -42,7 +32,6 @@ import type {
   RouteSelectionRecord,
   StateUpdateRecord
 } from '../lib/types';
-import type { AuthProbeResult, LoginChatgptResult } from './main/types';
 
 type WorkspaceTab = 'tasks' | 'workflow' | 'settings';
 const WORKSPACE_TAB_SHORTCUTS: WorkspaceTab[] = ['tasks', 'workflow', 'settings'];
@@ -93,18 +82,7 @@ export default function MainApp() {
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('Pathway 로컬 작업공간이 준비되었습니다. 목표를 만들고, 자원을 분석한 뒤, 그래프를 확장하세요.');
   const [isBusy, setIsBusy] = useState(false);
-  const [engineStarted, setEngineStarted] = useState(false);
-  const [cwd, setCwd] = useState(() => loadPersistedCwd('.'));
-  const [loginCompleted, setLoginCompleted] = useState(() => loadPersistedLoginCompleted());
-  const [authMode, setAuthMode] = useState<PathwayAuthMode>(() => loadPersistedAuthMode());
-  const [codexAuthBusy, setCodexAuthBusy] = useState(false);
-  const [codexMultiAgentMode] = useState(() => loadPersistedCodexMultiAgentMode());
-  const [usageInfoText, setUsageInfoText] = useState('');
-  const [usageResultClosed, setUsageResultClosed] = useState(false);
-  const engineStartedRef = useRef(false);
-  const engineStartPromiseRef = useRef<Promise<void> | null>(null);
   const goalAnalysisPromiseRef = useRef<Map<string, Promise<GoalAnalysisRecord>>>(new Map());
-  const authStateLastCheckedAtRef = useRef(0);
   const pathwayWorkCancelledRef = useRef(false);
 
   const [stateForm, setStateForm] = useState<PathwayStateForm>({
@@ -120,6 +98,27 @@ export default function MainApp() {
     () => buildResearchPlanCollectorJobs(goalAnalysis),
     [goalAnalysis],
   );
+  const {
+    authMode,
+    codexAuthBusy,
+    cwd,
+    engineStarted,
+    ensureEngineStarted,
+    handleOpenRunsFolder,
+    handleSelectCwdDirectory,
+    handleToggleCodexLogin,
+    loginCompleted,
+    refreshAuthStateIfStale,
+    refreshLocalApiTokenFromShell,
+    setUsageResultClosed,
+    stopEngine,
+    usageInfoText,
+    usageResultClosed,
+  } = usePathwayEngineAuth({
+    hasTauriRuntime,
+    setErrorMessage,
+    setStatusMessage,
+  });
   const {
     activeProgressNodeIds,
     displayBaseBundle,
@@ -258,58 +257,6 @@ export default function MainApp() {
     return '알 수 없음';
   }
 
-  async function ensureEngineStarted() {
-    if (!hasTauriRuntime) {
-      await refreshLocalApiTokenFromShell();
-      return;
-    }
-    if (engineStartedRef.current) {
-      await refreshLocalApiTokenFromShell();
-      return;
-    }
-    if (engineStartPromiseRef.current) {
-      await engineStartPromiseRef.current;
-      return;
-    }
-    const startPromise = (async () => {
-      try {
-        await invoke('engine_start', { cwd });
-        await refreshLocalApiTokenFromShell();
-        engineStartedRef.current = true;
-        setEngineStarted(true);
-      } catch (error) {
-        if (isEngineAlreadyStartedError(error)) {
-          engineStartedRef.current = true;
-          setEngineStarted(true);
-          return;
-        }
-        throw error;
-      } finally {
-        engineStartPromiseRef.current = null;
-      }
-    })();
-    engineStartPromiseRef.current = startPromise;
-    await startPromise;
-  }
-
-  useEffect(() => {
-    engineStartedRef.current = engineStarted;
-  }, [engineStarted]);
-
-  async function refreshLocalApiTokenFromShell() {
-    if (!hasTauriRuntime) {
-      return;
-    }
-    if (String(import.meta.env.VITE_PATHWAY_LOCAL_API_TOKEN ?? '').trim()) {
-      return;
-    }
-    try {
-      const token = await invoke<string>('local_api_auth_token');
-      setLocalApiToken(token);
-    } catch {
-      // Older dev shells may not expose the token command; unauthenticated dev API still works.
-    }
-  }
 
   async function analyzeGoalWithRetry(goalId: string, statusLabel = '목표 분석'): Promise<GoalAnalysisRecord> {
     const existing = goalAnalysisPromiseRef.current.get(goalId);
@@ -372,36 +319,6 @@ export default function MainApp() {
       setStatusMessage(message);
     }
   }
-
-  async function refreshAuthStateFromEngine(showStatus = false): Promise<AuthProbeResult | null> {
-    try {
-      await ensureEngineStarted();
-      const result = await invoke<AuthProbeResult>('auth_probe');
-      const nextMode = extractAuthMode(result.authMode ?? result.raw ?? null) ?? 'unknown';
-      setAuthMode(nextMode);
-      if (result.state === 'authenticated') {
-        setLoginCompleted(true);
-        if (showStatus) {
-          setStatusMessage('CODEX 로그인이 연결되어 있습니다.');
-        }
-      } else if (result.state === 'login_required') {
-        setLoginCompleted(false);
-        if (showStatus) {
-          setStatusMessage('CODEX 로그인이 필요합니다. 설정에서 로그인 후 다시 실행하세요.');
-        }
-      } else if (showStatus) {
-        setStatusMessage('CODEX 인증 상태를 확인했습니다.');
-      }
-      authStateLastCheckedAtRef.current = Date.now();
-      return result;
-    } catch (error) {
-      if (showStatus) {
-        setErrorMessage(formatUiError(error, 'CODEX 인증 상태를 확인하지 못했습니다.'));
-      }
-      return null;
-    }
-  }
-
 
   useEffect(() => {
     void (async () => {
@@ -498,38 +415,6 @@ export default function MainApp() {
   }, []);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem('rail.settings.cwd', cwd);
-    } catch {
-      // noop
-    }
-  }, [cwd]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('rail.settings.login_completed', loginCompleted ? '1' : '0');
-    } catch {
-      // noop
-    }
-  }, [loginCompleted]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('rail.settings.auth_mode', authMode);
-    } catch {
-      // noop
-    }
-  }, [authMode]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('rail.settings.codex_multi_agent_mode', codexMultiAgentMode);
-    } catch {
-      // noop
-    }
-  }, [codexMultiAgentMode]);
-
-  useEffect(() => {
     if (workspaceTab !== 'settings') {
       return;
     }
@@ -537,10 +422,7 @@ export default function MainApp() {
       setStatusMessage('브라우저 프리뷰에서는 일부 설정 연결이 제한될 수 있습니다. 가능하면 Tauri 앱에서 확인하세요.');
     }
     const refreshTimer = window.setTimeout(() => {
-      const now = Date.now();
-      if (now - authStateLastCheckedAtRef.current >= SETTINGS_AUTH_REFRESH_COOLDOWN_MS) {
-        void refreshAuthStateFromEngine(true);
-      }
+      void refreshAuthStateIfStale(SETTINGS_AUTH_REFRESH_COOLDOWN_MS);
       void refreshCollectorDoctorIfStale(SETTINGS_COLLECTOR_DOCTOR_REFRESH_COOLDOWN_MS);
     }, SETTINGS_DEFERRED_REFRESH_DELAY_MS);
     return () => {
@@ -551,100 +433,13 @@ export default function MainApp() {
 
   async function handleCancelPathwayWork() {
     cancelPathwayWorkWithoutEngineStop();
-    if (!hasTauriRuntime) {
-      return;
-    }
     try {
-      await invoke('engine_stop');
-      engineStartPromiseRef.current = null;
-      engineStartedRef.current = false;
-      setEngineStarted(false);
+      await stopEngine();
     } catch {
       // Cancellation has already been reflected in UI state.
     }
   }
 
-  async function handleToggleCodexLogin() {
-    if (codexAuthBusy) {
-      return;
-    }
-    if (!hasTauriRuntime) {
-      setErrorMessage('CODEX 로그인은 Tauri 앱에서만 사용할 수 있습니다.');
-      return;
-    }
-    try {
-      setCodexAuthBusy(true);
-      setErrorMessage('');
-      await ensureEngineStarted();
-
-      if (loginCompleted) {
-        await invoke('logout_codex');
-        await invoke('engine_stop');
-        engineStartPromiseRef.current = null;
-        engineStartedRef.current = false;
-        setEngineStarted(false);
-        setLoginCompleted(false);
-        setAuthMode('unknown');
-        setUsageInfoText('');
-        setStatusMessage('CODEX에서 로그아웃했습니다.');
-        return;
-      }
-
-      const probed = await refreshAuthStateFromEngine(false);
-      if (probed?.state === 'authenticated') {
-        setStatusMessage('이미 CODEX에 로그인되어 있습니다.');
-        return;
-      }
-
-      const result = await invoke<LoginChatgptResult>('login_chatgpt');
-      const authUrl = typeof result?.authUrl === 'string' ? result.authUrl.trim() : '';
-      if (!authUrl) {
-        throw new Error('로그인 URL을 받지 못했습니다.');
-      }
-      await openUrl(authUrl);
-      const deviceCode = typeof result?.deviceCode === 'string' ? result.deviceCode.trim() : '';
-      setStatusMessage(
-        deviceCode
-          ? `브라우저에서 CODEX 로그인을 진행하고 코드 ${deviceCode} 를 입력하세요. 완료 후 설정 탭에서 상태를 다시 확인할 수 있습니다.`
-          : '브라우저에서 CODEX 로그인을 진행하세요. 완료 후 설정 탭에서 상태를 다시 확인할 수 있습니다.',
-      );
-    } catch (error) {
-      setErrorMessage(formatUiError(error, loginCompleted ? 'CODEX 로그아웃에 실패했습니다.' : 'CODEX 로그인 시작에 실패했습니다.'));
-    } finally {
-      setCodexAuthBusy(false);
-    }
-  }
-
-  async function handleSelectCwdDirectory() {
-    if (!hasTauriRuntime) {
-      setErrorMessage('작업 폴더 선택은 Tauri 앱에서만 사용할 수 있습니다.');
-      return;
-    }
-    try {
-      setErrorMessage('');
-      const selected = await invoke<string | null>('dialog_pick_directory');
-      const nextCwd = typeof selected === 'string' ? selected.trim() : '';
-      if (!nextCwd) {
-        return;
-      }
-      setCwd(nextCwd);
-      setStatusMessage(`작업 경로를 ${nextCwd.toLowerCase()} 로 바꿨습니다.`);
-    } catch (error) {
-      setErrorMessage(formatUiError(error, '작업 폴더 선택에 실패했습니다.'));
-    }
-  }
-
-  async function handleOpenRunsFolder() {
-    if (!hasTauriRuntime) {
-      setErrorMessage('작업 폴더 열기는 Tauri 앱에서만 사용할 수 있습니다.');
-      return;
-    }
-    try {
-      await openPath(cwd);
-    } catch (error) {
-      setErrorMessage(formatUiError(error, '작업 폴더를 열지 못했습니다.'));
-    }
-  }
 
   function renderWorkflowTab() {
     return (
