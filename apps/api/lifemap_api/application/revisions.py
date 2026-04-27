@@ -6,20 +6,18 @@ from textwrap import dedent
 from pydantic import ValidationError
 
 from lifemap_api.application.errors import EntityNotFoundError, GenerationFailedError
-from lifemap_api.application.generation import (
-    SCHEMA_NAME,
-    _attach_missing_action_fields,
-    _attach_missing_decision_evidence,
-    _enforce_pathway_grounding,
-    _serialize_goal,
-    _serialize_profile,
-)
+from lifemap_api.application.generation import SCHEMA_NAME, _serialize_goal, _serialize_profile
 from lifemap_api.application.generation_grounding import (
     build_grounding_packet,
     serialize_grounding_packet,
     validate_bundle_grounding,
 )
 from lifemap_api.application.graph_diff import build_graph_diff
+from lifemap_api.application.graph_quality import (
+    attach_missing_action_fields,
+    attach_missing_decision_evidence,
+    enforce_pathway_grounding,
+)
 from lifemap_api.domain.graph_bundle import GraphBundle, validate_graph_bundle
 from lifemap_api.domain.models import (
     CurrentStateSnapshot,
@@ -221,10 +219,10 @@ def _validate_revised_bundle(
         }
     )
     validated = validate_graph_bundle(normalized)
-    evidence_attached = _attach_missing_decision_evidence(validated, grounding_packet)
-    action_attached = _attach_missing_action_fields(evidence_attached, grounding_packet)
+    evidence_attached = attach_missing_decision_evidence(validated, grounding_packet)
+    action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
     grounded = validate_bundle_grounding(action_attached, grounding_packet)
-    return _enforce_pathway_grounding(grounded, grounding_packet)
+    return enforce_pathway_grounding(grounded, grounding_packet)
 
 
 def _revision_extra_query_texts(
