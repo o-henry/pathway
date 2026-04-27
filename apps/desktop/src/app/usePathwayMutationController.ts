@@ -29,6 +29,7 @@ import {
   buildIntakeGoalTitle,
   buildIntakeSuccessCriteria,
   formatUiError,
+  isLocalApiTransientError,
   sortStateUpdatesNewestFirst,
 } from './pathwayWorkspaceUtils';
 
@@ -112,6 +113,14 @@ export function usePathwayMutationController({
     await checkLocalApiReady();
   }
 
+  async function recoverLocalApiAfterTransientFailure(stageLabel: string) {
+    setStatusMessage(`${stageLabel} 중 로컬 API 연결을 다시 확인합니다.`);
+    if (hasTauriRuntime) {
+      await ensureEngineStarted();
+    }
+    await checkLocalApiReady();
+  }
+
   async function handleStartPathwayIntake(goalText: string) {
     const normalizedGoal = goalText.trim();
     if (!normalizedGoal) {
@@ -180,9 +189,17 @@ export function usePathwayMutationController({
     try {
       setIsBusy(true);
       setErrorMessage('');
-      await preflightPathwayGeneration();
       const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
-      const goal = await fetchGoal(goalId);
+      let goal: GoalRecord;
+      try {
+        goal = await fetchGoal(goalId);
+      } catch (error) {
+        if (!isLocalApiTransientError(error)) {
+          throw error;
+        }
+        await recoverLocalApiAfterTransientFailure('그래프 생성');
+        goal = await fetchGoal(goalId);
+      }
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
@@ -216,7 +233,16 @@ export function usePathwayMutationController({
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
-      const nextMap = await generatePathway(goalId);
+      let nextMap: LifeMap;
+      try {
+        nextMap = await generatePathway(goalId);
+      } catch (error) {
+        if (!isLocalApiTransientError(error)) {
+          throw error;
+        }
+        await recoverLocalApiAfterTransientFailure('그래프 생성');
+        nextMap = await generatePathway(goalId);
+      }
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
@@ -228,7 +254,9 @@ export function usePathwayMutationController({
         setStatusMessage('실행이 중단되었습니다.');
         throw new Error('실행이 중단되었습니다.');
       }
-      const message = formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.');
+      const message = isLocalApiTransientError(error)
+        ? '그래프 생성 중 로컬 API 연결이 끊겼고 자동 재확인 후에도 복구하지 못했습니다. 앱을 재시작한 뒤 다시 시도해 주세요.'
+        : formatUiError(error, 'Pathway 그래프 생성에 실패했습니다.');
       setErrorMessage(message);
       throw new Error(message);
     } finally {

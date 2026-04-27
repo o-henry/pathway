@@ -1076,15 +1076,10 @@ export default function TasksPage(props: TasksPageProps) {
               </section>
             ) : (
               <section aria-label="Pathway 상담 타임라인" className="tasks-thread-timeline pathway-intake-timeline" role="log">
-                {pathwayIntake.messages.map((message, index) => {
+                {pathwayIntake.messages.map((message) => {
                   const bodyClassName = `tasks-thread-log-line pathway-intake-message-body${
                     isMultilinePathwayMessage(message.content) ? " is-multiline" : ""
                   }`;
-                  const showElapsedForMessage =
-                    pathwayIntakePending &&
-                    message.role === "assistant" &&
-                    index === pathwayIntake.messages.length - 1 &&
-                    Boolean(pathwayPendingStartedAt);
                   return (
                     <article
                       className={`tasks-thread-message-row is-${message.role} pathway-intake-message`}
@@ -1092,9 +1087,6 @@ export default function TasksPage(props: TasksPageProps) {
                     >
                       <div className="pathway-intake-message-header">
                         <span className="tasks-thread-message-label">{message.role === "user" ? "USER" : "PATHWAY"}</span>
-                        {showElapsedForMessage ? (
-                          <small className="pathway-intake-elapsed">{pathwayPendingElapsedLabel}</small>
-                        ) : null}
                       </div>
                       <div className={bodyClassName}>
                         {renderPathwayMessageContent(message.content)}

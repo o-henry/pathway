@@ -3,6 +3,26 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the duplicated elapsed timer from prior assistant messages so only the bottom pending PATHWAY row shows generation elapsed time.
+  - Removed the second generation preflight inside `handleGeneratePathwayFromIntake`; Tasks already preflights before showing the "generation started" message.
+  - Added one-shot local API recovery/retry for transient API failures during intake graph generation fetch/generate calls.
+  - Changed the post-start transient API failure copy so it no longer says graph generation was never started after the UI already announced the start.
+- Changed files:
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/app/usePathwayMutationController.ts`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/lib/api.test.ts apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The next manual graph-generation run should confirm whether failures now recover or surface a concrete non-connectivity error.
+- Next recommended task:
+  - Re-run the intake OK flow and inspect whether `generatePathway` itself is failing after connectivity is stable.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the unnecessary Settings tab "작업면 정리" informational block.
   - Removed the now-unused CSS for that block.
 - Changed files:
