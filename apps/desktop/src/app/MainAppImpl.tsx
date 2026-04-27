@@ -624,17 +624,6 @@ export default function MainApp() {
           usageInfoText={usageInfoText}
           usageResultClosed={usageResultClosed}
         />
-        <section className="pathway-settings-note" aria-label="작업면 정리 안내">
-          <div className="pathway-panel-head">
-            <div>
-              <span className="pathway-panel-kicker">작업면 정리</span>
-              <strong>상위 탭을 입력 / 워크플로우 / 설정으로 재정렬</strong>
-            </div>
-          </div>
-          <p className="pathway-panel-copy">
-            자원 모델, 근거, 가정, 현실 수정 요청은 이제 워크플로우 화면 안에서 함께 다루고, 시스템 연결과 인증만 설정 탭에서 관리합니다.
-          </p>
-        </section>
       </section>
     );
   }

@@ -3,6 +3,22 @@
 ## Latest micro-update
 
 - Completed work:
+  - Removed the unnecessary Settings tab "작업면 정리" informational block.
+  - Removed the now-unused CSS for that block.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/styles/layout/shell/settings-view.css`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `pnpm --filter desktop exec tsc --noEmit`
+- Known gaps:
+  - None for this small UI removal.
+- Next recommended task:
+  - Continue verifying the Pathway intake generation flow after the elapsed-duration fix.
+
+## Latest micro-update
+
+- Completed work:
   - Removed the current-time display that was incorrectly added to Pathway intake messages.
   - Changed the active PATHWAY progress row to show elapsed work duration from the request start time.
   - Kept the stored `pendingStartedAt` restore path so the elapsed duration survives switching away from and back to the Goals tab.
