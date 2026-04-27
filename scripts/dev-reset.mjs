@@ -15,9 +15,9 @@ const MODES = {
     commands: ['pnpm dev:web', 'pnpm dev:api'],
   },
   desktop: {
-    label: 'desktop',
-    colors: 'magenta',
-    ports: [1420, 8000],
+    label: 'desktop,api',
+    colors: 'magenta,cyan',
+    ports: [1420, 1421, 8000],
     cleanupPatterns: [
       'pnpm dev:desktop-ui',
       'pnpm --filter desktop exec vite dev --host 127.0.0.1 --port 1420',
@@ -27,7 +27,7 @@ const MODES = {
       'fastapi dev apps/api/lifemap_api/main.py --host 127.0.0.1 --port 8000',
       'concurrently -n desktop,api',
     ],
-    commands: ['pnpm dev:desktop-ui'],
+    commands: ['pnpm dev:desktop-ui', 'pnpm dev:api'],
   },
 };
 
@@ -134,7 +134,7 @@ for (const port of mode.ports) {
 
 child = spawn(
   'pnpm',
-  ['exec', 'concurrently', '-n', mode.label, '-c', mode.colors, ...mode.commands],
+  ['exec', 'concurrently', '--kill-others-on-fail', '-n', mode.label, '-c', mode.colors, ...mode.commands],
   {
     stdio: 'inherit',
     env: {

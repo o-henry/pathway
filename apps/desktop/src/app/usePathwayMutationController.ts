@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import {
   acceptRevisionPreview,
+  checkLocalApiReady,
   createGoal,
   createRevisionPreview,
   createStateUpdate,
@@ -104,6 +105,13 @@ export function usePathwayMutationController({
   setStatusMessage,
   stateForm,
 }: UsePathwayMutationControllerOptions) {
+  async function preflightPathwayGeneration() {
+    if (hasTauriRuntime) {
+      await ensureEngineStarted();
+    }
+    await checkLocalApiReady();
+  }
+
   async function handleStartPathwayIntake(goalText: string) {
     const normalizedGoal = goalText.trim();
     if (!normalizedGoal) {
@@ -115,9 +123,7 @@ export function usePathwayMutationController({
       setIsBusy(true);
       setErrorMessage('');
       setGoalAnalysisError(null);
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
+      await preflightPathwayGeneration();
       const goal = await createGoal({
         title: buildIntakeGoalTitle(normalizedGoal),
         description: normalizedGoal,
@@ -174,9 +180,7 @@ export function usePathwayMutationController({
     try {
       setIsBusy(true);
       setErrorMessage('');
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
+      await preflightPathwayGeneration();
       const answerBlock = answers.map((answer, index) => `${index + 1}. ${answer.trim()}`).filter(Boolean).join('\n');
       const goal = await fetchGoal(goalId);
       if (pathwayWorkCancelledRef.current) {
@@ -240,9 +244,7 @@ export function usePathwayMutationController({
     try {
       setIsBusy(true);
       setErrorMessage('');
-      if (hasTauriRuntime) {
-        await ensureEngineStarted();
-      }
+      await preflightPathwayGeneration();
       await collectResearchPlanTargetsForGraph('그래프 생성');
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
@@ -399,6 +401,7 @@ export function usePathwayMutationController({
     handleGeneratePathway,
     handleGeneratePathwayFromIntake,
     handlePreviewStateUpdate,
+    preflightPathwayGeneration,
     handleSelectNode,
     handleStartPathwayIntake,
   };

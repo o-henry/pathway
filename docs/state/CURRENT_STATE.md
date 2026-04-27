@@ -3,6 +3,38 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the desktop dev boot path so `pnpm dev` / `pnpm dev:desktop:services` starts the local API together with the desktop UI service group.
+  - Added `1421` to desktop dev port cleanup because Vite uses it for the WebSocket server, and enabled `concurrently --kill-others-on-fail` so failed partial boots do not leave API/UI processes running.
+  - Added a fast authenticated local API readiness probe and wired Tasks intake approval to run that probe before switching to the graph-generation phase.
+  - Replaced the late "backend not ready" generation failure path with an immediate preflight failure that leaves intake ready for retry.
+  - Added focused API readiness tests.
+- Changed files:
+  - `scripts/dev-reset.mjs`
+  - `apps/desktop/src/lib/api.ts`
+  - `apps/desktop/src/lib/api.test.ts`
+  - `apps/desktop/src/app/usePathwayMutationController.ts`
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/pages/tasks/TasksPage.tsx`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.ts`
+  - `README.md`
+  - `docs/state/EXECPLAN_PATHWAY_DEV_API_BOOT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/lib/api.test.ts apps/desktop/src/app/usePathwayResearchCollector.test.ts apps/desktop/src/app/usePathwayGoalWorkspaceController.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm dev:desktop:services`
+  - `curl -sS http://127.0.0.1:8000/health`
+  - `curl -sS http://127.0.0.1:1420/`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The first local verification exposed stale dev listeners left from the previous run; after manually clearing those PIDs, the updated dev service group started both UI and API successfully.
+  - The API startup prints Arrow CPU feature warnings under the sandbox, but the FastAPI service still starts and responds.
+- Next recommended task:
+  - Run the full Tauri `pnpm dev` path in the normal desktop environment and confirm the intake approval no longer emits a late backend-ready error.
+
+## Latest micro-update
+
+- Completed work:
   - Added focused regression tests around the newly extracted Pathway controller seams.
   - Exposed `createPathwayResearchCollectorActions` so the research collector orchestration can be tested without rendering React hooks.
   - Added tests for research collection success, fallback provider success, and all-provider failure.

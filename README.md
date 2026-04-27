@@ -64,7 +64,8 @@ pnpm dev
 ```
 
 This is the main development command.
-It launches the Tauri desktop app, starts the desktop UI dev server on `1420`, and lets the Tauri shell start the token-protected local API on `8000`.
+It launches the Tauri desktop app, starts the desktop UI dev server on `1420`, and starts the local API on `8000` in the same dev service group.
+The Tauri shell also keeps its own API auto-start guard for installed/bundled launches.
 The reset script clears stale desktop/API listeners before booting the workspace.
 The desktop/web Vite scripts automatically prefer a modern Node runtime from `~/.nvm/versions/node/` because `vite@7` does not run on the older system Node.
 The desktop workflow and Pathway intake analysis use the logged-in Codex CLI session with `GPT-5.5` by default.
@@ -79,6 +80,8 @@ Run the desktop UI dev server without opening the Tauri window:
 ```bash
 pnpm dev:desktop:services
 ```
+
+This command starts both the desktop UI dev server and the local API service used by the Pathway graph workflow.
 
 Run the legacy web surface with the API:
 

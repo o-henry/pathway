@@ -21,6 +21,44 @@ export function setLocalApiToken(token: string | null | undefined): void {
   localApiToken = String(token ?? '').trim();
 }
 
+export async function checkLocalApiReady(timeoutMs = 2500): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const headers = new Headers();
+  if (localApiToken) {
+    headers.set('Authorization', `Bearer ${localApiToken}`);
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/goals`, {
+      cache: 'no-store',
+      headers,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const payload = await response.json();
+        detail = typeof payload?.detail === 'string' ? payload.detail : '';
+      } catch {
+        detail = '';
+      }
+      throw new Error(detail || `Pathway local API readiness check failed (${response.status})`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Pathway local API readiness check timed out');
+    }
+    if (RETRYABLE_FETCH_ERROR_PATTERN.test(message)) {
+      throw new Error('Pathway local API is not reachable');
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

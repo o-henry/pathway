@@ -210,6 +210,7 @@ export default function MainApp() {
     handleGeneratePathway,
     handleGeneratePathwayFromIntake,
     handlePreviewStateUpdate,
+    preflightPathwayGeneration,
     handleSelectNode,
     handleStartPathwayIntake,
   } = usePathwayMutationController({
@@ -502,6 +503,7 @@ export default function MainApp() {
         onCancelPathwayWork={handleCancelPathwayWork}
         onOpenWorkflow={() => setWorkspaceTab('workflow')}
         onGeneratePathwayFromIntake={handleGeneratePathwayFromIntake}
+        onPreflightPathwayGeneration={preflightPathwayGeneration}
         onDeleteGoal={(goalId) => {
           void handleDeletePathwayGoal(goalId);
         }}

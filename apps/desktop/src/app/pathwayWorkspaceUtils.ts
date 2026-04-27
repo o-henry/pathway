@@ -265,15 +265,15 @@ export function formatUiError(error: unknown, fallback: string): string {
   if (/authorization is required|unauthorized|401/i.test(message)) {
     return 'Pathway 로컬 API 인증 토큰이 맞지 않습니다. pnpm dev를 재시작하면 desktop shell이 API를 같은 토큰으로 다시 띄웁니다.';
   }
-  if (/failed to fetch|networkerror|load failed/i.test(message)) {
-    return 'Pathway 로컬 백엔드가 아직 준비되지 않았습니다. 잠시 후 자동 재시도하거나 pnpm dev의 api 서비스를 확인하세요.';
+  if (/failed to fetch|networkerror|load failed|local API is not reachable|readiness check timed out|local backend is not reachable/i.test(message)) {
+    return 'Pathway 로컬 API에 연결하지 못해 그래프 생성을 시작하지 않았습니다. pnpm dev가 API까지 같이 띄우도록 설정되어 있으니 앱을 재시작한 뒤 바로 다시 시도해 주세요.';
   }
   return message || fallback;
 }
 
 export function isLocalApiTransientError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '');
-  return /failed to fetch|networkerror|load failed|Pathway local backend is not reachable/i.test(message);
+  return /failed to fetch|networkerror|load failed|Pathway local backend is not reachable|Pathway local API is not reachable|readiness check timed out/i.test(message);
 }
 
 export function buildIntakeGoalTitle(input: string): string {

@@ -43,6 +43,7 @@ type TasksPageProps = {
   onDeleteGoal?: (goalId: string) => void;
   onOpenWorkflow?: () => void;
   onStartPathwayIntake?: (goalText: string) => Promise<{ goal: GoalRecord; analysis: GoalAnalysisRecord }>;
+  onPreflightPathwayGeneration?: () => Promise<void>;
   onGeneratePathwayFromIntake?: (goalId: string, answers: string[]) => Promise<void>;
   onCancelPathwayWork?: () => Promise<void> | void;
   cwd: string;
@@ -141,7 +142,7 @@ function isApprovalText(input: string): boolean {
 }
 
 function isTransientBackendMessage(input: string): boolean {
-  return /Pathway 로컬 백엔드가 아직 준비되지 않았습니다|failed to fetch|networkerror|load failed/i.test(input);
+  return /Pathway 로컬 백엔드가 아직 준비되지 않았습니다|Pathway 로컬 API에 연결하지 못해|failed to fetch|networkerror|load failed|local API is not reachable|readiness check timed out/i.test(input);
 }
 
 function normalizePathwayIntakeState(input: unknown, goalId: string): PathwayIntakeState | null {
@@ -704,12 +705,16 @@ export default function TasksPage(props: TasksPageProps) {
       try {
         const runId = beginPathwayRun();
         setPathwayIntakePending(true);
+        await props.onPreflightPathwayGeneration?.();
+        if (!isCurrentPathwayRun(runId)) {
+          return;
+        }
         setPathwayIntake((current) => ({
           ...current,
           phase: "generating",
           messages: [
             ...current.messages,
-            makePathwayMessage("assistant", "승인 확인했습니다. 지금부터 답변을 목표 기록에 반영하고 조사/그래프 생성을 시작합니다."),
+            makePathwayMessage("assistant", "승인 확인했습니다. API 연결을 확인했고, 지금부터 답변 반영과 조사/그래프 생성을 시작합니다."),
           ],
         }));
         await props.onGeneratePathwayFromIntake(pathwayIntake.goalId, pathwayIntake.answers);
