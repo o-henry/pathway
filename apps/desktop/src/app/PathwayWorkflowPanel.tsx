@@ -407,6 +407,11 @@ export default function PathwayWorkflowPanel({
                               <em className="pathway-evidence-badge">{evidenceReliabilityLabel(item)}</em>
                               <strong>{item.title}</strong>
                               <span>{item.quote_or_summary}</span>
+                              {item.ranking_reason || item.query_labels?.length ? (
+                                <p>
+                                  랭킹: {item.ranking_reason ?? item.query_labels?.join(', ')}
+                                </p>
+                              ) : null}
                               {item.url ? <p>{item.url}</p> : null}
                             </li>
                           ))}

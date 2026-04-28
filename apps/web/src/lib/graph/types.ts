@@ -74,6 +74,10 @@ export interface EvidenceItem {
   quote_or_summary: string;
   url: string | null;
   reliability: string;
+  rank_score?: number | null;
+  query_labels?: string[];
+  source_layer?: string | null;
+  ranking_reason?: string | null;
 }
 
 export interface AssumptionItem {

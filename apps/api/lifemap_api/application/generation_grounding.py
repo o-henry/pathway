@@ -238,12 +238,17 @@ def plan_retrieval_queries(
 
 def _query_label_bonus(query_label: str) -> float:
     weights = {
+        "curriculum_resources": 0.08,
+        "goal_profile_fit": 0.07,
+        "goal_constraints": 0.06,
         "lived_experience": 0.06,
         "failure_modes": 0.05,
         "switching_conditions": 0.05,
         "alternative_routes": 0.04,
         "route_patterns": 0.03,
     }
+    if query_label.startswith("analysis_"):
+        return 0.04
     return weights.get(query_label, 0.0)
 
 
@@ -312,15 +317,17 @@ def _layer_key(hit: SourceSearchHit) -> str:
 
 def _layer_priority(layer: str) -> int:
     order = {
-        "official": 0,
-        "research": 1,
-        "expert-interpretation": 2,
-        "lived_experience": 3,
-        "personal_story": 4,
-        "manual_note": 5,
-        "public_url_allowed": 6,
-        "public_url_metadata": 7,
-        "unknown": 8,
+        "user_context": 0,
+        "user_saved_note": 1,
+        "manual_note": 2,
+        "official": 3,
+        "research": 4,
+        "expert-interpretation": 5,
+        "lived_experience": 6,
+        "personal_story": 7,
+        "public_url_allowed": 8,
+        "public_url_metadata": 9,
+        "unknown": 10,
     }
     return order.get(layer, 50)
 
@@ -358,6 +365,35 @@ def _select_diverse_hits(
     selected_source_counts: dict[str, int] = {}
     represented_layers: set[str] = set()
     represented_query_labels: set[str] = set()
+
+    required_query_labels = (
+        "curriculum_resources",
+        "goal_profile_fit",
+        "goal_constraints",
+        "switching_conditions",
+        "failure_modes",
+    )
+
+    for label in required_query_labels:
+        if len(selected) >= limit:
+            return selected
+        candidate = next(
+            (
+                item
+                for item in ranked_hits
+                if label in item.query_labels
+                and item.hit.chunk_id not in selected_chunk_ids
+                and selected_source_counts.get(item.hit.source_id, 0) == 0
+            ),
+            None,
+        )
+        if candidate is None:
+            continue
+        selected.append(candidate)
+        selected_chunk_ids.add(candidate.hit.chunk_id)
+        selected_source_counts[candidate.hit.source_id] = 1
+        represented_layers.add(_layer_key(candidate.hit))
+        represented_query_labels.update(candidate.query_labels)
 
     layer_order = sorted(
         {_layer_key(candidate.hit) for candidate in ranked_hits},
@@ -445,6 +481,37 @@ def _diversity_warning(selected_hits: list[RankedGroundingHit]) -> str | None:
     return None
 
 
+def _grounding_warnings(selected_hits: list[RankedGroundingHit]) -> list[str]:
+    warnings = []
+    diversity_warning = _diversity_warning(selected_hits)
+    if diversity_warning:
+        warnings.append(diversity_warning)
+
+    represented_query_labels = {
+        label for candidate in selected_hits for label in candidate.query_labels
+    }
+    if selected_hits and "curriculum_resources" not in represented_query_labels:
+        warnings.append(
+            "Retrieved evidence does not include a curriculum/resource-planning hit; "
+            "node instructions should keep resource choices tentative."
+        )
+    if selected_hits and not represented_query_labels & {"goal_profile_fit", "goal_constraints"}:
+        warnings.append(
+            "Retrieved evidence does not strongly match the user's current constraints; "
+            "personalization should rely on explicit profile/current-state facts and assumptions."
+        )
+    return warnings
+
+
+def _ranking_reason(candidate: RankedGroundingHit) -> str:
+    labels = ", ".join(candidate.query_labels) or "retrieval"
+    layer = _layer_key(candidate.hit)
+    return (
+        f"selected from {layer} evidence after matching {labels}; "
+        f"rank score {candidate.score:.3f}"
+    )
+
+
 def build_grounding_packet(
     *,
     goal: Goal,
@@ -475,13 +542,17 @@ def build_grounding_packet(
     evidence_items = tuple(
         EvidenceItem(
             id=f"ev_rag_{index:03d}",
-            source_id=hit.source_id,
-            title=hit.title,
-            quote_or_summary=hit.snippet,
-            url=hit.url,
-            reliability=hit.reliability,
+            source_id=item.hit.source_id,
+            title=item.hit.title,
+            quote_or_summary=item.hit.snippet,
+            url=item.hit.url,
+            reliability=item.hit.reliability,
+            rank_score=round(item.score, 6),
+            query_labels=list(item.query_labels),
+            source_layer=_layer_key(item.hit),
+            ranking_reason=_ranking_reason(item),
         )
-        for index, hit in enumerate((item.hit for item in selected_hits), start=1)
+        for index, item in enumerate(selected_hits, start=1)
     )
 
     warnings: list[str] = []
@@ -489,9 +560,7 @@ def build_grounding_packet(
         warnings.append(
             "No source evidence matched this goal yet; the map should lean on explicit assumptions."
         )
-    diversity_warning = _diversity_warning(selected_hits)
-    if diversity_warning:
-        warnings.append(diversity_warning)
+    warnings.extend(_grounding_warnings(selected_hits))
 
     return GroundingPacket(
         queries=queries,

@@ -267,9 +267,19 @@ For these nodes, `node.data` should include a complete curriculum card:
   use first
 - `session_cadence`: starting repetition rhythm
 - `progression_rule`: how to advance, slow down, or reduce scope
+- `source_ranking_basis`: why the linked evidence was selected for this node
+- `user_state_basis`: which profile/current-state facts or missing facts shaped
+  the instruction
+- `curriculum_order_basis`: why this node appears at this point in the
+  progression sequence
 
 If some of this cannot be grounded, the node should say so through assumptions
 and higher uncertainty rather than inventing confidence.
+
+The last three fields may be attached deterministically after LLM validation.
+They should cite retrieved evidence IDs, query/ranking signals, current user
+state, and incoming/outgoing progression conditions rather than asking the model
+to invent a justification.
 
 ## 9. Repair strategy
 

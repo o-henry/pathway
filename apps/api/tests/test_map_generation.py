@@ -538,6 +538,11 @@ def test_generate_map_endpoint_creates_valid_map(client: TestClient) -> None:
         "session_cadence",
         "progression_rule",
     }
+    required_trace_fields = {
+        "source_ranking_basis",
+        "user_state_basis",
+        "curriculum_order_basis",
+    }
     user_facing_types = {
         "route_choice",
         "checkpoint",
@@ -548,6 +553,9 @@ def test_generate_map_endpoint_creates_valid_map(client: TestClient) -> None:
     for node in payload["graph_bundle"]["nodes"]:
         if node["type"] in user_facing_types:
             assert required_action_fields.issubset(node["data"])
+            assert required_trace_fields.issubset(node["data"])
+            assert "Speaking checkpoint note" in node["data"]["source_ranking_basis"]
+            assert "주당 가능 시간" in node["data"]["user_state_basis"]
             assert node["evidence_refs"]
     assert len(provider.calls) == 1
     prompt = provider.calls[0][-1]["content"]

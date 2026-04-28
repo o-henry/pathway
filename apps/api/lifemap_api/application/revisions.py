@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from pydantic import ValidationError
 
+from lifemap_api.application.curriculum_trace import attach_curriculum_trace
 from lifemap_api.application.errors import EntityNotFoundError, GenerationFailedError
 from lifemap_api.application.generation import SCHEMA_NAME, _serialize_goal, _serialize_profile
 from lifemap_api.application.generation_grounding import (
@@ -86,6 +87,9 @@ def _build_revision_system_prompt() -> str:
           completed, or proposed.
         - Use revision_meta.change_note on nodes that changed materially.
         - Use evidence ids only from the grounding packet.
+        - The grounding packet may include ranking metadata such as
+          `query_labels`, `source_layer`, `rank_score`, and `ranking_reason`;
+          treat it as relevance context, not as extra factual proof.
         - Unsupported claims must be captured as assumptions.
         - Preserve existing ontology `semantic_role` values when they are useful.
           Add `semantic_role` for new node types using broad roles such as goal,
@@ -119,6 +123,8 @@ def _build_revision_system_prompt() -> str:
         - Ground every instruction in the latest user-reported reality, linked
           evidence, or an explicit assumption. Do not turn guesses into
           confident advice.
+        - Sequence new curriculum steps from the user's latest state first,
+          then source fit, then progression/switch conditions.
         - Do not write about what Pathway analyzed. Write instructions the user
           can follow.
         - Keep `ontology.node_types[].fields`, `node.style_overrides`, and
@@ -234,6 +240,8 @@ def _validate_revised_bundle(
     source_map: LifeMap,
     goal_id: str,
     grounding_packet,
+    profile: Profile | None,
+    current_state: CurrentStateSnapshot | None,
 ) -> GraphBundle:
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = candidate.model_copy(
@@ -247,7 +255,13 @@ def _validate_revised_bundle(
     action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
     action_validated = enforce_pathway_actions(action_attached)
     grounded = validate_bundle_grounding(action_validated, grounding_packet)
-    return enforce_pathway_grounding(grounded, grounding_packet)
+    fully_grounded = enforce_pathway_grounding(grounded, grounding_packet)
+    return attach_curriculum_trace(
+        bundle=fully_grounded,
+        grounding_packet=grounding_packet,
+        profile=profile,
+        current_state=current_state,
+    )
 
 
 def _revision_extra_query_texts(
@@ -341,6 +355,8 @@ def _attempt_revision_generation(
                 source_map=source_map,
                 goal_id=goal.id,
                 grounding_packet=grounding_packet,
+                profile=profile,
+                current_state=current_state,
             )
         except (ValidationError, ValueError) as exc:
             last_error = str(exc)

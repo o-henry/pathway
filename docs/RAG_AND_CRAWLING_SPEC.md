@@ -158,6 +158,18 @@ Retrieval result must include:
 - similarity score
 - reliability label
 
+Generation grounding should preserve ranking context when a chunk becomes a
+graph evidence item:
+
+- matched retrieval query labels
+- source layer / family
+- final rank score
+- concise ranking reason
+
+This ranking context is not extra factual proof. It explains why the system
+selected a source for synthesis, and it lets each curriculum node show which
+source and user-state signals shaped its order.
+
 ## 8. RAG packet for generation
 
 Before graph generation, build an evidence packet:
@@ -174,7 +186,11 @@ Before graph generation, build an evidence packet:
       "title": "...",
       "snippet": "...",
       "source_type": "manual_note",
-      "reliability": "user_saved_note"
+      "reliability": "user_saved_note",
+      "query_labels": ["curriculum_resources", "goal_profile_fit"],
+      "source_layer": "manual_note",
+      "rank_score": 0.82,
+      "ranking_reason": "selected from manual_note evidence after matching curriculum_resources and goal_profile_fit"
     }
   ]
 }

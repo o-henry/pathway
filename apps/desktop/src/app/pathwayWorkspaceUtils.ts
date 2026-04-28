@@ -24,6 +24,9 @@ const ACTION_FIELD_LABELS: Record<string, string> = {
   progression_rule: '진도 조정',
   evidence_basis: '근거 신호',
   assumption_basis: '가정 신호',
+  source_ranking_basis: '자료 랭킹 이유',
+  user_state_basis: '사용자 상태 근거',
+  curriculum_order_basis: '순서가 나온 이유',
 };
 
 const ACTION_FIELD_ORDER = Object.keys(ACTION_FIELD_LABELS);
@@ -94,7 +97,7 @@ function extractActionableNodeEntries(node: GraphNodeRecord): string[] {
       return value ? `${ACTION_FIELD_LABELS[key]}: ${value}` : '';
     })
     .filter(Boolean)
-    .slice(0, 11);
+    .slice(0, 14);
 }
 
 function conciseText(value: unknown, maxLength = 180): string {
@@ -132,7 +135,7 @@ export function buildNodeActionGuidance(
     title: missingActionDetail
       ? '오늘 검증할 최소 행동'
       : '개인화 커리큘럼',
-    steps: steps.slice(0, 11),
+    steps: steps.slice(0, 14),
     note: missingActionDetail
       ? '전용 실행 필드가 비어 있어 라벨과 요약으로 만든 임시 안내입니다. 기록을 남기면 다음 리비전에서 이 노드를 더 구체화할 수 있습니다.'
       : '실행 후 결과를 기록하면 다음 리비전에서 이 경로를 유지할지, 약화할지, 다른 루트로 돌릴지 판단할 수 있습니다.',

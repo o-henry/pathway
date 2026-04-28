@@ -137,12 +137,21 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
 def _layer_bonus(hit: SourceSearchHit) -> float:
     layer = str(hit.metadata.get("layer", "")).strip().lower()
     weights = {
+        "user_context": 0.18,
+        "user_saved_note": 0.18,
+        "manual_note": 0.16,
         "official": 0.08,
         "research": 0.08,
         "expert-interpretation": 0.06,
         "lived_experience": 0.16,
         "personal_story": 0.14,
+        "public_url_allowed": 0.03,
+        "public_url_metadata": -0.18,
     }
+    if hit.source_type == "manual_note":
+        return max(weights.get(layer, 0.0), 0.16)
+    if hit.source_type == "public_url_metadata":
+        return -0.18
     return weights.get(layer, 0.0)
 
 

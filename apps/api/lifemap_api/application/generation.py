@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from pydantic import ValidationError
 
+from lifemap_api.application.curriculum_trace import attach_curriculum_trace
 from lifemap_api.application.errors import EntityNotFoundError, GenerationFailedError
 from lifemap_api.application.generation_grounding import (
     GroundingPacket,
@@ -15,8 +16,8 @@ from lifemap_api.application.generation_grounding import (
 from lifemap_api.application.graph_quality import (
     attach_missing_action_fields,
     attach_missing_decision_evidence,
-    enforce_pathway_grounding,
     enforce_pathway_actions,
+    enforce_pathway_grounding,
     enforce_pathway_shape,
     enforce_semantic_roles,
 )
@@ -75,6 +76,9 @@ def _build_system_prompt() -> str:
         - Keep the graph grounded in the goal, profile constraints, and explicit assumptions.
         - Use retrieved evidence only through the evidence IDs provided in the grounding packet.
         - Never invent evidence IDs, source titles, or quotes.
+        - The grounding packet may include `query_labels`, `source_layer`,
+          `rank_score`, and `ranking_reason`; use those signals to explain why
+          a source is relevant, but do not exaggerate what the snippet proves.
         - If a claim is not supported by the grounding packet, express it as an assumption instead.
         - Treat `public_url_metadata` items as discovery candidates only. Do not use them
           as proof for claims about the page content unless the node is explicitly about
@@ -171,6 +175,10 @@ def _build_user_prompt(
         - Cover the evidence landscape broadly: academic papers, public community
           experience, YouTube/open media, structured courses, lectures, tutors,
           academies, official guides, and failure/switch cases where relevant.
+        - When sequencing curriculum nodes, account for evidence rank, source
+          family, profile constraints, current state, and progression/switch
+          conditions. The app will add deterministic trace fields after
+          validation, so keep your own curriculum fields compact and grounded.
         - Prefer route families that show tradeoffs and switching conditions
           instead of collapsing everything into one default path.
         - Make the graph broad enough that the user can see multiple viable,
@@ -264,6 +272,8 @@ def _validate_candidate(
     raw_output: str,
     goal: Goal,
     grounding_packet: GroundingPacket,
+    profile: Profile | None,
+    current_state: CurrentStateSnapshot | None,
 ) -> GraphBundle:
     candidate = GraphBundle.model_validate_json(raw_output)
     normalized = _normalize_bundle(candidate, goal)
@@ -274,7 +284,13 @@ def _validate_candidate(
     action_validated = enforce_pathway_actions(action_attached)
     grounded = validate_bundle_grounding(action_validated, grounding_packet)
     shaped = enforce_pathway_shape(grounded)
-    return enforce_pathway_grounding(shaped, grounding_packet)
+    fully_grounded = enforce_pathway_grounding(shaped, grounding_packet)
+    return attach_curriculum_trace(
+        bundle=fully_grounded,
+        grounding_packet=grounding_packet,
+        profile=profile,
+        current_state=current_state,
+    )
 
 
 def _attempt_generation(
@@ -320,7 +336,13 @@ def _attempt_generation(
         )
 
         try:
-            return _validate_candidate(raw_output, goal, grounding_packet)
+            return _validate_candidate(
+                raw_output,
+                goal,
+                grounding_packet,
+                profile,
+                current_state,
+            )
         except (ValidationError, ValueError) as exc:
             last_error = str(exc)
             if attempt_index >= max_repair_attempts:

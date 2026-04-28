@@ -105,6 +105,10 @@ class EvidenceItem(GraphDomainModel):
     quote_or_summary: str = Field(min_length=1)
     url: str | None = None
     reliability: str = Field(min_length=1, max_length=80)
+    rank_score: float | None = None
+    query_labels: list[str] = Field(default_factory=list)
+    source_layer: str | None = Field(default=None, min_length=1, max_length=80)
+    ranking_reason: str | None = None
 
 
 class AssumptionItem(GraphDomainModel):

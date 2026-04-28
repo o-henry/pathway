@@ -43,14 +43,19 @@ describe("pathwayWorkspaceUtils", () => {
         session_cadence: "Two sessions this week.",
         progression_rule: "Advance after two successful sessions.",
         evidence_basis: "Manual note says repeated output matters.",
+        source_ranking_basis: "ev_rag_001 was selected from manual_note after matching curriculum_resources.",
+        user_state_basis: "Uses weekly evening availability and low budget.",
+        curriculum_order_basis: "Placed before tutor escalation because the first step is low-cost validation.",
       }),
       [],
       [],
     );
 
     expect(guidance.title).toBe("개인화 커리큘럼");
-    expect(guidance.steps).toHaveLength(11);
-    expect(guidance.steps.at(-1)).toContain("근거 신호");
+    expect(guidance.steps).toHaveLength(14);
+    expect(guidance.steps.at(-3)).toContain("자료 랭킹 이유");
+    expect(guidance.steps.at(-2)).toContain("사용자 상태 근거");
+    expect(guidance.steps.at(-1)).toContain("순서가 나온 이유");
   });
 
   it("hides action and display metadata from raw visible fields", () => {

@@ -3,6 +3,46 @@
 ## Latest micro-update
 
 - Completed work:
+  - Strengthened source ranking for curriculum generation by preserving rank score, matched query labels, source layer, and ranking reason on graph evidence items.
+  - Added ranking bias toward user-owned/manual context and away from metadata-only public URL candidates.
+  - Reserved grounding selection capacity for curriculum resources, profile fit, constraints, switching conditions, and failure modes when matching evidence exists.
+  - Added deterministic post-generation/revision trace attachment so user-facing curriculum nodes now include `source_ranking_basis`, `user_state_basis`, and `curriculum_order_basis`.
+  - Expanded the desktop selected-node curriculum panel and frontend evidence types so those trace fields can be read directly.
+  - Documented ranking metadata and curriculum trace fields in `docs/RAG_AND_CRAWLING_SPEC.md`, `docs/DYNAMIC_GRAPH_SPEC.md`, and `docs/state/EXECPLAN_CURRICULUM_GROUNDING_TRACE.md`.
+- Changed files:
+  - `apps/api/lifemap_api/application/curriculum_trace.py`
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/application/sources.py`
+  - `apps/api/lifemap_api/domain/graph_bundle.py`
+  - `apps/api/tests/test_generation_grounding.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/PathwayWorkflowPanel.tsx`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.ts`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `apps/desktop/src/lib/types.ts`
+  - `apps/web/src/lib/graph/types.ts`
+  - `docs/DYNAMIC_GRAPH_SPEC.md`
+  - `docs/RAG_AND_CRAWLING_SPEC.md`
+  - `docs/state/EXECPLAN_CURRICULUM_GROUNDING_TRACE.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py apps/api/tests/test_graph_quality.py apps/api/tests/test_revisions.py`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/application/curriculum_trace.py apps/api/lifemap_api/application/generation_grounding.py apps/api/lifemap_api/application/generation.py apps/api/lifemap_api/application/revisions.py apps/api/lifemap_api/application/sources.py apps/api/lifemap_api/domain/graph_bundle.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - Source ranking now exposes why selected evidence was used, but actual source discovery still depends on the existing bounded research targets and permitted collection flow.
+  - The new ranking reason is relevance provenance, not proof-strength scoring; unsupported claims must still stay as assumptions.
+- Next recommended task:
+  - Add a backend evidence-coverage report for each generated map, summarizing which query families and user-state facts are covered, weak, or missing before the graph is accepted.
+
+## Previous micro-update
+
+- Completed work:
   - Fixed the generated graph first-render readability issue from the latest screenshot.
   - Marked isolated context-grid nodes as context-only layout metadata so they remain visible but no longer shrink the initial route viewport.
   - Added initial viewport helpers that focus on the primary route graph, enforce a readable `0.82` initial zoom floor, and left-anchor oversized route maps instead of fitting every far-right context note into one miniature view.

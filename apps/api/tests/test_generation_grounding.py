@@ -242,7 +242,7 @@ def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
         current_state=_current_state(),
         embedding_provider=FakeEmbeddingProvider(),
         search_index=search_index,
-        query_limit=6,
+        query_limit=8,
         hits_per_query=5,
         evidence_limit=4,
         extra_query_texts=(),
@@ -253,6 +253,11 @@ def test_build_grounding_packet_prefers_diverse_evidence_layers() -> None:
     assert {"JLPT speaking guidance", "Conversation rubric"} & titles
     assert "원어민 대화 후기" in titles
     assert "개인 시행착오 기록" in titles or "피드백 루프 연구" in titles
+    assert all(item.rank_score is not None for item in packet.evidence_items)
+    assert all(item.source_layer for item in packet.evidence_items)
+    assert all(item.ranking_reason for item in packet.evidence_items)
+    assert any("curriculum_resources" in item.query_labels for item in packet.evidence_items)
+    assert any("goal_profile_fit" in item.query_labels for item in packet.evidence_items)
 
 
 def test_build_grounding_packet_keeps_metadata_candidates_from_crowding_out_evidence() -> None:
@@ -298,6 +303,7 @@ def test_build_grounding_packet_keeps_metadata_candidates_from_crowding_out_evid
     assert all(item.reliability != "public_url_metadata" for item in packet.evidence_items)
     assert len(packet.evidence_items) == 2
     assert all(item.id.startswith("ev_rag_") for item in packet.evidence_items)
+    assert all(item.ranking_reason for item in packet.evidence_items)
     assert not any(
         "does not yet include lived-experience" in warning for warning in packet.warnings
     )
