@@ -42,6 +42,30 @@ The intended Pathway direction is different:
 6. The user navigates routes, chooses actions, and records reality.
 7. The graph mutates as the user's current situation changes.
 
+## 3.1 Personal curriculum contract
+
+Pathway should not merely draw possible routes. For each live goal, it should
+produce an evolving, personalized curriculum that the user can actually read,
+follow, check, and revise.
+
+That curriculum must be:
+
+- personal: adapted to the user's goal, current state, constraints, budget,
+  energy, preferences, history, and selected route
+- practical: written as concrete next actions, session cadence, resources to
+  use, success checks, switch conditions, and what to record afterward
+- grounded: based on user-provided facts, collected source evidence, lived
+  experience signals, or explicit assumptions
+- honest: unsupported claims must be labeled as assumptions or suggestions, not
+  presented as evidence-backed truth
+- evolving: reality updates should alter the curriculum by appending,
+  annotating, weakening, or superseding routes while preserving prior graph
+  history
+
+Personalized does not mean hallucinated. If the system does not have enough
+evidence or user context to make a strong recommendation, it should say what is
+unknown, use a smaller validation step, and ask for or collect better evidence.
+
 ## 4. Required graph behaviors
 
 The graph should support:

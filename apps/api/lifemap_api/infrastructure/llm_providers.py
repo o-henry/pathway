@@ -228,6 +228,10 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
                 "evidence_basis": nullable_string,
                 "assumption_basis": nullable_string,
                 "fit_reason": nullable_string,
+                "personalization_basis": nullable_string,
+                "resource_plan": nullable_string,
+                "session_cadence": nullable_string,
+                "progression_rule": nullable_string,
             },
             "required": [
                 "user_step",
@@ -238,6 +242,10 @@ def _to_codex_output_schema(schema: dict[str, Any]) -> dict[str, Any]:
                 "evidence_basis",
                 "assumption_basis",
                 "fit_reason",
+                "personalization_basis",
+                "resource_plan",
+                "session_cadence",
+                "progression_rule",
             ],
         }
         return {

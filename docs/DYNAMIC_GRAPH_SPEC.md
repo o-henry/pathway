@@ -244,6 +244,33 @@ Generation steps:
 8. Layout.
 9. Persist.
 
+## 8.1 Personalized curriculum node data
+
+User-facing route, checkpoint, risk, switch, fallback, practice, resource, and
+curriculum nodes must be useful as a clicked context panel without additional
+interpretation. A node should not pass quality checks just because it has a
+label and a vague summary.
+
+For these nodes, `node.data` should include a complete curriculum card:
+
+- `user_step`: the immediate action the user should take
+- `how_to_do_it`: detailed sequence, duration/frequency, resource, and expected
+  output or behavior
+- `success_check`: measurable pass/fail or progress signal
+- `record_after`: what the user should report back so the graph can evolve
+- `switch_condition`: when to weaken, supersede, or change route
+- `fit_reason`: why this route fits the current goal/state
+- `evidence_basis`: evidence signal or source title supporting the instruction
+- `personalization_basis`: user fact, constraint, preference, or explicit
+  assumption that makes this instruction personal
+- `resource_plan`: what source, tool, person, course, media, or environment to
+  use first
+- `session_cadence`: starting repetition rhythm
+- `progression_rule`: how to advance, slow down, or reduce scope
+
+If some of this cannot be grounded, the node should say so through assumptions
+and higher uncertainty rather than inventing confidence.
+
 ## 9. Repair strategy
 
 If validation fails:

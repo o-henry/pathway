@@ -61,6 +61,9 @@ def test_codex_graph_bundle_schema_is_strict_for_nested_objects() -> None:
     assert node_schema["properties"]["data"]["additionalProperties"] is False
     assert "user_step" in node_data_schema["properties"]
     assert "how_to_do_it" in node_data_schema["properties"]
+    assert "personalization_basis" in node_data_schema["properties"]
+    assert "resource_plan" in node_data_schema["properties"]
+    assert "progression_rule" in node_data_schema["properties"]
 
 
 @pytest.fixture()
@@ -522,7 +525,19 @@ def test_generate_map_endpoint_creates_valid_map(client: TestClient) -> None:
     assert payload["graph_bundle"]["bundle_id"] == "gb_test_001"
     assert payload["graph_bundle"]["evidence"][0]["id"] == "ev_rag_001"
     assert payload["graph_bundle"]["evidence"][0]["title"] == "Speaking checkpoint note"
-    required_action_fields = {"user_step", "how_to_do_it", "success_check", "record_after"}
+    required_action_fields = {
+        "user_step",
+        "how_to_do_it",
+        "success_check",
+        "record_after",
+        "switch_condition",
+        "fit_reason",
+        "evidence_basis",
+        "personalization_basis",
+        "resource_plan",
+        "session_cadence",
+        "progression_rule",
+    }
     user_facing_types = {
         "route_choice",
         "checkpoint",

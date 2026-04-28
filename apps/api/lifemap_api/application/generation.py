@@ -100,15 +100,27 @@ def _build_system_prompt() -> str:
         - Include only the evidence items actually referenced by at least one node.
         - For every route, checkpoint, risk, cost, switch, fallback, curriculum,
           media, community, tutor/academy, and practice node, `node.data` must
-          include concrete user-facing execution fields:
-          `user_step`, `how_to_do_it`, `success_check`, `record_after`, and,
-          when relevant, `switch_condition`.
-        - Those action fields must be derived from the linked evidence and the
-          user's constraints. Do not use internal analysis prose, generic advice,
-          or "this node represents..." explanations.
-        - A clicked node should read like instructions the user can follow today:
-          what to do, with what resource, for how long or how often, what result
-          counts, and what to record for the next graph revision.
+          include a complete personalized curriculum card:
+          `user_step`, `how_to_do_it`, `success_check`, `record_after`,
+          `switch_condition`, `fit_reason`, `evidence_basis`,
+          `personalization_basis`, `resource_plan`, `session_cadence`,
+          and `progression_rule`.
+        - Those curriculum fields must be derived from linked evidence, the user's
+          goal/profile/current-state constraints, or explicit assumptions. Never
+          launder unsupported claims into confident advice.
+        - `how_to_do_it` should be detailed enough to follow without guessing:
+          concrete sequence, duration/frequency, resource to use, difficulty
+          setting, and what artifact or behavior to produce.
+        - `personalization_basis` should say why this instruction fits the user
+          now: time, budget, energy, preference, current state, selected route,
+          or an explicit assumption when the data is missing.
+        - `evidence_basis` should name the evidence signal or source title. If the
+          node is mostly an assumption, say so in `assumption_basis` and keep
+          `uncertainty` high.
+        - A clicked node should read like instructions the user can follow today
+          and this week: what to do, with what resource, for how long/how often,
+          what result counts, when to switch, and what to record for the next
+          graph revision.
         - Keep `ontology.node_types[].fields`, `node.style_overrides`,
           `edge.style_overrides`, and `node.revision_meta` as empty objects/arrays
           unless a repair prompt explicitly asks otherwise.
@@ -170,8 +182,10 @@ def _build_user_prompt(
         - Use node summaries that explain tradeoffs, not just labels.
         - Make each node actionable enough for a context panel: if the user clicks
           it, `node.data.user_step`, `node.data.how_to_do_it`,
-          `node.data.success_check`, and `node.data.record_after` should tell
-          the user what to do next. Avoid self-descriptions of the graph.
+          `node.data.success_check`, `node.data.record_after`,
+          `node.data.resource_plan`, `node.data.session_cadence`,
+          and `node.data.progression_rule` should tell the user what to do next.
+          Avoid self-descriptions of the graph.
         - Do not write node action text that brags about what Pathway analyzed.
           Write instructions for the user.
         - Keep scores within 0 and 1.
@@ -212,9 +226,12 @@ def _build_repair_prompt(
         - If validation says nodes are missing evidence, attach allowed evidence ids
           from the packet to the specific route/support nodes they justify. Do not
           leave user-facing decision nodes ungrounded when usable evidence exists.
-        - If validation says nodes are missing action fields, fill `node.data`
+        - If validation says nodes are missing curriculum fields, fill `node.data`
           with concrete user instructions: `user_step`, `how_to_do_it`,
-          `success_check`, and `record_after`. Do not describe what Pathway analyzed.
+          `success_check`, `record_after`, `switch_condition`, `fit_reason`,
+          `evidence_basis`, `personalization_basis`, `resource_plan`,
+          `session_cadence`, and `progression_rule`. Do not describe what
+          Pathway analyzed.
         - Do not use `public_url_metadata` evidence as support for route claims;
           use it only for source-review/candidate-source nodes.
 

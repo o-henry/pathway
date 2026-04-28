@@ -1,7 +1,29 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPathwayLayout, buildTerminalGoalDisplayBundle } from "./PathwayRailCanvas";
+import {
+  buildPathwayInitialFocusBounds,
+  buildPathwayLayout,
+  buildTerminalGoalDisplayBundle,
+  type LayoutNode,
+  resolvePathwayInitialViewport,
+} from "./PathwayRailCanvas";
 import type { GraphBundle } from "../lib/types";
+
+function expectNoNodeOverlap(layoutNodes: LayoutNode[]): void {
+  const nodes = layoutNodes.filter((node) => !node.isContextOnly);
+  for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < nodes.length; rightIndex += 1) {
+      const left = nodes[leftIndex];
+      const right = nodes[rightIndex];
+      const overlaps =
+        left.x < right.x + right.width &&
+        left.x + left.width > right.x &&
+        left.y < right.y + right.height &&
+        left.y + left.height > right.y;
+      expect(overlaps, `${left.node.id} overlaps ${right.node.id}`).toBe(false);
+    }
+  }
+}
 
 function bundleFixture(): GraphBundle {
   return {
@@ -226,7 +248,7 @@ function branchedRouteBundleFixture(): GraphBundle {
 }
 
 describe("buildPathwayLayout", () => {
-  it("creates a single root display goal when a bundle has no goal node", () => {
+  it("creates a central display goal when a bundle has no goal node", () => {
     const bundle = buildTerminalGoalDisplayBundle(branchedRouteBundleFixture(), "Native conversation");
     const layout = buildPathwayLayout(bundle);
     const nodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
@@ -238,10 +260,11 @@ describe("buildPathwayLayout", () => {
     expect(displayGoal?.node.id).toBe("display_goal");
     expect(displayGoal?.depth).toBe(0);
     expect(shortRoute?.depth).toBeLessThan(deepRoute?.depth ?? 0);
-    expect(shortRoute?.x).toBeGreaterThan(displayGoal?.x ?? 0);
+    expect(displayGoal?.radialSector).toBe("goal");
+    expect(shortRoute?.radialSector).toBeTruthy();
   });
 
-  it("keeps a generated goal as the only GOAL and lays branches to its right", () => {
+  it("keeps a generated goal as the only GOAL and spreads branches around it", () => {
     const bundle = buildTerminalGoalDisplayBundle({
       ...branchedRouteBundleFixture(),
       ontology: {
@@ -285,13 +308,20 @@ describe("buildPathwayLayout", () => {
     const start = nodeById.get("n_start");
     const shortRoute = nodeById.get("n_short");
     const deepRoute = nodeById.get("n_deep");
+    const sectors = new Set(
+      layout.nodes
+        .filter((item) => item.node.id !== "n_goal" && !item.isContextOnly)
+        .map((item) => item.radialSector),
+    );
 
     expect(bundle.nodes.filter((node) => node.data.pathway_display_role === "primary_goal")).toHaveLength(1);
     expect(bundle.nodes.filter((node) => node.data.pathway_display_role === "terminal_goal")).toHaveLength(0);
     expect(goal?.depth).toBe(0);
     expect(start?.depth).toBe(1);
-    expect(shortRoute?.x).toBeGreaterThan(goal?.x ?? 0);
-    expect(deepRoute?.x).toBeGreaterThan(shortRoute?.x ?? 0);
+    expect(goal?.radialSector).toBe("goal");
+    expect(sectors.size).toBeGreaterThanOrEqual(3);
+    expect(shortRoute?.radialSector).not.toBe(deepRoute?.radialSector);
+    expectNoNodeOverlap(layout.nodes);
   });
 
   it("moves isolated context-only nodes to a right-side grid instead of the root lane", () => {
@@ -334,5 +364,66 @@ describe("buildPathwayLayout", () => {
     );
 
     expect(contextNode?.x).toBeGreaterThan(maxMainRouteX);
+    expect(contextNode?.isContextOnly).toBe(true);
+    expect(nodeById.get("n_start")?.isContextOnly).toBe(false);
+    expectNoNodeOverlap(layout.nodes);
+  });
+
+  it("excludes context-only nodes from the initial viewport focus", () => {
+    const source = branchedRouteBundleFixture();
+    const bundle = buildTerminalGoalDisplayBundle({
+      ...source,
+      ontology: {
+        ...source.ontology,
+        node_types: [
+          ...source.ontology.node_types,
+          {
+            id: "risk_type",
+            label: "Risk",
+            description: "Risk context",
+            semantic_role: "risk",
+            fields: [],
+          },
+        ],
+      },
+      nodes: [
+        ...source.nodes,
+        {
+          id: "n_context_orphan",
+          type: "risk_type",
+          label: "Context-only note",
+          summary: "This node has no progression edges and should not shrink the initial route viewport.",
+          data: {},
+          evidence_refs: [],
+          assumption_refs: [],
+        },
+      ],
+    }, "Native conversation");
+    const layout = buildPathwayLayout(bundle);
+    const focusBounds = buildPathwayInitialFocusBounds(layout.nodes, layout.bounds);
+    const contextNode = layout.nodes.find((item) => item.node.id === "n_context_orphan");
+
+    expect(contextNode?.isContextOnly).toBe(true);
+    expect(focusBounds.maxX).toBeLessThan(contextNode?.x ?? 0);
+  });
+
+  it("keeps the initial viewport readable instead of shrinking a wide route map to overview scale", () => {
+    const viewport = resolvePathwayInitialViewport({
+      canvasWidth: 800,
+      canvasHeight: 460,
+      focusBounds: {
+        minX: 420,
+        minY: 180,
+        maxX: 2600,
+        maxY: 420,
+      },
+      stageInsetX: 16,
+      stageInsetY: 20,
+    });
+    const centeredScrollLeft = 16 + ((420 + 2600) / 2) * viewport.zoom - 800 / 2;
+
+    expect(viewport.zoom).toBeGreaterThanOrEqual(0.68);
+    expect(viewport.scrollLeft).toBeLessThan(centeredScrollLeft);
+    expect(viewport.scrollTop).toBeGreaterThanOrEqual(0);
   });
 });

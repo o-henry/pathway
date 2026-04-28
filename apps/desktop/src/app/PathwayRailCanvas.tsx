@@ -30,7 +30,7 @@ import type {
   RevisionProposalRecord
 } from "../lib/types";
 
-type LayoutNode = {
+export type LayoutNode = {
   node: GraphNodeRecord;
   x: number;
   y: number;
@@ -38,9 +38,11 @@ type LayoutNode = {
   childCount: number;
   width: number;
   height: number;
+  isContextOnly: boolean;
+  radialSector?: string;
 };
 
-type LayoutBounds = {
+export type LayoutBounds = {
   minX: number;
   minY: number;
   maxX: number;
@@ -64,10 +66,19 @@ type PathwayTone = "sky" | "iris" | "mist" | "goal";
 const TERMINAL_GOAL_DATA_ROLE = "terminal_goal";
 const PRIMARY_GOAL_DATA_ROLE = "primary_goal";
 const PERSONAL_LEARNING_DATA_ROLE = "personal_learning";
-const PATHWAY_NODE_WIDTH = 220;
-const PATHWAY_NODE_HEIGHT = 56;
-const PATHWAY_GOAL_WIDTH = 260;
-const PATHWAY_LEARNING_WIDTH = 240;
+const PATHWAY_NODE_WIDTH = 268;
+const PATHWAY_NODE_HEIGHT = 64;
+const PATHWAY_GOAL_WIDTH = 320;
+const PATHWAY_LEARNING_WIDTH = 280;
+const PATHWAY_INITIAL_MIN_READABLE_ZOOM = 0.68;
+const PATHWAY_INITIAL_MAX_ZOOM = 1.18;
+
+const PATHWAY_RADIAL_SECTORS = [
+  { id: "upper-right", signX: 1, signY: -1 },
+  { id: "lower-right", signX: 1, signY: 1 },
+  { id: "upper-left", signX: -1, signY: -1 },
+  { id: "lower-left", signX: -1, signY: 1 },
+] as const;
 
 export type PersonalLearningDisplayTask = {
   id: string;
@@ -512,10 +523,6 @@ function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): Pathwa
   const dx = targetCenterX - sourceCenterX;
   const dy = targetCenterY - sourceCenterY;
 
-  if (target.depth > source.depth) {
-    return { fromSide: "right", toSide: "left" };
-  }
-
   if (Math.abs(dx) >= Math.abs(dy)) {
     return dx >= 0
       ? { fromSide: "right", toSide: "left" }
@@ -786,10 +793,11 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
         const nextId = orderedNodeIds[index];
         const originalPrevRow = originalRows.get(prevId) ?? 0;
         const originalNextRow = originalRows.get(nextId) ?? 0;
-        if (Math.abs(originalNextRow - originalPrevRow) >= 0.75) {
+        const requiredRowGap = minRowGapForNodes(prevId, nextId);
+        if (Math.abs(originalNextRow - originalPrevRow) >= requiredRowGap) {
           continue;
         }
-        const minRow = (rowByNodeId.get(prevId) ?? 0) + minRowGapForNodes(prevId, nextId);
+        const minRow = (rowByNodeId.get(prevId) ?? 0) + requiredRowGap;
         if ((rowByNodeId.get(nextId) ?? 0) < minRow) {
           rowByNodeId.set(nextId, minRow);
         }
@@ -884,11 +892,165 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
         childCount: footprint?.childCount ?? 0,
         width,
         height,
+        isContextOnly: false,
         x: nodeX,
         y: positionedY.get(node.id) ?? rootBaseY,
       });
     });
   });
+
+  laneDepths.forEach((laneDepth) => {
+    const laneItems = positioned
+      .filter((item) => item.depth === laneDepth && !item.isContextOnly)
+      .sort((left, right) => left.y - right.y);
+    let laneCursorY = Number.NEGATIVE_INFINITY;
+    laneItems.forEach((item) => {
+      const minY = laneCursorY + laneSiblingGap;
+      if (item.y < minY) {
+        item.y = Math.round(minY);
+      }
+      laneCursorY = item.y + item.height;
+    });
+  });
+
+  const primaryGoalItem = positioned.find((item) => item.node.id === primaryGoalNodeId);
+  if (primaryGoalItem) {
+    const radialNodeIds = new Set(positioned.map((item) => item.node.id));
+    const adjacency = new Map<string, string[]>();
+    positioned.forEach((item) => {
+      adjacency.set(item.node.id, []);
+    });
+    progressionEdges.forEach((edge) => {
+      if (!radialNodeIds.has(edge.source) || !radialNodeIds.has(edge.target)) {
+        return;
+      }
+      adjacency.get(edge.source)?.push(edge.target);
+      adjacency.get(edge.target)?.push(edge.source);
+    });
+    adjacency.forEach((items, nodeId) => {
+      adjacency.set(nodeId, [...new Set(items)].sort(compareNodeIds));
+    });
+
+    const directGoalNeighborIds = (adjacency.get(primaryGoalItem.node.id) ?? [])
+      .filter((nodeId) => nodeId !== primaryGoalItem.node.id)
+      .sort(compareNodeIds);
+    const branchSeedIds: string[] = [];
+    const branchSeedIdSet = new Set<string>();
+    const addSeed = (nodeId: string) => {
+      if (nodeId === primaryGoalItem.node.id || branchSeedIdSet.has(nodeId)) {
+        return;
+      }
+      branchSeedIdSet.add(nodeId);
+      branchSeedIds.push(nodeId);
+    };
+    directGoalNeighborIds.forEach(addSeed);
+    let seedFrontier = directGoalNeighborIds;
+    const maxSeedCount = Math.min(
+      8,
+      Math.max(4, positioned.length - 1),
+    );
+    while (branchSeedIds.length < maxSeedCount && seedFrontier.length > 0) {
+      const nextFrontier: string[] = [];
+      seedFrontier.forEach((nodeId) => {
+        (adjacency.get(nodeId) ?? []).forEach((neighborId) => {
+          if (neighborId === primaryGoalItem.node.id) {
+            return;
+          }
+          if (!branchSeedIdSet.has(neighborId)) {
+            nextFrontier.push(neighborId);
+          }
+          addSeed(neighborId);
+        });
+      });
+      seedFrontier = [...new Set(nextFrontier)].sort(compareNodeIds);
+    }
+    if (branchSeedIds.length === 0) {
+      positioned
+        .filter((item) => item.node.id !== primaryGoalItem.node.id)
+        .sort((left, right) => compareNodeIds(left.node.id, right.node.id))
+        .forEach((item) => addSeed(item.node.id));
+    }
+
+    const rootByNodeId = new Map<string, string>();
+    const radialDistanceByNodeId = new Map<string, number>();
+    const radialQueue: string[] = [];
+    branchSeedIds.forEach((nodeId) => {
+      rootByNodeId.set(nodeId, nodeId);
+      radialDistanceByNodeId.set(nodeId, 1);
+      radialQueue.push(nodeId);
+    });
+    while (radialQueue.length > 0) {
+      const current = radialQueue.shift() as string;
+      const rootId = rootByNodeId.get(current) ?? current;
+      const currentDistance = radialDistanceByNodeId.get(current) ?? 1;
+      (adjacency.get(current) ?? []).forEach((neighborId) => {
+        if (neighborId === primaryGoalItem.node.id || rootByNodeId.has(neighborId)) {
+          return;
+        }
+        rootByNodeId.set(neighborId, rootId);
+        radialDistanceByNodeId.set(neighborId, currentDistance + 1);
+        radialQueue.push(neighborId);
+      });
+    }
+    positioned.forEach((item) => {
+      if (item.node.id === primaryGoalItem.node.id || rootByNodeId.has(item.node.id)) {
+        return;
+      }
+      rootByNodeId.set(item.node.id, item.node.id);
+      radialDistanceByNodeId.set(item.node.id, 1);
+      addSeed(item.node.id);
+    });
+
+    const sectorByRootId = new Map<string, (typeof PATHWAY_RADIAL_SECTORS)[number]>();
+    branchSeedIds.forEach((rootId, index) => {
+      sectorByRootId.set(rootId, PATHWAY_RADIAL_SECTORS[index % PATHWAY_RADIAL_SECTORS.length]);
+    });
+    const sectorItems = new Map<string, LayoutNode[]>(
+      PATHWAY_RADIAL_SECTORS.map((sector) => [sector.id, []]),
+    );
+    positioned
+      .filter((item) => item.node.id !== primaryGoalItem.node.id)
+      .forEach((item) => {
+        const rootId = rootByNodeId.get(item.node.id) ?? item.node.id;
+        const sector = sectorByRootId.get(rootId) ?? PATHWAY_RADIAL_SECTORS[0];
+        item.radialSector = sector.id;
+        sectorItems.get(sector.id)?.push(item);
+      });
+
+    const goalCenterX = 1120;
+    const goalCenterY = 620;
+    primaryGoalItem.radialSector = "goal";
+    primaryGoalItem.x = Math.round(goalCenterX - primaryGoalItem.width / 2);
+    primaryGoalItem.y = Math.round(goalCenterY - primaryGoalItem.height / 2);
+    PATHWAY_RADIAL_SECTORS.forEach((sector) => {
+      const items = (sectorItems.get(sector.id) ?? []).sort((left, right) => {
+        const leftRoot = rootByNodeId.get(left.node.id) ?? left.node.id;
+        const rightRoot = rootByNodeId.get(right.node.id) ?? right.node.id;
+        const rootDiff = branchSeedIds.indexOf(leftRoot) - branchSeedIds.indexOf(rightRoot);
+        if (rootDiff !== 0) {
+          return rootDiff;
+        }
+        const distanceDiff =
+          (radialDistanceByNodeId.get(left.node.id) ?? 1) -
+          (radialDistanceByNodeId.get(right.node.id) ?? 1);
+        if (distanceDiff !== 0) {
+          return distanceDiff;
+        }
+        return compareNodeIds(left.node.id, right.node.id);
+      });
+      items.forEach((item, index) => {
+        const distance = Math.max(1, radialDistanceByNodeId.get(item.node.id) ?? 1);
+        const radialX = primaryGoalItem.width / 2 + 190 + (distance - 1) * 315;
+        const radialY = primaryGoalItem.height / 2 + 128 + index * 116;
+        item.x = Math.round(
+          sector.signX > 0
+            ? goalCenterX + radialX
+            : goalCenterX - radialX - item.width,
+        );
+        item.y = Math.round(goalCenterY + sector.signY * radialY - item.height / 2);
+      });
+    });
+  }
 
   const contextNodes = bundle.nodes
     .filter((node) => contextOnlyNodeIds.has(node.id))
@@ -912,6 +1074,7 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
         childCount: 0,
         width,
         height,
+        isContextOnly: true,
         x: Math.round(contextStartX + column * contextColumnGap),
         y: Math.round(contextStartY + row * contextRowGap),
       });
@@ -947,6 +1110,108 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     height,
     bounds: { minX: normalizedMinX, minY: normalizedMinY, maxX: normalizedMaxX, maxY: normalizedMaxY },
     progressionTypeIds,
+  };
+}
+
+function boundsFromRects(
+  rects: Array<{ minX: number; minY: number; maxX: number; maxY: number }>,
+  fallback: LayoutBounds,
+): LayoutBounds {
+  if (rects.length === 0) {
+    return fallback;
+  }
+
+  return {
+    minX: Math.min(...rects.map((item) => item.minX)),
+    minY: Math.min(...rects.map((item) => item.minY)),
+    maxX: Math.max(...rects.map((item) => item.maxX)),
+    maxY: Math.max(...rects.map((item) => item.maxY)),
+  };
+}
+
+export function buildPathwayInitialFocusBounds(layoutNodes: LayoutNode[], fallback: LayoutBounds): LayoutBounds {
+  const primaryNodes = layoutNodes.filter((node) => !node.isContextOnly);
+  const focusNodes = primaryNodes.length > 0 ? primaryNodes : layoutNodes;
+  return boundsFromRects(
+    focusNodes.map((item) => ({
+      minX: item.x,
+      minY: item.y,
+      maxX: item.x + item.width,
+      maxY: item.y + item.height,
+    })),
+    fallback,
+  );
+}
+
+function boundsFromCanvasNodes(nodes: GraphNode[], fallback: LayoutBounds): LayoutBounds {
+  return boundsFromRects(
+    nodes.map((node) => {
+      const config = (node.config as Record<string, unknown>) ?? {};
+      const width = Number(config?.pathwayVisualWidth ?? NODE_WIDTH);
+      const height = Number(config?.pathwayVisualHeight ?? NODE_HEIGHT);
+      return {
+        minX: node.position.x,
+        minY: node.position.y,
+        maxX: node.position.x + width,
+        maxY: node.position.y + height,
+      };
+    }),
+    fallback,
+  );
+}
+
+function isContextOnlyCanvasNode(node: GraphNode): boolean {
+  return Boolean((node.config as Record<string, unknown> | undefined)?.pathwayContextOnly);
+}
+
+export function buildPathwayCanvasInitialFocusBounds(nodes: GraphNode[], fallback: LayoutBounds): LayoutBounds {
+  const primaryNodes = nodes.filter((node) => !isContextOnlyCanvasNode(node));
+  return boundsFromCanvasNodes(primaryNodes.length > 0 ? primaryNodes : nodes, fallback);
+}
+
+export function resolvePathwayInitialViewport({
+  canvasWidth,
+  canvasHeight,
+  focusBounds,
+  stageInsetX,
+  stageInsetY,
+}: {
+  canvasWidth: number;
+  canvasHeight: number;
+  focusBounds: LayoutBounds;
+  stageInsetX: number;
+  stageInsetY: number;
+}): { zoom: number; scrollLeft: number; scrollTop: number } {
+  const viewportPaddingX = Math.min(144, Math.max(80, canvasWidth * 0.08));
+  const viewportPaddingY = Math.min(116, Math.max(72, canvasHeight * 0.12));
+  const availableWidth = Math.max(120, canvasWidth - viewportPaddingX * 2);
+  const availableHeight = Math.max(120, canvasHeight - viewportPaddingY * 2);
+  const contentWidth = Math.max(1, focusBounds.maxX - focusBounds.minX);
+  const contentHeight = Math.max(1, focusBounds.maxY - focusBounds.minY);
+  const fitX = availableWidth / contentWidth;
+  const fitY = availableHeight / contentHeight;
+  const zoom = clampZoom(Math.max(PATHWAY_INITIAL_MIN_READABLE_ZOOM, Math.min(PATHWAY_INITIAL_MAX_ZOOM, fitX, fitY)));
+  const scaledWidth = contentWidth * zoom;
+  const scaledHeight = contentHeight * zoom;
+  const focusCenterX = ((focusBounds.minX + focusBounds.maxX) / 2) * zoom;
+  const focusCenterY = ((focusBounds.minY + focusBounds.maxY) / 2) * zoom;
+  const centeredScrollLeft = stageInsetX + focusCenterX - canvasWidth / 2;
+  const centeredScrollTop = stageInsetY + focusCenterY - canvasHeight / 2;
+  const leftAnchoredScrollLeft = stageInsetX + focusBounds.minX * zoom - viewportPaddingX;
+  const topAnchoredScrollTop = stageInsetY + focusBounds.minY * zoom - viewportPaddingY;
+  const scrollLeft =
+    scaledWidth <= availableWidth * 1.45
+      ? centeredScrollLeft
+      : leftAnchoredScrollLeft;
+  const scrollTop =
+    scaledHeight <= availableHeight * 1.35
+      ? centeredScrollTop
+      : topAnchoredScrollTop;
+
+  return {
+    zoom,
+    scrollLeft: Math.max(0, scrollLeft),
+    scrollTop: Math.max(0, scrollTop),
   };
 }
 
@@ -1044,7 +1309,7 @@ const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_DIRECT_INPUTS: Set<string> = new Set();
 const EMPTY_PROGRESS_NODE_IDS: Set<string> = new Set();
 const EMPTY_ANCHORS: readonly NodeAnchorSide[] = [];
-const PATHWAY_STAGE_INSET_X = 16;
+const PATHWAY_STAGE_INSET_X = 96;
 const PATHWAY_STAGE_INSET_Y = 20;
 const PATHWAY_STAGE_INSET_BOTTOM = 132;
 
@@ -1136,7 +1401,14 @@ export default function PathwayRailCanvas({
     const layout = buildPathwayLayout(bundle);
     const nodeTypes = new Map(bundle.ontology.node_types.map((item) => [item.id, item]));
     const layoutNodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
-    const nodes: GraphNode[] = layout.nodes.map(({ node, x, y, depth, childCount, width, height }) => {
+    const goalLayoutNode = layout.nodes.find((item) => {
+      if (item.radialSector === "goal") {
+        return true;
+      }
+      const displayRole = normalizeGraphSearchText((item.node.data as Record<string, unknown> | undefined)?.pathway_display_role);
+      return displayRole === PRIMARY_GOAL_DATA_ROLE || nodeSemanticFamily(nodeTypes.get(item.node.type), item.node) === "goal";
+    });
+    const nodes: GraphNode[] = layout.nodes.map(({ node, x, y, depth, childCount, width, height, isContextOnly, radialSector }) => {
       const previewVisual = previewNodeMap.get(node.id);
       return {
         id: node.id,
@@ -1154,6 +1426,8 @@ export default function PathwayRailCanvas({
           pathwayChildCount: childCount,
           pathwayVisualWidth: width,
           pathwayVisualHeight: height,
+          pathwayContextOnly: isContextOnly,
+          pathwaySector: radialSector ?? "",
           pathwayPreviewChange: previewVisual?.changeType ?? "",
           pathwayPreviewStatus: previewVisual?.nextStatus ?? "",
           pathwayPreviewReason: previewVisual?.reason ?? "",
@@ -1161,7 +1435,21 @@ export default function PathwayRailCanvas({
         },
       };
     });
-    const edges = reduceProgressionEdgesForDisplay(bundle.edges.filter((edge) => layout.progressionTypeIds.has(edge.type)))
+    const edgeInputs = goalLayoutNode
+      ? layout.nodes
+          .filter((item) => item.node.id !== goalLayoutNode.node.id && !item.isContextOnly)
+          .map((item) => ({
+            edgeKey: `radial:${item.node.id}:${goalLayoutNode.node.id}`,
+            source: item.node.id,
+            target: goalLayoutNode.node.id,
+          }))
+      : reduceProgressionEdgesForDisplay(bundle.edges.filter((edge) => layout.progressionTypeIds.has(edge.type)))
+          .map((edge) => ({
+            edgeKey: edgeIdentity(edge),
+            source: edge.source,
+            target: edge.target,
+          }));
+    const edges = edgeInputs
       .map((edge) => {
         const source = layoutNodeById.get(edge.source);
         const target = layoutNodeById.get(edge.target);
@@ -1190,6 +1478,7 @@ export default function PathwayRailCanvas({
       width: layout.width,
       height: layout.height,
       bounds: layout.bounds,
+      initialFocusBounds: buildPathwayInitialFocusBounds(layout.nodes, layout.bounds),
     };
   }, [activeProgressNodeIds, bundle, previewNodeMap]);
 
@@ -1220,30 +1509,13 @@ export default function PathwayRailCanvas({
     setCollapsedBranchNodeIds(new Set());
   }, [bundle.bundle_id]);
 
-  const visibleBounds = useMemo(() => {
+  const initialFocusBounds = useMemo(() => {
     if (graphData.nodes.length === 0) {
-      return adapted.bounds;
+      return adapted.initialFocusBounds;
     }
 
-    const rects = graphData.nodes.map((node) => {
-      const config = (node.config as Record<string, unknown>) ?? {};
-      const width = Number(config?.pathwayVisualWidth ?? NODE_WIDTH);
-      const height = Number(config?.pathwayVisualHeight ?? NODE_HEIGHT);
-      return {
-        minX: node.position.x,
-        minY: node.position.y,
-        maxX: node.position.x + width,
-        maxY: node.position.y + height,
-      };
-    });
-
-    return {
-      minX: Math.min(...rects.map((item) => item.minX)),
-      minY: Math.min(...rects.map((item) => item.minY)),
-      maxX: Math.max(...rects.map((item) => item.maxX)),
-      maxY: Math.max(...rects.map((item) => item.maxY)),
-    };
-  }, [adapted.bounds, graphData.nodes]);
+    return buildPathwayCanvasInitialFocusBounds(graphData.nodes, adapted.initialFocusBounds);
+  }, [adapted.initialFocusBounds, graphData.nodes]);
 
   useEffect(() => {
     const canvas = graphCanvasRef.current;
@@ -1261,18 +1533,17 @@ export default function PathwayRailCanvas({
         return;
       }
 
-      const contentWidth = Math.max(1, visibleBounds.maxX - visibleBounds.minX + 120);
-      const contentHeight = Math.max(1, visibleBounds.maxY - visibleBounds.minY + 120);
-      const fitX = (bounds.width - 72) / contentWidth;
-      const fitY = (bounds.height - 72) / contentHeight;
-      const nextZoom = clampZoom(Math.min(1.42, fitX, fitY));
-      setCanvasZoom(nextZoom);
-      const contentCenterX = ((visibleBounds.minX + visibleBounds.maxX) / 2) * nextZoom;
-      const targetScrollLeft = Math.max(0, PATHWAY_STAGE_INSET_X + contentCenterX - bounds.width / 2);
-      const targetScrollTop = Math.max(0, PATHWAY_STAGE_INSET_Y + visibleBounds.minY * nextZoom - 72);
+      const viewport = resolvePathwayInitialViewport({
+        canvasWidth: bounds.width,
+        canvasHeight: bounds.height,
+        focusBounds: initialFocusBounds,
+        stageInsetX: PATHWAY_STAGE_INSET_X,
+        stageInsetY: PATHWAY_STAGE_INSET_Y,
+      });
+      setCanvasZoom(viewport.zoom);
       const applyScroll = () => {
-        canvas.scrollLeft = targetScrollLeft;
-        canvas.scrollTop = targetScrollTop;
+        canvas.scrollLeft = viewport.scrollLeft;
+        canvas.scrollTop = viewport.scrollTop;
       };
       applyScroll();
       window.requestAnimationFrame(applyScroll);
@@ -1288,7 +1559,7 @@ export default function PathwayRailCanvas({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [adapted.bounds, adapted.height, adapted.width, visibleBounds]);
+  }, [adapted.bounds, adapted.height, adapted.width, initialFocusBounds]);
 
   const edgeLines = useMemo(() => {
     const nodeMap = new Map(graphData.nodes.map((node) => [node.id, node]));
@@ -1310,6 +1581,7 @@ export default function PathwayRailCanvas({
         }
         return { width: NODE_WIDTH, height: NODE_HEIGHT };
       },
+      routeStyle: "straight",
       preferNearTargetElbow: (node) => {
         const config = node.config as Record<string, unknown> | undefined;
         return String(config?.sourceKind ?? "").trim() === "pathway"

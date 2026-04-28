@@ -17,7 +17,13 @@ const ACTION_FIELD_LABELS: Record<string, string> = {
   record_after: '기록할 것',
   checkpoint: '체크포인트',
   switch_condition: '전환 조건',
+  fit_reason: '나에게 맞는 이유',
+  personalization_basis: '개인화 기준',
+  resource_plan: '쓸 자료',
+  session_cadence: '반복 리듬',
+  progression_rule: '진도 조정',
   evidence_basis: '근거 신호',
+  assumption_basis: '가정 신호',
 };
 
 const ACTION_FIELD_ORDER = Object.keys(ACTION_FIELD_LABELS);
@@ -88,7 +94,15 @@ function extractActionableNodeEntries(node: GraphNodeRecord): string[] {
       return value ? `${ACTION_FIELD_LABELS[key]}: ${value}` : '';
     })
     .filter(Boolean)
-    .slice(0, 6);
+    .slice(0, 11);
+}
+
+function conciseText(value: unknown, maxLength = 180): string {
+  const clean = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) {
+    return clean;
+  }
+  return `${clean.slice(0, maxLength - 1)}…`;
 }
 
 export function buildNodeActionGuidance(
@@ -102,22 +116,25 @@ export function buildNodeActionGuidance(
   const steps = actionableEntries;
   const missingActionDetail = steps.length === 0;
   if (missingActionDetail) {
-    steps.push('이 노드는 실행 지침이 생성되지 않았습니다. 이 상태로는 따라 할 step으로 쓰기 어렵습니다.');
-    steps.push('그래프를 다시 생성하거나 업데이트 입력으로 “이 노드의 구체 실행 단계를 근거 기반으로 보강”하라고 요청하세요.');
+    steps.push(`${node.label}을 오늘 20분 안에 검증할 수 있는 최소 행동 1개로 줄입니다.`);
+    if (node.summary) {
+      steps.push(conciseText(node.summary));
+    }
+    steps.push('끝나면 실제로 한 일, 막힌 지점, 다음 조정을 한 문장씩 기록합니다.');
   }
   if (metadataEvidence.length > 0 && contentEvidence.length === 0) {
-    steps.push('후보 URL만 붙어 있으므로, 실행 전에 근거로 쓸 만한 자료인지 먼저 확인합니다.');
+    steps.push('후보 URL만 붙어 있으므로 실행 판단에 쓰기 전 원문 근거를 먼저 수집합니다.');
   }
   if (assumptions.length > 0) {
     steps.push(`이 노드는 전제 ${assumptions.length}개에 기대고 있습니다. 틀릴 가능성이 큰 전제 하나를 먼저 확인합니다.`);
   }
   return {
     title: missingActionDetail
-      ? '실행 지침 없음'
-      : '근거 기반 실행 단계',
-    steps: steps.slice(0, 4),
+      ? '오늘 검증할 최소 행동'
+      : '개인화 커리큘럼',
+    steps: steps.slice(0, 11),
     note: missingActionDetail
-      ? '이건 정상적인 최종 상태가 아닙니다. 새로 생성되는 그래프는 주요 노드마다 실행 필드를 갖도록 백엔드 계약을 강화했습니다.'
+      ? '전용 실행 필드가 비어 있어 라벨과 요약으로 만든 임시 안내입니다. 기록을 남기면 다음 리비전에서 이 노드를 더 구체화할 수 있습니다.'
       : '실행 후 결과를 기록하면 다음 리비전에서 이 경로를 유지할지, 약화할지, 다른 루트로 돌릴지 판단할 수 있습니다.',
   };
 }
@@ -191,7 +208,20 @@ export function findSelectedNode(
 }
 
 export function getVisibleNodeFields(node: GraphNodeRecord): Array<[string, unknown]> {
-  return Object.entries(node.data).filter(([key]) => !key.startsWith('__'));
+  const hiddenKeys = new Set([
+    ...ACTION_FIELD_ORDER,
+    'pathway_display_role',
+    'source',
+    'route_label',
+  ]);
+  return Object.entries(node.data)
+    .filter(([key, value]) => {
+      if (key.startsWith('__') || hiddenKeys.has(key) || value == null || value === '') {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, 4);
 }
 
 function normalizeProgressMatchText(value: unknown): string {

@@ -16,6 +16,7 @@ from lifemap_api.application.graph_diff import build_graph_diff
 from lifemap_api.application.graph_quality import (
     attach_missing_action_fields,
     attach_missing_decision_evidence,
+    enforce_pathway_actions,
     enforce_pathway_grounding,
     enforce_semantic_roles,
 )
@@ -107,9 +108,17 @@ def _build_revision_system_prompt() -> str:
           material over deleting it.
         - For every new or materially changed route, checkpoint, risk, cost,
           switch, fallback, curriculum, media, community, tutor/academy, and
-          practice node, `node.data` must include user-facing execution fields:
-          `user_step`, `how_to_do_it`, `success_check`, `record_after`, and,
-          when relevant, `switch_condition`.
+          practice node, `node.data` must include a complete personalized
+          curriculum card: `user_step`, `how_to_do_it`, `success_check`,
+          `record_after`, `switch_condition`, `fit_reason`, `evidence_basis`,
+          `personalization_basis`, `resource_plan`, `session_cadence`, and
+          `progression_rule`.
+        - `how_to_do_it` must be detailed enough to follow today. Include a
+          concrete sequence, duration/frequency, resource to use, and what output
+          or behavior proves the user actually practiced.
+        - Ground every instruction in the latest user-reported reality, linked
+          evidence, or an explicit assumption. Do not turn guesses into
+          confident advice.
         - Do not write about what Pathway analyzed. Write instructions the user
           can follow.
         - Keep `ontology.node_types[].fields`, `node.style_overrides`, and
@@ -179,8 +188,8 @@ def _build_revision_user_prompt(
         - Avoid destructive removal. If a route became worse, mark it at_risk,
           weakened, hidden, or superseded and add the reason.
         - Use `revision_meta.change_note` on changed or newly added nodes.
-        - New/changed user-facing nodes must include concrete step instructions in
-          `node.data`, not internal analysis prose.
+        - New/changed user-facing nodes must include concrete curriculum
+          instructions in `node.data`, not internal analysis prose.
         - Keep evidence refs explicit and assumptions honest.
         """
     ).strip()
@@ -205,6 +214,11 @@ def _build_revision_repair_prompt(
         - Return JSON only.
         - `map.goal_id` must equal `{goal_id}`.
         - Every `ontology.node_types[]` item must include `semantic_role`.
+        - Every new or changed user-facing route/support node must include the
+          complete curriculum data fields: user_step, how_to_do_it,
+          success_check, record_after, switch_condition, fit_reason,
+          evidence_basis, personalization_basis, resource_plan, session_cadence,
+          and progression_rule.
         - You may only use evidence ids from this packet:
           {", ".join(allowed_evidence_ids) or "(none)"}
         - Preserve valid structure wherever possible.
@@ -231,7 +245,8 @@ def _validate_revised_bundle(
     semantic_validated = enforce_semantic_roles(validated)
     evidence_attached = attach_missing_decision_evidence(semantic_validated, grounding_packet)
     action_attached = attach_missing_action_fields(evidence_attached, grounding_packet)
-    grounded = validate_bundle_grounding(action_attached, grounding_packet)
+    action_validated = enforce_pathway_actions(action_attached)
+    grounded = validate_bundle_grounding(action_validated, grounding_packet)
     return enforce_pathway_grounding(grounded, grounding_packet)
 
 

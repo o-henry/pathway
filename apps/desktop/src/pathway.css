@@ -374,8 +374,8 @@
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 46px 0 18px;
+  gap: 10px;
+  padding: 0 46px 0 16px;
   border-radius: 2px;
   background: var(--branch-bg);
   color: var(--branch-text);
@@ -501,10 +501,14 @@
   display: block;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 13px;
-  line-height: 1.25;
+  font-size: 13.5px;
+  line-height: 1.2;
   font-weight: 560;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .pathway-rail-canvas .graph-node[data-source-kind="pathway"][data-pathway-depth="0"] .pathway-branch-label {
@@ -771,14 +775,14 @@
   color: #1f2430;
   font-size: 13px;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-loop-list span {
   color: #707b8b;
   font-size: 12px;
   line-height: 1.5;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-workflow-main {
@@ -1755,7 +1759,7 @@
   color: #1f2430;
   font-size: 16px;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-canvas-update-floater .pathway-request-head strong {
@@ -1866,7 +1870,7 @@
   color: #1f2430;
   font-size: 20px;
   line-height: 1.12;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .pathway-icon-close-button {
@@ -2170,7 +2174,7 @@
   font-size: 15px;
   line-height: 1.35;
   color: var(--text-main);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-panel-kicker {
@@ -2187,7 +2191,7 @@
   color: var(--text-muted);
   line-height: 1.62;
   font-size: 13px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-workflow-frame .pathway-panel-copy {
@@ -2440,7 +2444,7 @@
   color: var(--text-main);
   font-size: 13px;
   line-height: 1.52;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-list-button span,
@@ -2451,7 +2455,7 @@
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.58;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .pathway-detail-list li,

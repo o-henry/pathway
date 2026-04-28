@@ -144,12 +144,9 @@ export default function MainApp() {
     progressUpdateSummaries,
     selectedAssumptions,
     selectedContentEvidence,
-    selectedEvidence,
-    selectedMetadataEvidence,
     selectedNode,
     selectedNodeActionGuidance,
     selectedNodePreviewChange,
-    selectedNodeVisibleFields,
   } = usePathwayWorkspaceDerivedState({
     activeGoal,
     activeMap,
@@ -534,12 +531,9 @@ export default function MainApp() {
         routeSelection={routeSelection}
         selectedAssumptions={selectedAssumptions}
         selectedContentEvidence={selectedContentEvidence}
-        selectedEvidence={selectedEvidence}
-        selectedMetadataEvidence={selectedMetadataEvidence}
         selectedNode={selectedNode}
         selectedNodeActionGuidance={selectedNodeActionGuidance}
         selectedNodePreviewChange={selectedNodePreviewChange}
-        selectedNodeVisibleFields={selectedNodeVisibleFields}
         showStateUpdatePanel={showStateUpdatePanel}
         showWorkflowInspector={showWorkflowInspector}
         stateForm={stateForm}

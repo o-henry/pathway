@@ -15,7 +15,6 @@ import { buildTerminalGoalDisplayBundle } from './PathwayRailCanvas';
 import {
   buildNodeActionGuidance,
   findSelectedNode,
-  getVisibleNodeFields,
   isMetadataOnlyEvidence,
   mergePreviewBundle,
   sortStateUpdatesNewestFirst,
@@ -52,9 +51,7 @@ export function usePathwayWorkspaceDerivedState({
   const effectiveSelectedNodeId =
     selectedNodeId ?? (activeBundle ? routeSelection?.selected_node_id ?? null : null);
   const selectedNode = displayBundle ? findSelectedNode(displayBundle, effectiveSelectedNodeId) : null;
-  const selectedNodeVisibleFields = selectedNode ? getVisibleNodeFields(selectedNode) : [];
   const selectedEvidence = selectedNode && displayBundle ? getEvidenceForNode(displayBundle, selectedNode.id) : [];
-  const selectedMetadataEvidence = selectedEvidence.filter(isMetadataOnlyEvidence);
   const selectedContentEvidence = selectedEvidence.filter((item) => !isMetadataOnlyEvidence(item));
   const selectedAssumptions = selectedNode && displayBundle ? getAssumptionsForNode(displayBundle, selectedNode.id) : [];
   const selectedNodeActionGuidance = selectedNode
@@ -99,11 +96,8 @@ export function usePathwayWorkspaceDerivedState({
     progressUpdateSummaries,
     selectedAssumptions,
     selectedContentEvidence,
-    selectedEvidence,
-    selectedMetadataEvidence,
     selectedNode,
     selectedNodeActionGuidance,
     selectedNodePreviewChange,
-    selectedNodeVisibleFields,
   };
 }

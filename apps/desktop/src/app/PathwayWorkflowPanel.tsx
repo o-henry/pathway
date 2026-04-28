@@ -3,8 +3,6 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import PathwayRailCanvas from './PathwayRailCanvas';
 import {
   evidenceReliabilityLabel,
-  formatFieldValue,
-  isMetadataOnlyEvidence,
 } from './pathwayWorkspaceUtils';
 import type {
   AssumptionItem,
@@ -57,12 +55,9 @@ type PathwayWorkflowPanelProps = {
   routeSelection: RouteSelectionRecord | null;
   selectedAssumptions: AssumptionItem[];
   selectedContentEvidence: EvidenceItem[];
-  selectedEvidence: EvidenceItem[];
-  selectedMetadataEvidence: EvidenceItem[];
   selectedNode: GraphNodeRecord | null;
   selectedNodeActionGuidance: NodeActionGuidance | null;
   selectedNodePreviewChange: PreviewNodeChange | null;
-  selectedNodeVisibleFields: Array<[string, unknown]>;
   showStateUpdatePanel: boolean;
   showWorkflowInspector: boolean;
   stateForm: PathwayStateForm;
@@ -115,12 +110,9 @@ export default function PathwayWorkflowPanel({
   routeSelection,
   selectedAssumptions,
   selectedContentEvidence,
-  selectedEvidence,
-  selectedMetadataEvidence,
   selectedNode,
   selectedNodeActionGuidance,
   selectedNodePreviewChange,
-  selectedNodeVisibleFields,
   showStateUpdatePanel,
   showWorkflowInspector,
   stateForm,
@@ -329,7 +321,7 @@ export default function PathwayWorkflowPanel({
               </header>
 
               <div className="pathway-workflow-sidebar-body">
-                {progressUpdateSummaries.length > 0 ? (
+                {!selectedNode && progressUpdateSummaries.length > 0 ? (
                   <section className="pathway-workflow-sidebar-card pathway-progress-history-card">
                     <div>
                       <span className="pathway-panel-kicker">진행 기록</span>
@@ -366,26 +358,8 @@ export default function PathwayWorkflowPanel({
 
                 {selectedNode ? (
                   <section className="pathway-workflow-sidebar-card pathway-workflow-sidebar-card-featured">
-                    <span className="pathway-panel-kicker">현재 보고 있는 루트</span>
+                    <span className="pathway-panel-kicker">실행 패널</span>
                     <strong>{selectedNode.label}</strong>
-                    <p className="pathway-panel-copy">
-                      {selectedNode.summary || '이 루트가 현재 그래프에서 어떤 역할을 하는지 요약합니다.'}
-                    </p>
-
-                    <div className="pathway-node-summary-grid" aria-label="선택 노드 요약">
-                      <article className="pathway-node-summary-card">
-                        <span className="pathway-panel-kicker">연결 근거</span>
-                        <strong>{selectedContentEvidence.length}개</strong>
-                      </article>
-                      <article className="pathway-node-summary-card">
-                        <span className="pathway-panel-kicker">후보 URL</span>
-                        <strong>{selectedMetadataEvidence.length}개</strong>
-                      </article>
-                      <article className="pathway-node-summary-card">
-                        <span className="pathway-panel-kicker">연결 가정</span>
-                        <strong>{selectedAssumptions.length}개</strong>
-                      </article>
-                    </div>
 
                     {selectedNodeActionGuidance ? (
                       <section className="pathway-inspector-section pathway-node-action-guide">
@@ -397,6 +371,13 @@ export default function PathwayWorkflowPanel({
                           ))}
                         </ol>
                         <p className="pathway-panel-copy">{selectedNodeActionGuidance.note}</p>
+                      </section>
+                    ) : null}
+
+                    {selectedNode.summary ? (
+                      <section className="pathway-inspector-section">
+                        <span className="pathway-panel-kicker">왜 이 노드가 있나</span>
+                        <p className="pathway-panel-copy">{selectedNode.summary}</p>
                       </section>
                     ) : null}
 
@@ -415,31 +396,14 @@ export default function PathwayWorkflowPanel({
                       </section>
                     ) : null}
 
-                    {selectedNodeVisibleFields.length > 0 ? (
-                      <section className="pathway-inspector-section">
-                        <span className="pathway-panel-kicker">노드 원문 데이터</span>
-                        <ul className="pathway-fact-list">
-                          {selectedNodeVisibleFields.map(([key, value]) => (
-                            <li key={key}>
-                              <span>{key.replaceAll('_', ' ')}</span>
-                              <strong>{formatFieldValue(value)}</strong>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ) : null}
-
                     <section className="pathway-inspector-section">
-                      <span className="pathway-panel-kicker">이 판단을 받치는 근거</span>
-                      {selectedEvidence.length === 0 ? (
-                        <p className="pathway-panel-copy">이 노드에 연결된 근거가 아직 없습니다.</p>
+                      <span className="pathway-panel-kicker">근거</span>
+                      {selectedContentEvidence.length === 0 ? (
+                        <p className="pathway-panel-copy">수집된 원문 근거가 아직 없습니다. 실행 판단에 쓰려면 먼저 근거를 붙이거나 이 노드를 보강해야 합니다.</p>
                       ) : (
                         <ul className="pathway-detail-list">
-                          {selectedEvidence.map((item) => (
-                            <li
-                              className={isMetadataOnlyEvidence(item) ? 'pathway-evidence-item is-metadata-only' : 'pathway-evidence-item'}
-                              key={item.id}
-                            >
+                          {selectedContentEvidence.slice(0, 4).map((item) => (
+                            <li className="pathway-evidence-item" key={item.id}>
                               <em className="pathway-evidence-badge">{evidenceReliabilityLabel(item)}</em>
                               <strong>{item.title}</strong>
                               <span>{item.quote_or_summary}</span>
@@ -450,11 +414,9 @@ export default function PathwayWorkflowPanel({
                       )}
                     </section>
 
-                    <section className="pathway-inspector-section">
-                      <span className="pathway-panel-kicker">성립을 전제로 둔 가정</span>
-                      {selectedAssumptions.length === 0 ? (
-                        <p className="pathway-panel-copy">이 노드에 연결된 가정이 없습니다.</p>
-                      ) : (
+                    {selectedAssumptions.length > 0 ? (
+                      <section className="pathway-inspector-section">
+                        <span className="pathway-panel-kicker">성립을 전제로 둔 가정</span>
                         <ul className="pathway-detail-list">
                           {selectedAssumptions.map((item) => (
                             <li key={item.id}>
@@ -463,12 +425,12 @@ export default function PathwayWorkflowPanel({
                             </li>
                           ))}
                         </ul>
-                      )}
-                    </section>
+                      </section>
+                    ) : null}
                   </section>
                 ) : null}
 
-                {goalAnalysis ? (
+                {!selectedNode && goalAnalysis ? (
                   <section className="pathway-workflow-sidebar-card">
                     <span className="pathway-panel-kicker">자원 모델</span>
                     <strong>{goalAnalysis.resource_dimensions.length}개 자원 축 로드됨</strong>
@@ -476,7 +438,7 @@ export default function PathwayWorkflowPanel({
                   </section>
                 ) : null}
 
-                {goalAnalysis?.followup_questions?.length ? (
+                {!selectedNode && goalAnalysis?.followup_questions?.length ? (
                   <section className="pathway-workflow-sidebar-card">
                     <span className="pathway-panel-kicker">조사 전 확인 질문</span>
                     <ul className="pathway-detail-list">
@@ -490,7 +452,7 @@ export default function PathwayWorkflowPanel({
                   </section>
                 ) : null}
 
-                {researchPlanCollectionStatus ? (
+                {!selectedNode && researchPlanCollectionStatus ? (
                   <section className="pathway-workflow-sidebar-card">
                     <span className="pathway-panel-kicker">자동 수집 상태</span>
                     <p className="pathway-panel-copy pathway-collector-status">
@@ -499,7 +461,7 @@ export default function PathwayWorkflowPanel({
                   </section>
                 ) : null}
 
-                {routeSelection || currentState || stateUpdates.length > 0 ? (
+                {!selectedNode && (routeSelection || currentState || stateUpdates.length > 0) ? (
                   <section className="pathway-workflow-sidebar-card">
                     <span className="pathway-panel-kicker">현실 상태</span>
                     {routeSelection ? <strong>{routeSelection.selected_node_id}</strong> : null}

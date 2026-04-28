@@ -64,13 +64,23 @@ SUPPORT_SEMANTIC_MARKERS = (
 ACTION_DATA_KEYS = (
     "user_step",
     "how_to_do_it",
+    "success_check",
+    "record_after",
+    "switch_condition",
+    "fit_reason",
+    "evidence_basis",
+    "personalization_basis",
+    "resource_plan",
+    "session_cadence",
+    "progression_rule",
+)
+
+OPTIONAL_ACTION_DATA_KEYS = (
     "practice_step",
     "next_action",
-    "success_check",
     "verification_step",
-    "record_after",
     "checkpoint",
-    "switch_condition",
+    "assumption_basis",
 )
 
 ROUTE_EVIDENCE_ROLES = {
@@ -206,19 +216,25 @@ def clip_instruction_text(value: str, limit: int = 170) -> str:
     return normalized[: limit - 1].rstrip() + "…"
 
 
-def node_has_action_fields(node) -> bool:
+def _clean_data_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return " ".join(value.split())
+    if isinstance(value, (list, tuple)):
+        return " ".join(_clean_data_text(item) for item in value).strip()
+    if isinstance(value, dict):
+        return " ".join(_clean_data_text(item) for item in value.values()).strip()
+    return " ".join(str(value).split())
+
+
+def missing_curriculum_action_keys(node) -> list[str]:
     data = node.data if isinstance(node.data, dict) else {}
-    for key in ACTION_DATA_KEYS:
-        value = data.get(key)
-        if value is None:
-            continue
-        if isinstance(value, str) and value.strip():
-            return True
-        if isinstance(value, (list, tuple)) and any(str(item).strip() for item in value):
-            return True
-        if isinstance(value, dict) and any(str(item).strip() for item in value.values()):
-            return True
-    return False
+    return [key for key in ACTION_DATA_KEYS if not _clean_data_text(data.get(key))]
+
+
+def node_has_action_fields(node) -> bool:
+    return not missing_curriculum_action_keys(node)
 
 
 def node_requires_evidence(
@@ -367,9 +383,12 @@ def pathway_action_errors(bundle: GraphBundle) -> list[str]:
         else f", and {len(missing_action_nodes) - 8} more"
     )
     return [
-        "decision graph has route/support nodes without user-facing action fields: "
+        "decision graph has route/support nodes without complete personalized "
+        "curriculum fields: "
         f"{preview}{suffix}. Fill node.data.user_step, how_to_do_it, "
-        "success_check, and record_after with concrete instructions for the user."
+        "success_check, record_after, switch_condition, fit_reason, "
+        "evidence_basis, personalization_basis, resource_plan, session_cadence, "
+        "and progression_rule with concrete instructions for the user."
     ]
 
 
@@ -447,7 +466,10 @@ def attach_missing_action_fields(
             bundle=bundle,
             node_index=node_type_text,
             node_id=node.id,
-        ) or node_has_action_fields(node):
+        ):
+            next_nodes.append(node)
+            continue
+        if node_has_action_fields(node):
             next_nodes.append(node)
             continue
 
@@ -465,23 +487,51 @@ def attach_missing_action_fields(
 
         basis = clip_instruction_text(linked_evidence.quote_or_summary)
         data = dict(node.data)
-        data.update(
-            {
-                "user_step": (
-                    f"'{node.label}'을 오늘 실행 가능한 한 세션으로 쪼개서 바로 시도한다."
-                ),
-                "how_to_do_it": (
-                    f"연결 근거 '{linked_evidence.title}'의 핵심 신호를 기준으로 "
-                    f"{clip_instruction_text(node.summary, 120)}"
-                ),
-                "success_check": "실제로 수행한 결과가 목표에 가까워졌는지 한 문장으로 판정한다.",
-                "record_after": (
-                    "한 일, 걸린 시간, 막힌 점, 다음에 바꿀 점을 "
-                    "업데이트 입력창에 남긴다."
-                ),
-                "evidence_basis": basis,
-            }
-        )
+        if not _clean_data_text(data.get("user_step")):
+            data["user_step"] = (
+                f"'{node.label}'을 오늘 20~30분짜리 한 세션으로 쪼개서 바로 실행한다."
+            )
+        if not _clean_data_text(data.get("how_to_do_it")):
+            data["how_to_do_it"] = (
+                f"1) 필요한 자료를 하나만 연다. 2) {clip_instruction_text(node.summary, 130)} "
+                "3) 결과물을 작게 남긴다. 4) 막힌 지점을 다음 리비전 입력에 쓸 수 있게 적는다."
+            )
+        if not _clean_data_text(data.get("success_check")):
+            data["success_check"] = (
+                "세션 끝에 실제 산출물이나 시도 기록이 1개 이상 남고, 다음에 무엇을 바꿀지 "
+                "한 문장으로 말할 수 있으면 통과로 본다."
+            )
+        if not _clean_data_text(data.get("record_after")):
+            data["record_after"] = (
+                "한 일, 사용한 자료, 걸린 시간, 막힌 점, 다음 조정을 각각 한 줄로 업데이트 입력창에 남긴다."
+            )
+        if not _clean_data_text(data.get("switch_condition")):
+            data["switch_condition"] = (
+                "같은 막힘이 2회 반복되거나 세션을 시작하지 못하면 이 노드를 약화하고 더 작은 루트로 전환한다."
+            )
+        if not _clean_data_text(data.get("fit_reason")):
+            data["fit_reason"] = (
+                f"이 노드는 '{node.label}'이 현재 목표에 직접 닿는지 작은 실행 데이터로 검증하기 위해 둔다."
+            )
+        if not _clean_data_text(data.get("evidence_basis")):
+            data["evidence_basis"] = f"{linked_evidence.title}: {basis}"
+        if not _clean_data_text(data.get("personalization_basis")):
+            data["personalization_basis"] = (
+                "현재 저장된 목표, 제약, 선호를 기준으로 부담을 작은 실행 단위로 낮춘 보수적 안내다."
+            )
+        if not _clean_data_text(data.get("resource_plan")):
+            data["resource_plan"] = (
+                f"우선 연결 근거 '{linked_evidence.title}'와 현재 노드 요약만 사용한다. "
+                "추가 자료는 실행 후 부족한 지점을 알게 된 뒤 붙인다."
+            )
+        if not _clean_data_text(data.get("session_cadence")):
+            data["session_cadence"] = (
+                "첫 주에는 20~30분 세션 2회로 시작하고, 실제 부담이 낮으면 다음 주에 1회를 추가한다."
+            )
+        if not _clean_data_text(data.get("progression_rule")):
+            data["progression_rule"] = (
+                "2회 연속 성공하면 다음 체크포인트로 올리고, 2회 연속 실패하면 범위나 자료 난도를 낮춘다."
+            )
         changed = True
         next_nodes.append(node.model_copy(update={"data": data}))
 

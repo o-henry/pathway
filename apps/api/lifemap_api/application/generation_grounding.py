@@ -126,8 +126,19 @@ def plan_retrieval_queries(
                 goal.title,
                 goal.description,
                 goal.success_criteria,
-                "어떤 route structures와 practice systems가 실제로 작동하는가",
+                "어떤 route structures와 personalized curriculum systems가 실제로 작동하는가",
                 *goal_context[:2],
+            ],
+        ),
+        (
+            "curriculum_resources",
+            [
+                goal.title,
+                goal.description,
+                goal.success_criteria,
+                "커리큘럼 단계별 resources practice plan cadence progression checkpoints",
+                *profile_context[:3],
+                *state_context[:2],
             ],
         ),
         (
@@ -164,6 +175,7 @@ def plan_retrieval_queries(
             [
                 goal.title,
                 goal.success_criteria,
+                "personalized plan constraints schedule budget energy preference",
                 *profile_context[:4],
             ],
         ),

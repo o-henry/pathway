@@ -3,6 +3,31 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the generated graph first-render readability issue from the latest screenshot.
+  - Marked isolated context-grid nodes as context-only layout metadata so they remain visible but no longer shrink the initial route viewport.
+  - Added initial viewport helpers that focus on the primary route graph, enforce a readable `0.82` initial zoom floor, and left-anchor oversized route maps instead of fitting every far-right context note into one miniature view.
+  - Increased Pathway node footprints and changed route labels to clamp at two lines, improving Korean label scanability without deleting or changing graph data.
+  - Fixed lane spacing so same-lane nodes cannot visually overlap; browser verification on the live generated English-conversation map reported 20 rendered nodes and `overlapCount: 0`.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `apps/desktop/src/pathway.css`
+  - `docs/state/EXECPLAN_GRAPH_VIEWPORT_READABILITY.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - Browser/Playwright verification against `http://127.0.0.1:1420/` for the generated map; captured `/tmp/pathway-graph-readability.png`, confirmed `matrix(0.82, 0, 0, 0.82, 0, 0)` and zero DOM node overlaps.
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The graph is now readable at first render, but very wide maps intentionally require horizontal panning instead of shrinking below readable scale.
+- Next recommended task:
+  - Add an automated visual regression check for generated Pathway maps using the same no-overlap/readable-zoom criteria.
+
+## Previous micro-update
+
+- Completed work:
   - Reworked the Pathway graph display so a generated goal node becomes the single visible GOAL instead of adding a second display-only terminal GOAL.
   - Removed stale terminal display-goal nodes and their edges when building the display bundle, preserving the generated graph data while avoiding duplicate GOAL rendering.
   - Changed the layout from terminal-lane convergence toward a left-to-right route tree connected to one GOAL, with descendant-based row placement and lane spreading.
@@ -3546,3 +3571,71 @@ The highest-value follow-up options are now:
   - Automatic collection currently depends on the analysis-generated research plan producing runnable URL/search-probe jobs; deeper source discovery should become a first-class backend step.
 - Next recommended task:
   - Move first-pass source discovery and collection orchestration into the backend so graph generation can prove which collected sources informed each node.
+
+## Latest micro-update
+
+- Completed work:
+  - Turned the user's clarification into a product-level personalized curriculum contract: Pathway maps must be personal, practical, evidence-grounded, honest about assumptions, and able to evolve with the user's state.
+  - Strengthened graph generation and revision prompts so every user-facing route/checkpoint/risk/cost/switch/fallback/curriculum/media/community/tutor/practice node must include a complete curriculum card.
+  - Added deterministic quality checks for the curriculum fields: immediate step, detailed execution, success check, progress recording, switch condition, fit reason, evidence basis, personalization basis, resource plan, session cadence, and progression rule.
+  - Expanded the strict Codex output schema and fallback action attachment to support those fields without making unsupported claims look evidence-backed.
+  - Updated graph grounding queries to search for curriculum resources, practice plans, cadence, progression, checkpoints, and user-fit constraints.
+  - Expanded the selected-node panel extraction so it shows the full personalized curriculum instead of cutting practical guidance down to a few generic lines.
+  - Documented the contract in `docs/PATHWAY_REFRAME.md`, `docs/DYNAMIC_GRAPH_SPEC.md`, and `docs/state/EXECPLAN_PERSONALIZED_CURRICULUM_CONTRACT.md`.
+- Changed files:
+  - `apps/api/lifemap_api/application/generation.py`
+  - `apps/api/lifemap_api/application/generation_grounding.py`
+  - `apps/api/lifemap_api/application/graph_quality.py`
+  - `apps/api/lifemap_api/application/revisions.py`
+  - `apps/api/lifemap_api/infrastructure/llm_providers.py`
+  - `apps/api/tests/test_graph_quality.py`
+  - `apps/api/tests/test_map_generation.py`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.ts`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `docs/DYNAMIC_GRAPH_SPEC.md`
+  - `docs/PATHWAY_REFRAME.md`
+  - `docs/state/EXECPLAN_PERSONALIZED_CURRICULUM_CONTRACT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_graph_quality.py apps/api/tests/test_map_generation.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_revisions.py`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The curriculum contract is now enforced at generation, repair, fallback, and display layers, but the depth of personalization still depends on collected evidence quality and how much current user state the app captures.
+  - Broader backend source discovery, ranking, and state-to-curriculum attribution should be strengthened next.
+- Next recommended task:
+  - Move first-pass source discovery and curriculum resource ranking into the backend so each curriculum node can prove which sources, user constraints, and assumptions shaped its exact steps.
+
+## Previous micro-update
+
+- Completed work:
+  - Replaced the Pathway graph display with a GOAL-centered radial layout: visible primary nodes are distributed across four sectors around GOAL instead of being forced into a left-to-right lane.
+  - Simplified displayed graph edges into readable GOAL-directed spokes for the Pathway canvas, while preserving the underlying `GraphBundle` progression edges and history.
+  - Adjusted initial canvas fit so the radial graph opens at a readable overview zoom and avoids the left canvas controls.
+  - Reworked the selected-node context panel so practical action guidance appears first, followed by the node rationale and actual content evidence.
+  - Removed low-value selected-node UI: raw node-data dump, metadata-only evidence counts, summary count cards, and empty assumption text.
+  - Added fallback action guidance for nodes that lack explicit execution fields, so the panel still gives a concrete next action.
+- Changed files:
+  - `apps/desktop/src/app/MainAppImpl.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `apps/desktop/src/app/PathwayWorkflowPanel.tsx`
+  - `apps/desktop/src/app/main/presentation/WorkflowCanvasNodesLayer.tsx`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.ts`
+  - `apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `apps/desktop/src/app/usePathwayWorkspaceDerivedState.ts`
+  - `docs/state/EXECPLAN_GOAL_RADIAL_GRAPH_AND_ACTION_PANEL.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts apps/desktop/src/app/pathwayWorkspaceUtils.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `pnpm dev:desktop:services`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter desktop exec env PLAYWRIGHT_BROWSERS_PATH=../../apps/web/.playwright-browsers node --input-type=module -e '...'`
+  - `git diff --check`
+- Known gaps:
+  - The visible canvas now favors legibility over drawing every progression edge; deeper edge exploration should become an explicit graph detail mode later.
+  - Evidence summaries can still be verbose when the source note itself is verbose, but they no longer crowd out the immediate action steps.
+- Next recommended task:
+  - Add an optional edge/detail mode that lets the user toggle between the simplified GOAL-spoke map and the full progression/evidence relationship graph.

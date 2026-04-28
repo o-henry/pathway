@@ -167,6 +167,7 @@ export default function WorkflowCanvasNodesLayer({
         const pathwayChildCount = Number((node.config as Record<string, unknown>)?.pathwayChildCount ?? 0);
         const isPathwayLeaf = pathwayChildCount <= 0;
         const pathwayNodeType = String((node.config as Record<string, unknown>)?.pathwayNodeType ?? "").trim().toLowerCase();
+        const pathwaySector = String((node.config as Record<string, unknown>)?.pathwaySector ?? "").trim().toLowerCase();
         const pathwayVisualWidth = Number((node.config as Record<string, unknown>)?.pathwayVisualWidth ?? 176);
         const pathwayVisualHeight = Number((node.config as Record<string, unknown>)?.pathwayVisualHeight ?? 36);
         const pathwayPreviewChange = String((node.config as Record<string, unknown>)?.pathwayPreviewChange ?? "").trim().toLowerCase();
@@ -183,6 +184,7 @@ export default function WorkflowCanvasNodesLayer({
             data-pathway-depth={isPathwayNode && pathwayDepth >= 0 ? String(pathwayDepth) : undefined}
             data-pathway-leaf={isPathwayNode ? String(isPathwayLeaf) : undefined}
             data-pathway-node-type={pathwayNodeType || undefined}
+            data-pathway-sector={pathwaySector || undefined}
             data-pathway-tone={pathwayTone || undefined}
             data-pathway-collapsed={canTogglePathwayBranch ? String(isPathwayBranchCollapsed) : undefined}
             data-pathway-preview-change={pathwayPreviewChange || undefined}
