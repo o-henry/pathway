@@ -94,7 +94,7 @@ function bundleFixture(): GraphBundle {
 }
 
 describe("buildTerminalGoalDisplayBundle", () => {
-  it("preserves the generated goal node and adds a separate terminal display goal", () => {
+  it("uses the generated goal node as the single display goal", () => {
     const bundle = buildTerminalGoalDisplayBundle(bundleFixture(), "User goal");
 
     const originalGoal = bundle.nodes.find((node) => node.id === "n_goal");
@@ -102,17 +102,17 @@ describe("buildTerminalGoalDisplayBundle", () => {
       (node) => node.data.pathway_display_role === "terminal_goal",
     );
 
-    expect(originalGoal?.data.pathway_display_role).toBeUndefined();
-    expect(terminalGoal?.id).toBe("terminal_goal");
-    expect(terminalGoal?.label).toBe("User goal");
+    expect(originalGoal?.data.pathway_display_role).toBe("primary_goal");
+    expect(originalGoal?.label).toBe("User goal");
+    expect(terminalGoal).toBeUndefined();
     expect(bundle.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "e_goal_route", source: "n_goal", target: "n_route" }),
-        expect.objectContaining({ source: "n_route", target: "terminal_goal" }),
       ]),
     );
     expect(bundle.edges).not.toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ source: "n_route", target: "terminal_goal" }),
         expect.objectContaining({ source: "n_evidence", target: "terminal_goal" }),
       ]),
     );
@@ -226,21 +226,113 @@ function branchedRouteBundleFixture(): GraphBundle {
 }
 
 describe("buildPathwayLayout", () => {
-  it("keeps shallow terminal routes in their natural lane before the display goal", () => {
+  it("creates a single root display goal when a bundle has no goal node", () => {
     const bundle = buildTerminalGoalDisplayBundle(branchedRouteBundleFixture(), "Native conversation");
     const layout = buildPathwayLayout(bundle);
     const nodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
 
+    const displayGoal = layout.nodes.find((item) => item.node.data.pathway_display_role === "primary_goal");
     const shortRoute = nodeById.get("n_short");
     const deepRoute = nodeById.get("n_deep");
-    const terminalGoal = nodeById.get("terminal_goal");
-    const maxRouteX = Math.max(
+
+    expect(displayGoal?.node.id).toBe("display_goal");
+    expect(displayGoal?.depth).toBe(0);
+    expect(shortRoute?.depth).toBeLessThan(deepRoute?.depth ?? 0);
+    expect(shortRoute?.x).toBeGreaterThan(displayGoal?.x ?? 0);
+  });
+
+  it("keeps a generated goal as the only GOAL and lays branches to its right", () => {
+    const bundle = buildTerminalGoalDisplayBundle({
+      ...branchedRouteBundleFixture(),
+      ontology: {
+        ...branchedRouteBundleFixture().ontology,
+        node_types: [
+          {
+            id: "goal_type",
+            label: "Goal",
+            description: "Goal",
+            semantic_role: "goal",
+            fields: [],
+          },
+          ...branchedRouteBundleFixture().ontology.node_types,
+        ],
+      },
+      nodes: [
+        {
+          id: "n_goal",
+          type: "goal_type",
+          label: "Generated goal",
+          summary: "Generated goal",
+          data: {},
+          evidence_refs: [],
+          assumption_refs: [],
+        },
+        ...branchedRouteBundleFixture().nodes,
+      ],
+      edges: [
+        {
+          id: "e_goal_start",
+          type: "progression",
+          source: "n_goal",
+          target: "n_start",
+        },
+        ...branchedRouteBundleFixture().edges,
+      ],
+    }, "Native conversation");
+    const layout = buildPathwayLayout(bundle);
+    const nodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
+    const goal = nodeById.get("n_goal");
+    const start = nodeById.get("n_start");
+    const shortRoute = nodeById.get("n_short");
+    const deepRoute = nodeById.get("n_deep");
+
+    expect(bundle.nodes.filter((node) => node.data.pathway_display_role === "primary_goal")).toHaveLength(1);
+    expect(bundle.nodes.filter((node) => node.data.pathway_display_role === "terminal_goal")).toHaveLength(0);
+    expect(goal?.depth).toBe(0);
+    expect(start?.depth).toBe(1);
+    expect(shortRoute?.x).toBeGreaterThan(goal?.x ?? 0);
+    expect(deepRoute?.x).toBeGreaterThan(shortRoute?.x ?? 0);
+  });
+
+  it("moves isolated context-only nodes to a right-side grid instead of the root lane", () => {
+    const source = branchedRouteBundleFixture();
+    const bundle = buildTerminalGoalDisplayBundle({
+      ...source,
+      ontology: {
+        ...source.ontology,
+        node_types: [
+          ...source.ontology.node_types,
+          {
+            id: "risk_type",
+            label: "Risk",
+            description: "Risk context",
+            semantic_role: "risk",
+            fields: [],
+          },
+        ],
+      },
+      nodes: [
+        ...source.nodes,
+        {
+          id: "n_context_orphan",
+          type: "risk_type",
+          label: "Context-only note",
+          summary: "This node has no progression edges and should not stretch the main route lane.",
+          data: {},
+          evidence_refs: [],
+          assumption_refs: [],
+        },
+      ],
+    }, "Native conversation");
+    const layout = buildPathwayLayout(bundle);
+    const nodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
+    const contextNode = nodeById.get("n_context_orphan");
+    const maxMainRouteX = Math.max(
       ...layout.nodes
-        .filter((item) => item.node.id !== "terminal_goal")
+        .filter((item) => item.node.id !== "n_context_orphan")
         .map((item) => item.x + item.width),
     );
 
-    expect(shortRoute?.depth).toBeLessThan(deepRoute?.depth ?? 0);
-    expect(terminalGoal?.x).toBeGreaterThan(maxRouteX);
+    expect(contextNode?.x).toBeGreaterThan(maxMainRouteX);
   });
 });

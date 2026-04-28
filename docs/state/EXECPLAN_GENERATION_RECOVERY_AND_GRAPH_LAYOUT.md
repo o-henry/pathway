@@ -71,6 +71,13 @@ Expected results:
   - Changed Pathway layout so direct terminal GOAL parents keep their natural graph depth instead of being forced into one terminal lane.
   - Switched GOAL incoming edges from one centered target anchor to separated target anchors.
   - Added focused tests for recovered map selection and terminal route layout.
+- Follow-up completed:
+  - Replaced the display-only terminal GOAL strategy with a single primary GOAL node. When generation already emits a goal node, Pathway now marks that generated node as the display goal instead of adding another GOAL.
+  - Removed existing display-only terminal GOAL nodes from cloned display bundles so old saved maps do not keep rendering duplicate goals.
+  - Reoriented generated-goal maps into one readable route tree connected to a single GOAL, while still preserving the original GraphBundle nodes and edges.
+  - Moved isolated context-only nodes into a right-side context grid to keep evidence/risk/assumption notes from creating unreadable vertical route rails.
+  - Verified a real local API generation run for `goal_c2ac0e8a99a84446b44226bbada333bf`: `map_e11e01327adb47eb81c5fddcea75403d`, HTTP `201`, `677.032221s`, 20 nodes, 26 route edges, 7 evidence items, and zero metadata-only evidence refs.
+  - Verified the generated map in the dev UI: one GOAL rendered, no visible node overlaps in the checked viewport, no "local API disconnected" text, and no "backend not ready" text.
 - Tests run:
   - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts apps/desktop/src/app/usePathwayMutationController.test.ts`
   - `pnpm --filter desktop typecheck`

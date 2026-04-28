@@ -3,6 +3,33 @@
 ## Latest micro-update
 
 - Completed work:
+  - Reworked the Pathway graph display so a generated goal node becomes the single visible GOAL instead of adding a second display-only terminal GOAL.
+  - Removed stale terminal display-goal nodes and their edges when building the display bundle, preserving the generated graph data while avoiding duplicate GOAL rendering.
+  - Changed the layout from terminal-lane convergence toward a left-to-right route tree connected to one GOAL, with descendant-based row placement and lane spreading.
+  - Moved isolated context-only nodes into a right-side context grid so risks/evidence/notes do not stretch the main route lane into unreadable vertical columns.
+  - Directly ran the local API generation path for the English-conversation goal and confirmed it completed with search enabled: `map_e11e01327adb47eb81c5fddcea75403d` returned `201` in `677.032221s` with 20 nodes, 26 route edges, 7 evidence items, and zero metadata-only evidence refs.
+  - Opened the desktop dev UI in a browser against the running local services and verified the generated map rendered with one GOAL, no visible node overlaps, and no "local API disconnected" or "backend not ready" message in the checked UI state.
+- Changed files:
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `docs/state/EXECPLAN_GENERATION_RECOVERY_AND_GRAPH_LAYOUT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `LIFEMAP_LOCAL_API_TOKEN=pathway-ui-test-token VITE_PATHWAY_LOCAL_API_TOKEN=pathway-ui-test-token pnpm dev:desktop:services`
+  - `curl -sS -X POST -H 'Authorization: Bearer pathway-ui-test-token' --output /tmp/pathway-generate-direct-check.json --write-out 'status:%{http_code} time:%{time_total}\n' http://127.0.0.1:8000/goals/goal_c2ac0e8a99a84446b44226bbada333bf/pathways/generate`
+  - Browser/Playwright verification against `http://127.0.0.1:1420/` for the generated map and failure-message text check.
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts apps/desktop/src/app/usePathwayMutationController.test.ts`
+  - `pnpm --filter desktop typecheck`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The browser-only dev surface cannot exercise the Tauri `invoke` collector button path directly; the long-running generation proof used the same local API that `pnpm dev` starts through Tauri's `beforeDevCommand`, and the resulting map was visually checked in the dev UI.
+- Next recommended task:
+  - Add an automated visual regression check for generated Pathway maps once a stable screenshot harness is available for the desktop shell.
+
+## Previous micro-update
+
+- Completed work:
   - Fixed the graph-generation success/failure mismatch where the API could save a new graph but the desktop UI still showed a transient local-API failure.
   - The desktop now captures existing map IDs before generation and, after a transient POST failure, checks whether a new map was saved before retrying or showing an error.
   - Applied the same saved-map recovery path to both checklist/intake graph generation and manual workflow graph generation.

@@ -62,6 +62,7 @@ type CanvasPanState = {
 type PathwayTone = "sky" | "iris" | "mist" | "goal";
 
 const TERMINAL_GOAL_DATA_ROLE = "terminal_goal";
+const PRIMARY_GOAL_DATA_ROLE = "primary_goal";
 const PERSONAL_LEARNING_DATA_ROLE = "personal_learning";
 const PATHWAY_NODE_WIDTH = 220;
 const PATHWAY_NODE_HEIGHT = 56;
@@ -88,7 +89,7 @@ function semanticTextIncludesGoal(value: string): boolean {
 
 function nodeLooksLikeGoal(definition: GraphNodeTypeDefinition | undefined, node: GraphNodeRecord): boolean {
   const dataRole = normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role);
-  if (dataRole === TERMINAL_GOAL_DATA_ROLE) {
+  if (dataRole === TERMINAL_GOAL_DATA_ROLE || dataRole === PRIMARY_GOAL_DATA_ROLE) {
     return true;
   }
   const value = normalizeGraphSearchText(`${definition?.id ?? ""} ${definition?.label ?? ""} ${node.type} ${node.label}`);
@@ -264,6 +265,15 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
   const nodeTypes = new Map(next.ontology.node_types.map((item) => [item.id, item]));
   const existingNodeIds = new Set(next.nodes.map((node) => node.id));
   const userGoalLabel = String(userGoalTitle ?? "").trim();
+  const terminalDisplayNodeIds = new Set(
+    next.nodes.filter((node) => nodeHasDisplayRole(node, TERMINAL_GOAL_DATA_ROLE)).map((node) => node.id),
+  );
+  if (terminalDisplayNodeIds.size > 0) {
+    next.nodes = next.nodes.filter((node) => !terminalDisplayNodeIds.has(node.id));
+    next.edges = next.edges.filter(
+      (edge) => !terminalDisplayNodeIds.has(edge.source) && !terminalDisplayNodeIds.has(edge.target),
+    );
+  }
   const generatedGoalNode = next.nodes.find(
     (node) => !nodeHasDisplayRole(node, TERMINAL_GOAL_DATA_ROLE) && nodeLooksLikeGoal(nodeTypes.get(node.type), node),
   );
@@ -273,51 +283,47 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
     next.map.title ||
     "GOAL";
 
-  let terminalGoalNode = next.nodes.find((node) => nodeHasDisplayRole(node, TERMINAL_GOAL_DATA_ROLE));
-  if (!terminalGoalNode) {
-    const goalNodeId = makeUniqueNodeId("terminal_goal", existingNodeIds);
-    terminalGoalNode = {
+  let displayGoalNode = generatedGoalNode;
+  if (!displayGoalNode) {
+    const goalNodeId = makeUniqueNodeId("display_goal", existingNodeIds);
+    displayGoalNode = {
       id: goalNodeId,
       type: goalTypeId,
       label: fallbackGoalLabel,
-      summary: "사용자가 기입한 최종 목표입니다. 모든 진행 루트는 이 노드로 수렴합니다.",
+      summary: "사용자가 기입한 목표입니다. 이 노드에서 조사 기반 경로가 펼쳐집니다.",
       data: {
         source: "user_goal",
-        pathway_display_role: TERMINAL_GOAL_DATA_ROLE,
+        pathway_display_role: PRIMARY_GOAL_DATA_ROLE,
       },
       evidence_refs: [],
       assumption_refs: [],
     };
-    next.nodes.push(terminalGoalNode);
+    next.nodes.push(displayGoalNode);
     existingNodeIds.add(goalNodeId);
   } else {
-    terminalGoalNode.type = goalTypeId;
-    terminalGoalNode.label = fallbackGoalLabel;
-    terminalGoalNode.summary = terminalGoalNode.summary || "사용자가 기입한 최종 목표입니다.";
-    terminalGoalNode.data = {
-      ...terminalGoalNode.data,
-      source: (terminalGoalNode.data as Record<string, unknown> | undefined)?.source ?? "user_goal",
-      pathway_display_role: TERMINAL_GOAL_DATA_ROLE,
+    displayGoalNode.label = fallbackGoalLabel;
+    displayGoalNode.summary = displayGoalNode.summary || "사용자가 기입한 목표입니다.";
+    displayGoalNode.data = {
+      ...displayGoalNode.data,
+      source: (displayGoalNode.data as Record<string, unknown> | undefined)?.source ?? "user_goal",
+      pathway_display_role: PRIMARY_GOAL_DATA_ROLE,
     };
   }
 
-  const goalNodeId = terminalGoalNode.id;
-  const nonGoalNodeIds = new Set(
-    next.nodes.filter((node) => node.id !== goalNodeId).map((node) => node.id),
-  );
-  const nonProgressionEdges = next.edges.filter((edge) => edge.type !== progressionTypeId);
-  const nonGoalProgressionEdges = next.edges.filter(
-    (edge) => edge.type === progressionTypeId && edge.source !== goalNodeId && edge.target !== goalNodeId,
-  );
+  const goalNodeId = displayGoalNode.id;
+  const progressionEdges = next.edges.filter((edge) => edge.type === progressionTypeId);
+  const incoming = new Map<string, number>();
   const outgoing = new Map<string, number>();
-  nonGoalNodeIds.forEach((nodeId) => outgoing.set(nodeId, 0));
-  nonGoalProgressionEdges.forEach((edge) => {
-    if (nonGoalNodeIds.has(edge.source) && nonGoalNodeIds.has(edge.target)) {
-      outgoing.set(edge.source, (outgoing.get(edge.source) ?? 0) + 1);
-    }
+  next.nodes.forEach((node) => {
+    incoming.set(node.id, 0);
+    outgoing.set(node.id, 0);
+  });
+  progressionEdges.forEach((edge) => {
+    incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1);
+    outgoing.set(edge.source, (outgoing.get(edge.source) ?? 0) + 1);
   });
 
-  const connectableTerminalRoles = new Set([
+  const connectableRootRoles = new Set([
     "checkpoint",
     "curriculum",
     "fallback_route",
@@ -327,7 +333,7 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
     "route_choice",
     "switch_condition",
   ]);
-  const nonTerminalRoles = new Set([
+  const nonRootRoles = new Set([
     "assumption",
     "constraint",
     "cost",
@@ -337,37 +343,39 @@ export function buildTerminalGoalDisplayBundle(bundle: GraphBundle, userGoalTitl
     "resource",
     "risk",
   ]);
-  const terminalNodeIds = next.nodes
+  const rootRouteNodeIds = next.nodes
     .filter((node) => {
-      if (node.id === goalNodeId || (outgoing.get(node.id) ?? 0) !== 0) {
+      if (node.id === goalNodeId || (incoming.get(node.id) ?? 0) !== 0) {
         return false;
       }
       const semanticRole = nodeSemanticRole(nodeTypes.get(node.type));
-      if (connectableTerminalRoles.has(semanticRole)) {
+      if (connectableRootRoles.has(semanticRole)) {
         return true;
       }
-      if (nonTerminalRoles.has(semanticRole)) {
+      if (nonRootRoles.has(semanticRole)) {
         return false;
       }
       const family = nodeSemanticFamily(nodeTypes.get(node.type), node);
       return family === "decision" || family === "learning" || family === "route";
     })
     .map((node) => node.id);
-  const existingEdgeIds = new Set(next.edges.map((edge) => edge.id));
-  const terminalGoalEdges = terminalNodeIds.map((nodeId) => {
-    const baseId = `terminal_goal_${nodeId}`;
-    const edgeId = makeUniqueEdgeId(baseId, existingEdgeIds);
-    existingEdgeIds.add(edgeId);
-    return {
-      id: edgeId,
-      type: progressionTypeId,
-      source: nodeId,
-      target: goalNodeId,
-      label: "GOAL",
-    };
-  });
-
-  next.edges = [...nonProgressionEdges, ...nonGoalProgressionEdges, ...terminalGoalEdges];
+  const goalHasProgressionEdges = progressionEdges.some((edge) => edge.source === goalNodeId || edge.target === goalNodeId);
+  if (!goalHasProgressionEdges && rootRouteNodeIds.length > 0) {
+    const existingEdgeIds = new Set(next.edges.map((edge) => edge.id));
+    const displayGoalRootEdges = rootRouteNodeIds.map((nodeId) => {
+      const baseId = `display_goal_root_${nodeId}`;
+      const edgeId = makeUniqueEdgeId(baseId, existingEdgeIds);
+      existingEdgeIds.add(edgeId);
+      return {
+        id: edgeId,
+        type: progressionTypeId,
+        source: goalNodeId,
+        target: nodeId,
+        label: "시작",
+      };
+    });
+    next.edges = [...next.edges, ...displayGoalRootEdges];
+  }
   return next;
 }
 
@@ -532,12 +540,20 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
         PERSONAL_LEARNING_DATA_ROLE,
     )
     .map((node) => node.id);
-  const goalNodeId =
+  const terminalGoalNodeId =
     bundle.nodes.find(
       (node) =>
         normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
         TERMINAL_GOAL_DATA_ROLE,
     )?.id ?? null;
+  const primaryGoalNodeId =
+    bundle.nodes.find(
+      (node) =>
+        normalizeGraphSearchText((node.data as Record<string, unknown> | undefined)?.pathway_display_role) ===
+        PRIMARY_GOAL_DATA_ROLE,
+    )?.id ??
+    bundle.nodes.find((node) => nodeLooksLikeGoal(bundle.ontology.node_types.find((item) => item.id === node.type), node))?.id ??
+    null;
   const incoming = new Map<string, number>();
   const parents = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
@@ -554,8 +570,31 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     outgoing.get(edge.source)?.push(edge.target);
   });
 
-  const compareNodeIds = (leftId: string, rightId: string) =>
-    (nodeById.get(leftId)?.label ?? leftId).localeCompare(nodeById.get(rightId)?.label ?? rightId);
+  const nodeTypes = new Map(bundle.ontology.node_types.map((item) => [item.id, item]));
+  const nodeSortRank = (nodeId: string): number => {
+    if (nodeId === primaryGoalNodeId) {
+      return 0;
+    }
+    const node = nodeById.get(nodeId);
+    const family = node ? nodeSemanticFamily(nodeTypes.get(node.type), node) : "route";
+    if ((outgoing.get(nodeId)?.length ?? 0) > 0 && (family === "route" || family === "decision" || family === "learning")) {
+      return 1;
+    }
+    if ((outgoing.get(nodeId)?.length ?? 0) > 0) {
+      return 2;
+    }
+    if (family === "route" || family === "decision" || family === "learning") {
+      return 3;
+    }
+    return 4;
+  };
+  const compareNodeIds = (leftId: string, rightId: string) => {
+    const rankDiff = nodeSortRank(leftId) - nodeSortRank(rightId);
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+    return (nodeById.get(leftId)?.label ?? leftId).localeCompare(nodeById.get(rightId)?.label ?? rightId);
+  };
 
   parents.forEach((items, nodeId) => {
     parents.set(nodeId, [...items].sort(compareNodeIds));
@@ -565,10 +604,23 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     outgoing.set(nodeId, [...items].sort(compareNodeIds));
   });
 
+  const contextOnlyNodeIds = new Set(
+    bundle.nodes
+      .filter(
+        (node) =>
+          node.id !== primaryGoalNodeId &&
+          node.id !== terminalGoalNodeId &&
+          (incoming.get(node.id) ?? 0) === 0 &&
+          (outgoing.get(node.id)?.length ?? 0) === 0,
+      )
+      .map((node) => node.id),
+  );
+
   const roots = bundle.nodes
-    .filter((node) => (incoming.get(node.id) ?? 0) === 0)
-    .sort((left, right) => left.label.localeCompare(right.label));
-  const queue = roots.length > 0 ? roots.map((node) => node.id) : bundle.nodes.slice(0, 1).map((node) => node.id);
+    .filter((node) => (incoming.get(node.id) ?? 0) === 0 && !contextOnlyNodeIds.has(node.id))
+    .sort((left, right) => compareNodeIds(left.id, right.id));
+  const mainNodes = bundle.nodes.filter((node) => !contextOnlyNodeIds.has(node.id));
+  const queue = roots.length > 0 ? roots.map((node) => node.id) : mainNodes.slice(0, 1).map((node) => node.id);
   const depth = new Map<string, number>();
   queue.forEach((id) => depth.set(id, 0));
 
@@ -584,21 +636,21 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     }
   }
 
-  if (goalNodeId) {
+  if (terminalGoalNodeId) {
     const routeMaxDepth = Math.max(
       0,
       ...bundle.nodes
-        .filter((node) => node.id !== goalNodeId && !learningNodeIds.includes(node.id))
+        .filter((node) => node.id !== terminalGoalNodeId && !learningNodeIds.includes(node.id))
         .map((node) => depth.get(node.id) ?? 0),
     );
     const goalDepth = routeMaxDepth + 1;
-    depth.set(goalNodeId, goalDepth);
+    depth.set(terminalGoalNodeId, goalDepth);
     learningNodeIds.forEach((nodeId) => {
       depth.set(nodeId, Math.max(0, goalDepth - 1));
     });
   }
   const directGoalParentIdSet = new Set(
-    goalNodeId ? (parents.get(goalNodeId) ?? []).filter((nodeId) => !learningNodeIds.includes(nodeId)) : [],
+    terminalGoalNodeId ? (parents.get(terminalGoalNodeId) ?? []).filter((nodeId) => !learningNodeIds.includes(nodeId)) : [],
   );
 
   const nodeFootprintById = new Map<string, PathwayNodeFootprint>();
@@ -615,7 +667,7 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
 
   const positioned: LayoutNode[] = [];
   const positionedY = new Map<string, number>();
-  const laneDepths = [...new Set(bundle.nodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
+  const laneDepths = [...new Set(mainNodes.map((node) => depth.get(node.id) ?? 0))].sort((a, b) => a - b);
   const rootBaseY = 108;
   const horizontalGap = 56;
   const rootRowGap = 48;
@@ -624,7 +676,7 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
   const laneStartX = new Map<number, number>();
   let laneCursorX = 120;
   laneDepths.forEach((laneDepth) => {
-    const laneNodes = bundle.nodes.filter((node) => (depth.get(node.id) ?? 0) === laneDepth);
+    const laneNodes = mainNodes.filter((node) => (depth.get(node.id) ?? 0) === laneDepth);
     const laneFootprintWidth = Math.max(
       ...laneNodes.map((node) => nodeFootprintById.get(node.id)?.footprintWidth ?? 0),
       0,
@@ -635,11 +687,6 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     laneStartX.set(laneDepth, laneCursorX);
     laneCursorX += laneFootprintWidth + horizontalGap;
   });
-  const rowByNodeId = new Map<string, number>();
-  roots.forEach((node, index) => {
-    rowByNodeId.set(node.id, index);
-  });
-
   const rowGap = Math.max(
     ...bundle.nodes.map((node) => nodeFootprintById.get(node.id)?.height ?? NODE_HEIGHT),
     NODE_HEIGHT,
@@ -649,12 +696,56 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
     const nextHeight = nodeFootprintById.get(nextNodeId)?.height ?? NODE_HEIGHT;
     return ((previousHeight + nextHeight) / 2 + laneSiblingGap) / Math.max(1, rowGap);
   };
+  const rowByNodeId = new Map<string, number>();
+  const visiting = new Set<string>();
+  let nextLeafRow = 0;
+  const assignRowFromDescendants = (nodeId: string): number => {
+    const existingRow = rowByNodeId.get(nodeId);
+    if (typeof existingRow === "number") {
+      return existingRow;
+    }
+    if (visiting.has(nodeId)) {
+      const cycleRow = nextLeafRow;
+      nextLeafRow += 1;
+      rowByNodeId.set(nodeId, cycleRow);
+      return cycleRow;
+    }
+    visiting.add(nodeId);
+    const childIds = (outgoing.get(nodeId) ?? [])
+      .filter((childId) => childId !== terminalGoalNodeId)
+      .sort(compareNodeIds);
+    let row: number;
+    if (childIds.length === 0) {
+      row = nextLeafRow;
+      nextLeafRow += 1;
+    } else {
+      const childRows = childIds.map(assignRowFromDescendants);
+      row = childRows.reduce((sum, value) => sum + value, 0) / childRows.length;
+    }
+    visiting.delete(nodeId);
+    rowByNodeId.set(nodeId, row);
+    return row;
+  };
 
-  laneDepths
-    .filter((laneDepth) => laneDepth > 0)
-    .forEach((laneDepth) => {
+  roots.forEach((node) => {
+    assignRowFromDescendants(node.id);
+  });
+  bundle.nodes.forEach((node) => {
+    if (contextOnlyNodeIds.has(node.id)) {
+      return;
+    }
+    assignRowFromDescendants(node.id);
+  });
+
+  const spreadRowsWithinLanes = () => {
+    laneDepths.forEach((laneDepth) => {
       const laneNodeIds = bundle.nodes
-        .filter((node) => (depth.get(node.id) ?? 0) === laneDepth && !learningNodeIds.includes(node.id))
+        .filter(
+          (node) =>
+            (depth.get(node.id) ?? 0) === laneDepth &&
+            !learningNodeIds.includes(node.id) &&
+            !contextOnlyNodeIds.has(node.id),
+        )
         .sort((left, right) => compareNodeIds(left.id, right.id))
         .map((node) => node.id);
       if (laneNodeIds.length === 0) {
@@ -662,6 +753,9 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
       }
 
       laneNodeIds.forEach((nodeId) => {
+        if (rowByNodeId.has(nodeId)) {
+          return;
+        }
         const parentIds = parents.get(nodeId) ?? [];
         if (parentIds.length === 0) {
           rowByNodeId.set(nodeId, rowByNodeId.size);
@@ -701,15 +795,45 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
         }
       }
     });
+  };
 
-  if (goalNodeId) {
-    const goalParentRows = (parents.get(goalNodeId) ?? [])
+  const recenterParentRowsFromChildren = () => {
+    [...laneDepths].reverse().forEach((laneDepth) => {
+      const laneNodeIds = bundle.nodes
+        .filter(
+          (node) =>
+            (depth.get(node.id) ?? 0) === laneDepth &&
+            !learningNodeIds.includes(node.id) &&
+            !contextOnlyNodeIds.has(node.id),
+        )
+        .map((node) => node.id);
+      laneNodeIds.forEach((nodeId) => {
+        const childRows = (outgoing.get(nodeId) ?? [])
+          .filter((childId) => childId !== terminalGoalNodeId && !learningNodeIds.includes(childId))
+          .map((childId) => rowByNodeId.get(childId))
+          .filter((value): value is number => typeof value === "number");
+        if (childRows.length === 0) {
+          return;
+        }
+        rowByNodeId.set(nodeId, childRows.reduce((sum, value) => sum + value, 0) / childRows.length);
+      });
+    });
+  };
+
+  spreadRowsWithinLanes();
+  recenterParentRowsFromChildren();
+  spreadRowsWithinLanes();
+  recenterParentRowsFromChildren();
+  spreadRowsWithinLanes();
+
+  if (terminalGoalNodeId) {
+    const goalParentRows = (parents.get(terminalGoalNodeId) ?? [])
       .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
       .map((parentId) => rowByNodeId.get(parentId))
       .filter((value): value is number => typeof value === "number");
     if (goalParentRows.length > 0) {
       const orderedRows = [...goalParentRows].sort((left, right) => left - right);
-      rowByNodeId.set(goalNodeId, orderedRows[Math.floor(orderedRows.length / 2)] ?? 0);
+      rowByNodeId.set(terminalGoalNodeId, orderedRows[Math.floor(orderedRows.length / 2)] ?? 0);
     }
   }
 
@@ -722,13 +846,13 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
   };
 
   bundle.nodes
-    .filter((node) => !learningNodeIds.includes(node.id))
+    .filter((node) => !learningNodeIds.includes(node.id) && !contextOnlyNodeIds.has(node.id))
     .forEach((node) => {
       setRowPosition(node.id, rowByNodeId.get(node.id) ?? 0);
     });
 
   if (learningNodeIds.length > 0) {
-    const goalRow = goalNodeId ? rowByNodeId.get(goalNodeId) ?? 0 : 0;
+    const goalRow = terminalGoalNodeId ? rowByNodeId.get(terminalGoalNodeId) ?? 0 : 0;
     learningNodeIds
       .slice()
       .sort(compareNodeIds)
@@ -738,7 +862,7 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
   }
 
   laneDepths.forEach((laneDepth) => {
-    const laneNodes = bundle.nodes
+    const laneNodes = mainNodes
       .filter((node) => (depth.get(node.id) ?? 0) === laneDepth)
       .sort((left, right) => (positionedY.get(left.id) ?? 0) - (positionedY.get(right.id) ?? 0));
     const laneFootprintWidth = Math.max(
@@ -765,6 +889,34 @@ export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; 
       });
     });
   });
+
+  const contextNodes = bundle.nodes
+    .filter((node) => contextOnlyNodeIds.has(node.id))
+    .sort((left, right) => compareNodeIds(left.id, right.id));
+  if (contextNodes.length > 0) {
+    const maxMainX = Math.max(...positioned.map((item) => item.x + item.width), 120);
+    const contextColumns = contextNodes.length > 3 ? 2 : 1;
+    const contextStartX = maxMainX + 96;
+    const contextStartY = rootBaseY;
+    const contextColumnGap = PATHWAY_NODE_WIDTH + 64;
+    const contextRowGap = PATHWAY_NODE_HEIGHT + 76;
+    contextNodes.forEach((node, index) => {
+      const footprint = nodeFootprintById.get(node.id);
+      const width = footprint?.width ?? NODE_WIDTH;
+      const height = footprint?.height ?? NODE_HEIGHT;
+      const column = index % contextColumns;
+      const row = Math.floor(index / contextColumns);
+      positioned.push({
+        node,
+        depth: depth.get(node.id) ?? 0,
+        childCount: 0,
+        width,
+        height,
+        x: Math.round(contextStartX + column * contextColumnGap),
+        y: Math.round(contextStartY + row * contextRowGap),
+      });
+    });
+  }
 
   const minX = Math.min(...positioned.map((item) => item.x), 120);
   const minY = Math.min(...positioned.map((item) => item.y));
