@@ -3,6 +3,32 @@
 ## Latest micro-update
 
 - Completed work:
+  - Fixed the graph-generation success/failure mismatch where the API could save a new graph but the desktop UI still showed a transient local-API failure.
+  - The desktop now captures existing map IDs before generation and, after a transient POST failure, checks whether a new map was saved before retrying or showing an error.
+  - Applied the same saved-map recovery path to both checklist/intake graph generation and manual workflow graph generation.
+  - Reworked Pathway graph layout so direct terminal GOAL parents keep their natural route depth instead of being forced into one final lane.
+  - Changed GOAL incoming edge rendering to use separated target anchors, avoiding one centered entry point that created tall vertical edge columns.
+  - Added tests for recovered map selection and terminal-route layout.
+- Changed files:
+  - `apps/desktop/src/app/usePathwayMutationController.ts`
+  - `apps/desktop/src/app/usePathwayMutationController.test.ts`
+  - `apps/desktop/src/app/PathwayRailCanvas.tsx`
+  - `apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `docs/state/EXECPLAN_GENERATION_RECOVERY_AND_GRAPH_LAYOUT.md`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts apps/desktop/src/app/usePathwayMutationController.test.ts`
+  - `pnpm --filter desktop typecheck`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - No new long-running GPT-5.5 generation was executed for this UI/client patch; the fix is covered by unit tests and typecheck, with the previous real generation path already proven.
+- Next recommended task:
+  - Run the desktop app once on the latest generated map and do a visual pass on the exact screenshot scenario after this patch is pulled.
+
+## Previous micro-update
+
+- Completed work:
   - Re-ran the real local generation path outside the sandbox so Codex CLI could access the logged-in session.
   - Confirmed graph generation succeeds with search enabled and no local graph timeout: `map_f287296233a74d4fb9992c3159a1180d` created in 813.8s.
   - Found the remaining evidence-quality bug: SQLite had 112 source chunks, but LanceDB only had 5 stale metadata rows, so generation could only see metadata-only evidence.

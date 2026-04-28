@@ -519,7 +519,7 @@ function resolvePathwayEdgeSides(source: LayoutNode, target: LayoutNode): Pathwa
     : { fromSide: "top", toSide: "bottom" };
 }
 
-function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number; height: number; bounds: LayoutBounds; progressionTypeIds: Set<string> } {
+export function buildPathwayLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number; height: number; bounds: LayoutBounds; progressionTypeIds: Set<string> } {
   const progressionTypeIds = new Set(
     bundle.ontology.edge_types.filter((item) => item.role === "progression").map((item) => item.id),
   );
@@ -585,17 +585,13 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
   }
 
   if (goalNodeId) {
-    const directGoalParentIds = (parents.get(goalNodeId) ?? []).filter((nodeId) => !learningNodeIds.includes(nodeId));
-    const terminalLaneDepth = Math.max(
+    const routeMaxDepth = Math.max(
       0,
       ...bundle.nodes
         .filter((node) => node.id !== goalNodeId && !learningNodeIds.includes(node.id))
         .map((node) => depth.get(node.id) ?? 0),
     );
-    directGoalParentIds.forEach((nodeId) => {
-      depth.set(nodeId, terminalLaneDepth);
-    });
-    const goalDepth = terminalLaneDepth + 1;
+    const goalDepth = routeMaxDepth + 1;
     depth.set(goalNodeId, goalDepth);
     learningNodeIds.forEach((nodeId) => {
       depth.set(nodeId, Math.max(0, goalDepth - 1));
@@ -707,46 +703,13 @@ function buildLayout(bundle: GraphBundle): { nodes: LayoutNode[]; width: number;
     });
 
   if (goalNodeId) {
-    const directGoalParentIds = (parents.get(goalNodeId) ?? [])
-      .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
-      .sort((leftId, rightId) => {
-        const leftHasParent = (parents.get(leftId) ?? []).some((parentId) => parentId !== goalNodeId);
-        const rightHasParent = (parents.get(rightId) ?? []).some((parentId) => parentId !== goalNodeId);
-        if (leftHasParent !== rightHasParent) {
-          return leftHasParent ? -1 : 1;
-        }
-        const depthDiff = (depth.get(rightId) ?? 0) - (depth.get(leftId) ?? 0);
-        if (depthDiff !== 0) {
-          return depthDiff;
-        }
-        return compareNodeIds(leftId, rightId);
-      });
-    const primaryGoalParentId = directGoalParentIds[0];
-    if (primaryGoalParentId) {
-      const primaryParentRows = (parents.get(primaryGoalParentId) ?? [])
-        .filter((parentId) => parentId !== goalNodeId)
-        .map((parentId) => rowByNodeId.get(parentId))
-        .filter((value): value is number => typeof value === "number");
-      const primaryRow =
-        primaryParentRows.length > 0
-          ? primaryParentRows.reduce((sum, value) => sum + value, 0) / primaryParentRows.length
-          : rowByNodeId.get(primaryGoalParentId) ?? 0;
-      directGoalParentIds.forEach((nodeId, index) => {
-        rowByNodeId.set(nodeId, primaryRow + index);
-      });
-    }
-  }
-
-  if (goalNodeId) {
     const goalParentRows = (parents.get(goalNodeId) ?? [])
       .filter((parentId) => rowByNodeId.has(parentId) && !learningNodeIds.includes(parentId))
       .map((parentId) => rowByNodeId.get(parentId))
       .filter((value): value is number => typeof value === "number");
     if (goalParentRows.length > 0) {
-      rowByNodeId.set(
-        goalNodeId,
-        goalParentRows.reduce((sum, value) => sum + value, 0) / goalParentRows.length,
-      );
+      const orderedRows = [...goalParentRows].sort((left, right) => left - right);
+      rowByNodeId.set(goalNodeId, orderedRows[Math.floor(orderedRows.length / 2)] ?? 0);
     }
   }
 
@@ -1018,7 +981,7 @@ export default function PathwayRailCanvas({
   }, [canvasFullscreen, onFullscreenChange]);
 
   const adapted = useMemo(() => {
-    const layout = buildLayout(bundle);
+    const layout = buildPathwayLayout(bundle);
     const nodeTypes = new Map(bundle.ontology.node_types.map((item) => [item.id, item]));
     const layoutNodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
     const nodes: GraphNode[] = layout.nodes.map(({ node, x, y, depth, childCount, width, height }) => {
@@ -1200,7 +1163,7 @@ export default function PathwayRailCanvas({
         return String(config?.sourceKind ?? "").trim() === "pathway"
           && String(config?.pathwayFamily ?? "").trim() === "goal";
       },
-      forceCenteredTargetEntry: (node) => {
+      separateIncomingTargetAnchors: (node) => {
         const config = node.config as Record<string, unknown> | undefined;
         return String(config?.sourceKind ?? "").trim() === "pathway"
           && String(config?.pathwayFamily ?? "").trim() === "goal";

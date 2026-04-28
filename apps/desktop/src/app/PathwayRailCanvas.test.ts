@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTerminalGoalDisplayBundle } from "./PathwayRailCanvas";
+import { buildPathwayLayout, buildTerminalGoalDisplayBundle } from "./PathwayRailCanvas";
 import type { GraphBundle } from "../lib/types";
 
 function bundleFixture(): GraphBundle {
@@ -116,5 +116,131 @@ describe("buildTerminalGoalDisplayBundle", () => {
         expect.objectContaining({ source: "n_evidence", target: "terminal_goal" }),
       ]),
     );
+  });
+});
+
+function branchedRouteBundleFixture(): GraphBundle {
+  return {
+    schema_version: "1.0.0",
+    bundle_id: "bundle_branch_layout",
+    map: {
+      title: "Speaking route",
+      goal_id: "goal_test",
+      summary: "A route map",
+    },
+    ontology: {
+      node_types: [
+        {
+          id: "route_type",
+          label: "Route",
+          description: "Route node",
+          semantic_role: "route",
+          fields: [],
+        },
+      ],
+      edge_types: [
+        {
+          id: "progression",
+          label: "Progression",
+          role: "progression",
+        },
+      ],
+    },
+    nodes: [
+      {
+        id: "n_start",
+        type: "route_type",
+        label: "Start",
+        summary: "Start route.",
+        data: {},
+        evidence_refs: [],
+        assumption_refs: [],
+      },
+      {
+        id: "n_short",
+        type: "route_type",
+        label: "Short route leaf",
+        summary: "This shallow leaf should not be forced into the last lane.",
+        data: {},
+        evidence_refs: [],
+        assumption_refs: [],
+      },
+      {
+        id: "n_branch",
+        type: "route_type",
+        label: "Deep branch",
+        summary: "Deep branch.",
+        data: {},
+        evidence_refs: [],
+        assumption_refs: [],
+      },
+      {
+        id: "n_practice",
+        type: "route_type",
+        label: "Practice",
+        summary: "Practice route.",
+        data: {},
+        evidence_refs: [],
+        assumption_refs: [],
+      },
+      {
+        id: "n_deep",
+        type: "route_type",
+        label: "Deep route leaf",
+        summary: "Deep terminal route.",
+        data: {},
+        evidence_refs: [],
+        assumption_refs: [],
+      },
+    ],
+    edges: [
+      {
+        id: "e_start_short",
+        type: "progression",
+        source: "n_start",
+        target: "n_short",
+      },
+      {
+        id: "e_start_branch",
+        type: "progression",
+        source: "n_start",
+        target: "n_branch",
+      },
+      {
+        id: "e_branch_practice",
+        type: "progression",
+        source: "n_branch",
+        target: "n_practice",
+      },
+      {
+        id: "e_practice_deep",
+        type: "progression",
+        source: "n_practice",
+        target: "n_deep",
+      },
+    ],
+    evidence: [],
+    assumptions: [],
+    warnings: [],
+  };
+}
+
+describe("buildPathwayLayout", () => {
+  it("keeps shallow terminal routes in their natural lane before the display goal", () => {
+    const bundle = buildTerminalGoalDisplayBundle(branchedRouteBundleFixture(), "Native conversation");
+    const layout = buildPathwayLayout(bundle);
+    const nodeById = new Map(layout.nodes.map((item) => [item.node.id, item]));
+
+    const shortRoute = nodeById.get("n_short");
+    const deepRoute = nodeById.get("n_deep");
+    const terminalGoal = nodeById.get("terminal_goal");
+    const maxRouteX = Math.max(
+      ...layout.nodes
+        .filter((item) => item.node.id !== "terminal_goal")
+        .map((item) => item.x + item.width),
+    );
+
+    expect(shortRoute?.depth).toBeLessThan(deepRoute?.depth ?? 0);
+    expect(terminalGoal?.x).toBeGreaterThan(maxRouteX);
   });
 });

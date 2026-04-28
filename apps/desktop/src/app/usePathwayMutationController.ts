@@ -8,6 +8,7 @@ import {
   createStateUpdate,
   deleteGoal,
   fetchGoal,
+  fetchGoalMaps,
   fetchRevisionPreview,
   generatePathway,
   rejectRevisionPreview,
@@ -34,6 +35,8 @@ import {
 } from './pathwayWorkspaceUtils';
 
 type GoalAnalysisError = { goalId: string; message: string } | null;
+
+const GENERATED_MAP_RECOVERY_GRACE_MS = 2 * 60 * 1000;
 
 type UsePathwayMutationControllerOptions = {
   activeGoalId: string | null;
@@ -70,6 +73,35 @@ type UsePathwayMutationControllerOptions = {
   setStatusMessage: Dispatch<SetStateAction<string>>;
   stateForm: PathwayStateForm;
 };
+
+function lifeMapTimestampMs(map: LifeMap): number {
+  return Date.parse(map.updated_at || map.created_at || '') || 0;
+}
+
+async function captureKnownPathwayMapIds(goalId: string): Promise<Set<string>> {
+  try {
+    return new Set((await fetchGoalMaps(goalId)).map((map) => map.id));
+  } catch {
+    return new Set();
+  }
+}
+
+export function findRecoveredGeneratedMap(
+  maps: LifeMap[],
+  knownMapIds: ReadonlySet<string>,
+  generationStartedAtMs: number,
+): LifeMap | null {
+  const sortedMaps = [...maps].sort((left, right) => lifeMapTimestampMs(right) - lifeMapTimestampMs(left));
+  if (knownMapIds.size > 0) {
+    const newMap = sortedMaps.find((map) => !knownMapIds.has(map.id));
+    if (newMap) {
+      return newMap;
+    }
+  }
+
+  const recoveryThresholdMs = Math.max(0, generationStartedAtMs - GENERATED_MAP_RECOVERY_GRACE_MS);
+  return sortedMaps.find((map) => lifeMapTimestampMs(map) >= recoveryThresholdMs) ?? null;
+}
 
 export function usePathwayMutationController({
   activeGoalId,
@@ -119,6 +151,39 @@ export function usePathwayMutationController({
       await ensureEngineStarted();
     }
     await checkLocalApiReady();
+  }
+
+  async function recoverGeneratedMapAfterTransientFailure({
+    goalId,
+    generationStartedAtMs,
+    knownMapIds,
+    successMessage,
+  }: {
+    goalId: string;
+    generationStartedAtMs: number;
+    knownMapIds: ReadonlySet<string>;
+    successMessage: string;
+  }): Promise<LifeMap | null> {
+    try {
+      await recoverLocalApiAfterTransientFailure('그래프 생성 결과 확인');
+      const maps = await fetchGoalMaps(goalId);
+      const recoveredMap = findRecoveredGeneratedMap(maps, knownMapIds, generationStartedAtMs);
+      if (!recoveredMap) {
+        return null;
+      }
+      if (pathwayWorkCancelledRef.current) {
+        throw new Error('Pathway 작업이 중단되었습니다.');
+      }
+      setStatusMessage(successMessage);
+      await refreshGoalWorkspace(goalId, recoveredMap.id);
+      openWorkflowTab();
+      return recoveredMap;
+    } catch (error) {
+      if (pathwayWorkCancelledRef.current) {
+        throw error;
+      }
+      return null;
+    }
   }
 
   async function handleStartPathwayIntake(goalText: string) {
@@ -233,6 +298,8 @@ export function usePathwayMutationController({
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
+      const knownMapIds = await captureKnownPathwayMapIds(goalId);
+      const generationStartedAtMs = Date.now();
       let nextMap: LifeMap;
       try {
         nextMap = await generatePathway(goalId);
@@ -240,8 +307,32 @@ export function usePathwayMutationController({
         if (!isLocalApiTransientError(error)) {
           throw error;
         }
-        await recoverLocalApiAfterTransientFailure('그래프 생성');
-        nextMap = await generatePathway(goalId);
+        const recoveredMap = await recoverGeneratedMapAfterTransientFailure({
+          goalId,
+          generationStartedAtMs,
+          knownMapIds,
+          successMessage: '상담 내용을 반영해 새 경로 그래프를 생성했습니다.',
+        });
+        if (recoveredMap) {
+          return;
+        }
+        try {
+          nextMap = await generatePathway(goalId);
+        } catch (retryError) {
+          if (!isLocalApiTransientError(retryError)) {
+            throw retryError;
+          }
+          const recoveredRetryMap = await recoverGeneratedMapAfterTransientFailure({
+            goalId,
+            generationStartedAtMs,
+            knownMapIds,
+            successMessage: '상담 내용을 반영해 새 경로 그래프를 생성했습니다.',
+          });
+          if (recoveredRetryMap) {
+            return;
+          }
+          throw retryError;
+        }
       }
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
@@ -277,7 +368,42 @@ export function usePathwayMutationController({
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
-      const nextMap = await generatePathway(activeGoalId);
+      const knownMapIds = await captureKnownPathwayMapIds(activeGoalId);
+      const generationStartedAtMs = Date.now();
+      let nextMap: LifeMap;
+      try {
+        nextMap = await generatePathway(activeGoalId);
+      } catch (error) {
+        if (!isLocalApiTransientError(error)) {
+          throw error;
+        }
+        const recoveredMap = await recoverGeneratedMapAfterTransientFailure({
+          goalId: activeGoalId,
+          generationStartedAtMs,
+          knownMapIds,
+          successMessage: '새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.',
+        });
+        if (recoveredMap) {
+          return;
+        }
+        try {
+          nextMap = await generatePathway(activeGoalId);
+        } catch (retryError) {
+          if (!isLocalApiTransientError(retryError)) {
+            throw retryError;
+          }
+          const recoveredRetryMap = await recoverGeneratedMapAfterTransientFailure({
+            goalId: activeGoalId,
+            generationStartedAtMs,
+            knownMapIds,
+            successMessage: '새 경로 그래프를 생성했고 워크플로우 화면에 반영했습니다.',
+          });
+          if (recoveredRetryMap) {
+            return;
+          }
+          throw retryError;
+        }
+      }
       if (pathwayWorkCancelledRef.current) {
         throw new Error('Pathway 작업이 중단되었습니다.');
       }
