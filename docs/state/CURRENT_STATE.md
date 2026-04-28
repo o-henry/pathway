@@ -3,6 +3,38 @@
 ## Latest micro-update
 
 - Completed work:
+  - Re-ran the real local generation path outside the sandbox so Codex CLI could access the logged-in session.
+  - Confirmed graph generation succeeds with search enabled and no local graph timeout: `map_f287296233a74d4fb9992c3159a1180d` created in 813.8s.
+  - Found the remaining evidence-quality bug: SQLite had 112 source chunks, but LanceDB only had 5 stale metadata rows, so generation could only see metadata-only evidence.
+  - Added `RecoveringSourceSearchIndex`, which compares LanceDB with SQLite source chunks and rebuilds the vector table from SQLite before search when the index is stale.
+  - Changed stale-index recovery to rebuild the full LanceDB table in one pass so all source chunks survive, instead of repeatedly source-upserting through the schema-recovery path.
+  - Verified LanceDB recovers to 112 rows: 17 manual notes, 38 allowed public URL chunks, and 57 metadata candidates.
+  - Verified grounding packet now selects content-backed evidence, including Cambridge/British Council/manual research notes and public allowed sources.
+  - Re-ran real graph generation after index recovery: `map_47981c38c6664b79968d9617803c9b14` created in 929.2s with 23 nodes, 32 edges, 14 evidence items, zero metadata evidence refs, and no missing route/support action fields.
+- Changed files:
+  - `apps/api/lifemap_api/api/dependencies.py`
+  - `apps/api/lifemap_api/infrastructure/vector_store.py`
+  - `apps/api/tests/test_source_search_recovery.py`
+  - `docs/state/CURRENT_STATE.md`
+- Commands run:
+  - `zsh -lc 'pnpm dev:desktop:services'`
+  - `curl -sS -X POST --output /tmp/pathway-generate-c358-action-layout-3.json --write-out "status:%{http_code} time:%{time_total}\n" http://127.0.0.1:8000/goals/goal_c358cf3c689f43eb9fe0a288a811a55b/pathways/generate`
+  - `curl -sS -X POST --output /tmp/pathway-generate-c358-action-layout-4.json --write-out "status:%{http_code} time:%{time_total}\n" http://127.0.0.1:8000/goals/goal_c358cf3c689f43eb9fe0a288a811a55b/pathways/generate`
+  - `UV_CACHE_DIR=.uv-cache uv run pytest apps/api/tests/test_source_search_recovery.py apps/api/tests/test_generation_grounding.py apps/api/tests/test_map_generation.py apps/api/tests/test_codex_cli_provider.py apps/api/tests/test_graph_quality.py`
+  - `UV_CACHE_DIR=.uv-cache uv run ruff check apps/api/lifemap_api/infrastructure/vector_store.py apps/api/lifemap_api/api/dependencies.py apps/api/tests/test_source_search_recovery.py`
+  - `zsh ./scripts/with-modern-node.sh pnpm --filter web exec vitest --root ../.. --run apps/desktop/src/app/PathwayRailCanvas.test.ts`
+  - `pnpm --filter desktop exec tsc --noEmit`
+  - `cargo check --manifest-path src-tauri/Cargo.toml`
+  - `git diff --check`
+  - `pnpm secret-scan`
+- Known gaps:
+  - The newest successful map is `map_47981c38c6664b79968d9617803c9b14`; older maps created before index recovery still contain metadata-only evidence and should not be used as quality references.
+- Next recommended task:
+  - Open the newest map in the desktop UI and do a visual pass on graph spacing/edge readability with the content-backed graph.
+
+## Latest micro-update
+
+- Completed work:
   - Identified why the visible graph lacked per-node execution guidance: the Codex GraphBundle output schema only allowed an empty `node.data` object, so action fields could not survive generation.
   - Opened strict node data fields for `user_step`, `how_to_do_it`, `success_check`, `record_after`, and related basis fields.
   - Added graph-quality validation so route/support nodes must carry user-facing action guidance, not Pathway self-analysis prose.

@@ -9,17 +9,20 @@ from lifemap_api.infrastructure.llm_providers import build_llm_provider
 from lifemap_api.infrastructure.repositories import (
     SqliteCheckInRepository,
     SqliteCurrentStateSnapshotRepository,
-    SqliteGoalRepository,
     SqliteGoalAnalysisRepository,
+    SqliteGoalRepository,
     SqliteLifeMapRepository,
     SqliteProfileRepository,
     SqliteRevisionProposalRepository,
     SqliteRouteSelectionRepository,
-    SqliteStateUpdateRepository,
     SqliteSourceChunkRepository,
     SqliteSourceRepository,
+    SqliteStateUpdateRepository,
 )
-from lifemap_api.infrastructure.vector_store import LanceDBSourceSearchIndex
+from lifemap_api.infrastructure.vector_store import (
+    LanceDBSourceSearchIndex,
+    RecoveringSourceSearchIndex,
+)
 
 
 def get_profile_repository(session: Session = Depends(get_session)) -> SqliteProfileRepository:
@@ -86,5 +89,14 @@ def get_embedding_provider() -> EmbeddingProvider:
     return DeterministicEmbeddingProvider()
 
 
-def get_source_search_index() -> SourceSearchIndex:
-    return LanceDBSourceSearchIndex(get_settings().lancedb_uri)
+def get_source_search_index(
+    source_repo: SqliteSourceRepository = Depends(get_source_repository),
+    chunk_repo: SqliteSourceChunkRepository = Depends(get_source_chunk_repository),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
+) -> SourceSearchIndex:
+    return RecoveringSourceSearchIndex(
+        delegate=LanceDBSourceSearchIndex(get_settings().lancedb_uri),
+        source_repo=source_repo,
+        chunk_repo=chunk_repo,
+        embedding_provider=embedding_provider,
+    )
